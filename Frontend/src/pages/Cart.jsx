@@ -110,7 +110,7 @@ function Cart() {
                 onClick={handleContinueShopping}
                 className="btn-continue-shopping"
               >
-                Continue Shoppingg
+                Continue Shopping
               </button>
             </div>
           </div>
