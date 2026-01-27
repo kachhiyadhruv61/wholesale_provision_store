@@ -132,25 +132,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Quick Access Section */}
-      <section className="quick-access">
-        <div className="access-card retailer-card">
-          <h3>🏪 Retailer Portal</h3>
-          <p>Access wholesale products and manage your orders</p>
-          <Link className="btn btn-access" to="/login">
-            Login as Retailer
-          </Link>
-        </div>
-        
-        <div className="access-card admin-card">
-          <h3>⚙️ Admin Dashboard</h3>
-          <p>Manage products, view analytics, and oversee operations</p>
-          <Link className="btn btn-access" to="/admin">
-            Admin Login
-          </Link>
-        </div>
-      </section>
-
     </main>
   );
 }

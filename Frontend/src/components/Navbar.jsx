@@ -24,7 +24,7 @@ function Navbar() {
   return (
     <div className="navbar">
       <Link to="/" className="logo-container">
-        <div className="logo-icon">🛒</div>
+        <img src="/images/logos/3.png" alt="DK TRADE Logo" className="logo-image" />
         <div className="logo-text">
           <span className="logo-main">DK TRADE</span>
           <span className="logo-tagline">Wholesale Hub</span>
@@ -37,30 +37,24 @@ function Navbar() {
 
       <div className={`nav-links ${isMenuOpen ? "active" : ""}`}>
         <Link to="/" onClick={() => setIsMenuOpen(false)}>
-          <span className="nav-icon">🏠</span>
           Home
         </Link>
         <Link to="/about" onClick={() => setIsMenuOpen(false)}>
-          <span className="nav-icon">ℹ️</span>
           About
         </Link>
         <Link to="/products" onClick={() => setIsMenuOpen(false)}>
-          <span className="nav-icon">🛍️</span>
           Products
         </Link>
         <Link to="/cart" onClick={() => setIsMenuOpen(false)}>
-          <span className="nav-icon">🛒</span>
           Cart
         </Link>
         <Link to="/contact" onClick={() => setIsMenuOpen(false)}>
-          <span className="nav-icon">📞</span>
           Contact
         </Link>
         
         {user ? (
           <div className="profile-dropdown-container">
             <button className="profile-dropdown-trigger" onClick={toggleProfileDropdown}>
-              <span className="nav-icon">👤</span>
               <span className="user-name">{user.username}</span>
               <span className="dropdown-arrow">{isProfileDropdownOpen ? '▲' : '▼'}</span>
             </button>
@@ -74,7 +68,6 @@ function Navbar() {
                   }}
                   className="profile-dropdown-item"
                 >
-                  <span className="nav-icon">👤</span>
                   My Account
                 </Link>
                 <Link 
@@ -85,14 +78,12 @@ function Navbar() {
                   }}
                   className="profile-dropdown-item"
                 >
-                  <span className="nav-icon">📦</span>
                   My Orders
                 </Link>
                 <button 
                   className="profile-dropdown-item logout-item" 
                   onClick={handleLogout}
                 >
-                  <span className="nav-icon">🚪</span>
                   Logout
                 </button>
               </div>
@@ -100,7 +91,6 @@ function Navbar() {
           </div>
         ) : (
           <Link to="/login" onClick={() => setIsMenuOpen(false)} className="nav-login-btn">
-            <span className="nav-icon">🔐</span>
             Login
           </Link>
         )}

@@ -8,6 +8,7 @@ function Login() {
   const [credentials, setCredentials] = useState({
     username: "",
     email: "",
+    password: "",
   });
 
   const handleChange = (e) => {
@@ -17,19 +18,17 @@ function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (credentials.username && credentials.email) {
+    
+    // Automatically detect admin login
+    if (credentials.username === "admin" && credentials.password === "admin123") {
+      localStorage.setItem("adminLoggedIn", "true");
+      navigate("/admin-dashboard");
+    } else if (credentials.username && credentials.email) {
+      // Regular user login
       loginUser(credentials.username, credentials.email);
-      
-      // Auto-detect: if username or email contains "admin", go to admin panel
-      const isAdmin = 
-        credentials.username.toLowerCase().includes("admin") || 
-        credentials.email.toLowerCase().includes("admin");
-      
-      if (isAdmin) {
-        navigate("/admin");
-      } else {
-        navigate("/products");
-      }
+      navigate("/products");
+    } else {
+      alert("Please fill in all required fields");
     }
   };
 
@@ -124,10 +123,9 @@ function Login() {
                   id="email"
                   type="email"
                   name="email"
-                  placeholder="your@email.com"
+                  placeholder="your@email.com (not required for admin)"
                   value={credentials.email}
                   onChange={handleChange}
-                  required
                 />
               </div>
 
@@ -139,10 +137,12 @@ function Login() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
-                  disabled
+                  name="password"
+                  placeholder="Enter your password (optional for users)"
+                  value={credentials.password}
+                  onChange={handleChange}
                 />
-                <small className="input-hint">Demo mode - password not required</small>
+                <small className="input-hint">Admin login: username "admin" with password "admin123"</small>
               </div>
 
               <button type="submit" className="auth-submit-btn">
@@ -152,7 +152,7 @@ function Login() {
               
               <div className="login-info-box">
                 <p className="info-text">
-                  💡 <strong>Tip:</strong> Use "admin" in username or email to access admin panel
+                  💡 <strong>Tip:</strong> System automatically detects admin login
                 </p>
               </div>
             </form>

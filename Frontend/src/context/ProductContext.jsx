@@ -293,24 +293,6 @@ export function ProductProvider({ children }) {
       ]
     },
     { 
-      id: 17, 
-      name: "Poha 20kg", 
-      category: "Grains", 
-      price: 520,
-      wholesalePrice: 470,
-      stock: 140,
-      moq: 3,
-      unit: "bag",
-      description: "Flattened rice (poha)",
-      image: "/images/Poha.jpeg",
-      bulkPricing: [
-        { quantity: 1, price: 520 },
-        { quantity: 5, price: 500 },
-        { quantity: 10, price: 485 },
-        { quantity: 20, price: 470 }
-      ]
-    },
-    { 
       id: 18, 
       name: "Everest Chicken Masala 100g", 
       category: "Masala Spices", 
@@ -920,6 +902,24 @@ export function ProductProvider({ children }) {
         { quantity: 20, price: 28 },
         { quantity: 50, price: 26 },
         { quantity: 100, price: 25 }
+      ]
+    },
+    { 
+      id: 54, 
+      name: "Whole Farm Grocery Masoor Dal", 
+      category: "Grains", 
+      price: 280,
+      wholesalePrice: 240,
+      stock: 150,
+      moq: 2,
+      unit: "bag",
+      description: "Whole Farm premium red masoor dal",
+      image: "/images/grocerry/Whole Farm Grocery Masoor Dal.png",
+      bulkPricing: [
+        { quantity: 1, price: 280 },
+        { quantity: 5, price: 265 },
+        { quantity: 10, price: 252 },
+        { quantity: 20, price: 240 }
       ]
     },
   ]);

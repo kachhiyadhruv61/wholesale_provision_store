@@ -7,9 +7,9 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
-import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -37,6 +37,7 @@ function AppShell() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/cart" element={<Cart />} />
@@ -44,8 +45,8 @@ function AppShell() {
         <Route path="/order-success" element={<OrderSuccess />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/profile" element={<UserProfile />} />
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLogin />} />
+        {/* Admin Routes - Login uses same page with user type toggle */}
+        <Route path="/admin" element={<Login />} />
         <Route
           path="/admin-dashboard"
           element={
