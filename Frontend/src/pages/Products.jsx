@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { ProductContext } from "../context/ProductContext";
+import Toast from "../components/Toast";
 
 function Products() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [quantities, setQuantities] = useState({});
+  const [toast, setToast] = useState(null);
 
   // Helper to display category names (rename Grains -> Grocery)
   const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
@@ -40,7 +42,10 @@ function Products() {
     const quantity = parseInt(quantities[product.id] || 1);
     
     if (quantity < product.moq) {
-      alert(`Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`);
+      setToast({
+        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`,
+        type: "warning"
+      });
       return;
     }
 
@@ -51,7 +56,10 @@ function Products() {
     });
     
     setQuantities({ ...quantities, [product.id]: 1 });
-    alert(`Added ${quantity} ${product.unit}(s) to cart!`);
+    setToast({
+      message: `✨ Added ${quantity} ${product.unit}(s) of ${product.name} to cart!`,
+      type: "success"
+    });
   };
 
   return (
@@ -182,6 +190,15 @@ function Products() {
         <h3>💡 Bulk Pricing Benefits</h3>
         <p>Buy more, save more! Our wholesale prices decrease with larger quantities. Check the bulk pricing column for each product.</p>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

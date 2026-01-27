@@ -2,6 +2,7 @@ import { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { ProductContext } from "../context/ProductContext";
+import Toast from "../components/Toast";
 
 function ProductDetail() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ function ProductDetail() {
   const [selectedQuantity, setSelectedQuantity] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [inputQuantity, setInputQuantity] = useState(1);
+  const [toast, setToast] = useState(null);
 
   const product = products.find(p => p.id === parseInt(id));
 
@@ -41,7 +43,10 @@ function ProductDetail() {
 
   const handleAddToCart = () => {
     if (inputQuantity < product.moq) {
-      alert(`Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`);
+      setToast({
+        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`,
+        type: "warning"
+      });
       return;
     }
 
@@ -51,7 +56,10 @@ function ProductDetail() {
       price: getPriceForQuantity(product.id, inputQuantity)
     });
     
-    alert(`Added ${inputQuantity} ${product.unit}(s) to cart!`);
+    setToast({
+      message: `✨ Added ${inputQuantity} ${product.unit}(s) of ${product.name} to cart!`,
+      type: "success"
+    });
   };
 
   // Create thumbnail images array (in real app, product would have multiple images)
@@ -286,6 +294,15 @@ function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
