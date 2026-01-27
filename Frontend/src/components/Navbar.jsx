@@ -26,7 +26,7 @@ function Navbar() {
       <Link to="/" className="logo-container">
         <div className="logo-icon">🛒</div>
         <div className="logo-text">
-          <span className="logo-main">A1 Store</span>
+          <span className="logo-main">DK TRADE</span>
           <span className="logo-tagline">Wholesale Hub</span>
         </div>
       </Link>

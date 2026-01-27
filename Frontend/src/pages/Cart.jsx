@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 
 function Cart() {
-  const { cart, removeFromCart, totalPrice } = useContext(CartContext);
+  const { cart, removeFromCart, totalPrice, incrementQuantity, decrementQuantity } = useContext(CartContext);
   const navigate = useNavigate();
 
   const handleProceedToCheckout = () => {
@@ -41,11 +41,26 @@ function Cart() {
                     <div className="item-details">
                       <div className="item-name">{item.name}</div>
                       <div className="item-meta">
-                        <span className="item-quantity">Qty: {item.quantity || 1}</span>
-                        <span className="item-unit">({item.unit || "Unit"})</span>
-                        {item.quantity > 1 && (
-                          <span className="unit-price">@ ₹{item.price}/{item.unit}</span>
-                        )}
+                        <div className="quantity-controls">
+                          <button
+                            className="qty-btn"
+                            onClick={() => decrementQuantity(index)}
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="quantity-display">{item.quantity || 1}</span>
+                          <button
+                            className="qty-btn"
+                            onClick={() => incrementQuantity(index)}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="item-unit">{item.unit || "Unit"}</span>
+                        <span className="unit-price">@ ₹{item.price.toFixed(2)} / {item.unit || "Unit"}</span>
+                        <span className="bulk-pill">Auto bulk pricing</span>
                       </div>
                     </div>
                     <div className="item-price">

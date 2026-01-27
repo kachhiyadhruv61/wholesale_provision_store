@@ -1,14 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-// Project-focused highlights for A1 Store
+// Project-focused highlights for DK TRADE
 const highlights = [
   { label: "Wholesale Products", value: "10+", hint: "with MOQ & bulk pricing" },
   { label: "Payment Methods", value: "4", hint: "COD · UPI · Card · Bank" },
   { label: "Checkout", value: "3-Step", hint: "Delivery → Payment → Confirm" },
 ];
 
-// Project pillars that describe what A1 Store offers
+// Project pillars that describe what DK TRADE offers
 const pillars = [
   {
     title: "MOQ & Bulk Pricing",
@@ -47,12 +47,12 @@ function About() {
         <div className="about-hero__overlay" />
         <div className="about-hero__grid">
           <div className="about-hero__copy">
-            <p className="page-tag">About A1 Store</p>
+            <p className="page-tag">About DK TRADE</p>
             <h1 className="about-hero__title">
               Wholesale B2B platform for <span className="accent">smart</span> retail purchasing
             </h1>
             <p className="about-hero__subtitle">
-              A1 Store is a modern wholesale e‑commerce project built for B2B retailers. 
+              DK TRADE is a modern wholesale e‑commerce project built for B2B retailers. 
               It features MOQ validation, bulk pricing, a smooth 3‑step checkout, multiple payment options, 
               and complete order management — all with a clean, responsive UI.
             </p>
@@ -72,7 +72,7 @@ function About() {
           </div>
           <div className="about-hero__panel">
             <div className="panel-block">
-              <h3>What A1 Store Offers</h3>
+              <h3>What DK TRADE Offers</h3>
               <ul>
                 <li>Wholesale catalog with search, filters, and MOQ enforcement</li>
                 <li>Bulk pricing tiers with clear savings</li>
@@ -121,7 +121,7 @@ function About() {
       <section className="about-timeline">
         <div className="section-header">
           <p className="page-tag">Tech Stack</p>
-          <h2>Technologies used in A1 Store</h2>
+          <h2>Technologies used in DK TRADE</h2>
         </div>
         <div className="timeline-grid">
           {techStack.map((item, index) => (

@@ -1797,6 +1797,29 @@ h2 {
   color: #28a745;
 }
 
+.price-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.base-price {
+  font-weight: 600;
+  color: #6c757d;
+  text-decoration: line-through;
+}
+
+.bulk-price {
+  font-weight: 800;
+  color: #1f8a4c;
+  font-size: 18px;
+}
+
+.price-hint {
+  color: #999;
+  font-size: 12px;
+}
+
 /* Product Thumbnails */
 .product-thumb {
   width: 64px;
@@ -2908,6 +2931,38 @@ h2 {
   flex-wrap: wrap;
 }
 
+.quantity-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.qty-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(102,126,234,0.25); }
+
+.quantity-display {
+  min-width: 32px;
+  text-align: center;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
 .item-quantity {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
@@ -2924,6 +2979,15 @@ h2 {
   color: #28a745;
   font-weight: 600;
   font-size: 12px;
+}
+
+.bulk-pill {
+  background: rgba(102, 126, 234, 0.1);
+  color: #4c51bf;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .item-price {

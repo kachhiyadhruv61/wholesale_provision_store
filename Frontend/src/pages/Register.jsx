@@ -53,7 +53,7 @@ function Register() {
         <div className="auth-left">
           <div className="auth-branding">
             <div className="brand-icon">🏪</div>
-            <h1>Join A1 Store</h1>
+            <h1>Join DK TRADE</h1>
             <p>Register your wholesale provision store and get access to the best rates in the market</p>
           </div>
           
@@ -363,7 +363,7 @@ function Register() {
                     value={formData.referenceBy}
                     onChange={handleChange}
                   />
-                  <small className="input-hint">If someone referred you to A1 Store</small>
+                  <small className="input-hint">If someone referred you to DK TRADE</small>
                 </div>
                     <span className="label-icon">💰</span>
                     Expected Monthly Order Value *
@@ -437,7 +437,7 @@ function Register() {
                   required
                 />
                 <label htmlFor="agreeTerms" className="checkbox-label">
-                  I agree to the <a href="#" className="terms-link">Terms & Conditions</a> and <a href="#" className="terms-link">Privacy Policy</a> of A1 Store
+                  I agree to the <a href="#" className="terms-link">Terms & Conditions</a> and <a href="#" className="terms-link">Privacy Policy</a> of DK TRADE
                 </label>
               </div>
 

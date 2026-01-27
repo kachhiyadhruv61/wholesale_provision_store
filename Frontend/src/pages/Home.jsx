@@ -10,7 +10,7 @@ function Home() {
           <div className="hero-text">
             <span className="hero-badge">🎉 New Season Collection</span>
             <h1 className="hero-main-title">
-              Welcome to <span className="brand-highlight">A1 Store</span>
+              Welcome to <span className="brand-highlight">DK TRADE</span>
             </h1>
             <p className="hero-description">
               Your trusted wholesale partner for quality products at unbeatable prices.
@@ -54,7 +54,7 @@ function Home() {
 
       {/* How It Works Section */}
       <section className="how-it-works">
-        <h2 className="section-title">How A1 Store Works</h2>
+        <h2 className="section-title">How DK TRADE Works</h2>
         <p className="section-subtitle">Get started in 4 simple steps</p>
         
         <div className="steps-grid">
@@ -90,7 +90,7 @@ function Home() {
 
       {/* Features Section */}
       <section className="features-modern">
-        <h2 className="section-title">Why Choose A1 Store?</h2>
+        <h2 className="section-title">Why Choose DK TRADE?</h2>
         <p className="section-subtitle">Benefits that make us stand out</p>
         
         <div className="features-grid">

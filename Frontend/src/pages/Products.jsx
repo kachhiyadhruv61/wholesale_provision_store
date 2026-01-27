@@ -12,8 +12,11 @@ function Products() {
   const [priceRange, setPriceRange] = useState([0, 2000]);
   const [quantities, setQuantities] = useState({});
 
-  // Get unique categories
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
+  // Helper to display category names (rename Grains -> Grocery)
+  const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
+
+  // Get unique categories with display mapping
+  const categories = ["All", ...new Set(products.map((p) => displayCategory(p.category)))];
 
   // Filter products based on search, category, and price
   const filteredProducts = products.filter((product) => {
@@ -21,7 +24,10 @@ function Products() {
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory;
+      selectedCategory === "All" ||
+      (selectedCategory === "Grocery"
+        ? product.category === "Grains"
+        : product.category === selectedCategory);
     const matchesPrice =
       product.price >= priceRange[0] && product.price <= priceRange[1];
     return matchesSearch && matchesCategory && matchesPrice;
@@ -131,7 +137,11 @@ function Products() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => (
+              {filteredProducts.map((p) => {
+                const liveQty = parseInt(quantities[p.id] || p.moq || 1);
+                const tierPrice = getPriceForQuantity(p.id, liveQty);
+
+                return (
                 <tr key={p.id}>
                   <td>
                     <img
@@ -144,9 +154,14 @@ function Products() {
                     <strong>{p.name}</strong>
                   </td>
                   <td>
-                    <span className="category-badge">{p.category}</span>
+                    <span className="category-badge">{displayCategory(p.category)}</span>
                   </td>
-                  <td className="price">₹{p.price}</td>
+                  <td className="price">
+                    <div className="price-stack">
+                      <span className="bulk-price">Price ₹{tierPrice}</span>
+                      <small className="price-hint">Auto-applies with entered quantity</small>
+                    </div>
+                  </td>
                   <td className="moq-badge">
                     {p.moq} {p.unit}(s)
                   </td>
@@ -179,7 +194,7 @@ function Products() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         ) : (

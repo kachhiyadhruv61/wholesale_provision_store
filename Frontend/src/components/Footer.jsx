@@ -5,7 +5,7 @@ function Footer() {
     <footer className="footer">
       <div className="footer-container">
         <div className="footer-section">
-          <h4>A1 Store</h4>
+          <h4>DK TRADE</h4>
           <p>Modern wholesale e-commerce platform for B2B retailers. Fast, secure, and easy ordering with multiple payment options.</p>
         </div>
 
@@ -34,7 +34,7 @@ function Footer() {
         <div className="footer-section">
           <h4>Support</h4>
           <ul className="footer-links">
-            <li><a href="mailto:support@a1store.com">Email Support</a></li>
+            <li><a href="mailto:support@dktrade.com">Email Support</a></li>
             <li><a href="tel:+919876543210">+91 98765 43210</a></li>
             <li><a href="#">Live Chat</a></li>
             <li><a href="#">FAQs</a></li>
@@ -45,7 +45,7 @@ function Footer() {
       <div className="footer-divider"></div>
 
       <div className="footer-bottom">
-        <p className="footer-credit">© 2026 A1 Store. All rights reserved. | Built with React & modern web tech</p>
+        <p className="footer-credit">© 2026 DK TRADE. All rights reserved. | Built with React & modern web tech</p>
         <div className="footer-badges">
           <span className="badge">React 19</span>
           <span className="badge">Context API</span>
