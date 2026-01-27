@@ -5,6 +5,7 @@ function Home() {
     <main className="home">
       {/* Hero Section */}
       <section className="hero-modern">
+        <div className="hero-pattern"></div>
         <div className="hero-overlay"></div>
         <div className="hero-content-wrapper">
           <div className="hero-text">
