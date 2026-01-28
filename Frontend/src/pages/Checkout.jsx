@@ -1,14 +1,23 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { OrderContext } from "../context/OrderContext";
 import { DeliveryContext } from "../context/DeliveryContext";
+import { UserContext } from "../context/UserContext";
 
 function Checkout() {
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
   const { cart, totalPrice, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
   const { deliveryLocations, getDeliveryInfo, calculateCustomDelivery } = useContext(DeliveryContext);
+
+  // Redirect to login if user is not logged in
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+    }
+  }, [user, navigate]);
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);

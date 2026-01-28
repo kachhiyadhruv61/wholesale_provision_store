@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 
 // Project-focused highlights for DK TRADERS
 const highlights = [
-  { label: "Wholesale Products", value: "10+", hint: "with MOQ & bulk pricing" },
-  { label: "Payment Methods", value: "4", hint: "COD · UPI · Card · Bank" },
+  { label: "Wholesale Products", value: "50+", hint: "with MOQ & bulk pricing" },
+  { label: "Payment Methods", value: "Multiple", hint: "COD · UPI · Card · Bank · Crypto" },
   { label: "Checkout", value: "3-Step", hint: "Delivery → Payment → Confirm" },
 ];
 
@@ -79,24 +79,6 @@ function About() {
                 <li>3-step checkout with method-specific validations</li>
                 <li>Order history, profile management, and secure auth</li>
               </ul>
-            </div>
-            <div className="panel-block panel-block__accent">
-              <h3>Quality Focus</h3>
-              <p className="panel-note">Responsive UI, accessible forms, and performance-first design.</p>
-              <div className="impact-grid">
-                <div>
-                  <p className="impact-number">3</p>
-                  <p className="impact-label">step checkout</p>
-                </div>
-                <div>
-                  <p className="impact-number">4</p>
-                  <p className="impact-label">payment methods</p>
-                </div>
-                <div>
-                  <p className="impact-number">A11y</p>
-                  <p className="impact-label">accessible inputs</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
