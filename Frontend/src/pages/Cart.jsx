@@ -19,10 +19,10 @@ function Cart() {
   };
 
   return (
-    <div className="cart-page">
+    <div className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}>
       <h2>🛒 Your Shopping Cart</h2>
 
-      <div className="cart-content">
+      <div className={`cart-content${cart.length === 0 ? " cart-content-empty" : ""}`}>
         <div className="cart-items-section">
           {cart.length === 0 ? (
             <div className="empty-cart-message">
