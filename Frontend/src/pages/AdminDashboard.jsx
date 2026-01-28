@@ -9,11 +9,16 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("products");
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [priceFormData, setPriceFormData] = useState({
+    retailPrice: "",
+    wholesalePrice: ""
+  });
 
   // Form states
   const [formData, setFormData] = useState({
     name: "",
-    category: "Grains",
+    category: "Grocery",
     price: "",
     wholesalePrice: "",
     stock: "",
@@ -22,7 +27,7 @@ function AdminDashboard() {
     description: ""
   });
 
-  const categories = ["Grains", "Sweeteners", "Oils", "Spices", "Snacks", "Others"];
+  const categories = ["Grocery", "Masala Spices", "PAN CENTER", "Daily Used Product", "Snacks", "Biscuit", "Chocolates"];
   const units = ["bag", "box", "bottle", "kg", "litre"];
 
   const handleInputChange = (e) => {
@@ -33,7 +38,7 @@ function AdminDashboard() {
   const resetForm = () => {
     setFormData({
       name: "",
-      category: "Grains",
+      category: "Grocery",
       price: "",
       wholesalePrice: "",
       stock: "",
@@ -137,6 +142,51 @@ function AdminDashboard() {
     navigate("/admin");
   };
 
+  const handlePriceEditClick = (product) => {
+    setEditingPrice(product);
+    setPriceFormData({
+      retailPrice: product.price,
+      wholesalePrice: product.wholesalePrice
+    });
+  };
+
+  const handleUpdatePrice = () => {
+    if (!priceFormData.retailPrice || !priceFormData.wholesalePrice) {
+      alert("Please fill all price fields");
+      return;
+    }
+
+    const retailPrice = Number(priceFormData.retailPrice);
+    const wholesalePrice = Number(priceFormData.wholesalePrice);
+
+    if (retailPrice < wholesalePrice) {
+      alert("Retail price must be greater than wholesale price");
+      return;
+    }
+
+    const updatedData = {
+      ...editingPrice,
+      price: retailPrice,
+      wholesalePrice: wholesalePrice,
+      bulkPricing: [
+        { quantity: 1, price: retailPrice },
+        { quantity: 5, price: retailPrice * 0.95 },
+        { quantity: 10, price: retailPrice * 0.90 },
+        { quantity: 20, price: wholesalePrice }
+      ]
+    };
+
+    updateProduct(editingPrice.id, updatedData);
+    alert("Price Updated Successfully!");
+    setEditingPrice(null);
+    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
+  };
+
+  const handleCancelPriceEdit = () => {
+    setEditingPrice(null);
+    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
+  };
+
   const getLowStockProducts = () => {
     return products.filter(p => p.stock < 50);
   };
@@ -149,31 +199,31 @@ function AdminDashboard() {
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="admin-sidebar">
-        <h3>🛠️ Admin Panel</h3>
+        <h3>Admin Panel</h3>
         <nav className="admin-nav">
           <button 
             className={activeTab === "products" ? "active" : ""} 
             onClick={() => setActiveTab("products")}
           >
-            📦 Products
+            Products
           </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 
             onClick={() => setActiveTab("stock")}
           >
-            📊 Stock Management
+            Stock Management
           </button>
           <button 
             className={activeTab === "pricing" ? "active" : ""} 
             onClick={() => setActiveTab("pricing")}
           >
-            💰 Pricing
+            Pricing
           </button>
           <button onClick={() => navigate("/admin-analytics")}>
-            📈 Analytics
+            Analytics
           </button>
           <button onClick={handleLogout} className="logout-btn">
-            🚪 Logout
+            Logout
           </button>
         </nav>
       </div>
@@ -205,7 +255,7 @@ function AdminDashboard() {
               <h2>Product Catalog</h2>
               {!showAddForm && (
                 <button className="btn-add" onClick={() => setShowAddForm(true)}>
-                  ➕ Add New Product
+                  Add New Product
                 </button>
               )}
             </div>
@@ -416,7 +466,59 @@ function AdminDashboard() {
         {/* Pricing Tab */}
         {activeTab === "pricing" && (
           <div className="admin-section">
-            <h2>Pricing Overview</h2>
+            <div className="section-header">
+              <h2>Pricing Overview</h2>
+            </div>
+
+            {editingPrice && (
+              <div className="product-form-card">
+                <h3>Edit Price - {editingPrice.name}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Retail Price (₹) *</label>
+                    <input
+                      type="number"
+                      value={priceFormData.retailPrice}
+                      onChange={(e) => setPriceFormData(prev => ({ ...prev, retailPrice: e.target.value }))}
+                      placeholder="1200"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Wholesale Price (₹) *</label>
+                    <input
+                      type="number"
+                      value={priceFormData.wholesalePrice}
+                      onChange={(e) => setPriceFormData(prev => ({ ...prev, wholesalePrice: e.target.value }))}
+                      placeholder="1050"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                
+                <div className="price-info">
+                  <div className="price-info-row">
+                    <span>Margin:</span>
+                    <strong>₹{(Number(priceFormData.retailPrice) - Number(priceFormData.wholesalePrice)).toFixed(2)}</strong>
+                  </div>
+                  <div className="price-info-row">
+                    <span>Margin %:</span>
+                    <strong>{Number(priceFormData.retailPrice) > 0 ? (((Number(priceFormData.retailPrice) - Number(priceFormData.wholesalePrice)) / Number(priceFormData.retailPrice)) * 100).toFixed(1) : 0}%</strong>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn-save" onClick={handleUpdatePrice}>
+                    💾 Update Price
+                  </button>
+                  <button className="btn-cancel" onClick={handleCancelPriceEdit}>
+                    ❌ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             
             <div className="pricing-table">
               <table>
@@ -426,15 +528,14 @@ function AdminDashboard() {
                     <th>Retail Price</th>
                     <th>Wholesale Price</th>
                     <th>Margin</th>
-                    <th>Discount %</th>
+                    <th>Margin %</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map(product => {
+                  {products.map((product, idx) => {
                     const margin = product.price - product.wholesalePrice;
-                    const marginPercent = ((margin / product.price) * 100).toFixed(1);
-                    const discount = ((margin / product.price) * 100).toFixed(1);
+                    const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : 0;
                     
                     return (
                       <tr key={product.id}>
@@ -443,18 +544,19 @@ function AdminDashboard() {
                           <br />
                           <small>{product.category}</small>
                         </td>
-                        <td className="price">₹{product.price}</td>
-                        <td className="price">₹{product.wholesalePrice}</td>
-                        <td className="margin">₹{margin}</td>
+                        <td className="price">₹{product.price.toLocaleString()}</td>
+                        <td className="price">₹{product.wholesalePrice.toLocaleString()}</td>
+                        <td className="margin">₹{margin.toLocaleString()}</td>
                         <td>
-                          <span className="discount-badge">{marginPercent}%</span>
+                          <span className="margin-badge">{marginPercent}%</span>
                         </td>
                         <td>
                           <button 
-                            className="btn-edit-small" 
-                            onClick={() => handleEditClick(product)}
+                            className="btn-edit" 
+                            onClick={() => handlePriceEditClick(product)}
+                            title="Edit Price"
                           >
-                            Edit Pricing
+                            ✏️
                           </button>
                         </td>
                       </tr>
