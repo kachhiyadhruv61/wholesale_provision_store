@@ -7,6 +7,17 @@ function Footer() {
         <div className="footer-section">
           <h4>DK TRADE</h4>
           <p>Modern wholesale e-commerce platform for B2B retailers. Fast, secure, and easy ordering with multiple payment options.</p>
+          <div className="social-media">
+            <a href="https://www.facebook.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-facebook-f"></i>
+            </a>
+            <a href="https://www.twitter.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-twitter"></i>
+            </a>
+            <a href="https://www.instagram.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-instagram"></i>
+            </a>
+          </div>
         </div>
 
         <div className="footer-section">
