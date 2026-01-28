@@ -122,7 +122,7 @@ export function ProductProvider({ children }) {
       moq: 2,
       unit: "pack",
       description: "Brazilian Spirit Tobacco American Spirit",
-      image: "/images/PAN CENTER/Brazilian Spirit Tobacco American Spirit.png",
+      image: "/images/PAN%20CENTER/Brazilian Spirit Tobacco American Spirit.png",
       bulkPricing: [
         { quantity: 1, price: 280 },
         { quantity: 5, price: 265 },
@@ -140,7 +140,7 @@ export function ProductProvider({ children }) {
       moq: 4,
       unit: "bottle",
       description: "Bajaj Almond Drops non-sticky hair oil",
-      image: "/images/Daily used product/Bajaj Almond Drops Non-Sticky Hair Oil.png",
+      image: "/images/Daily%20used%20product/Bajaj Almond Drops Non-Sticky Hair Oil.png",
       bulkPricing: [
         { quantity: 1, price: 180 },
         { quantity: 10, price: 170 },
@@ -158,7 +158,7 @@ export function ProductProvider({ children }) {
       moq: 2,
       unit: "pack",
       description: "Cinthol Lime refreshing deo soap",
-      image: "/images/Daily used product/Cinthol Lime Refreshing Deo Soap.png",
+      image: "/images/Daily%20used%20product/Cinthol Lime Refreshing Deo Soap.png",
       bulkPricing: [
         { quantity: 1, price: 90 },
         { quantity: 10, price: 85 },
@@ -920,6 +920,366 @@ export function ProductProvider({ children }) {
         { quantity: 5, price: 265 },
         { quantity: 10, price: 252 },
         { quantity: 20, price: 240 }
+      ]
+    },
+    { 
+      id: 61, 
+      name: "Parle-G Original Gluco Biscuit", 
+      category: "Biscuit", 
+      price: 50,
+      wholesalePrice: 42,
+      stock: 300,
+      moq: 10,
+      unit: "pack",
+      description: "Parle-G Original Gluco Biscuit pack",
+      image: "/images/Biscuit/Parle-G Original Gluco Biscuit.png",
+      bulkPricing: [
+        { quantity: 1, price: 50 },
+        { quantity: 10, price: 47 },
+        { quantity: 20, price: 45 },
+        { quantity: 50, price: 42 }
+      ]
+    },
+    { 
+      id: 62, 
+      name: "Parle Marie Biscuits", 
+      category: "Biscuit", 
+      price: 60,
+      wholesalePrice: 50,
+      stock: 280,
+      moq: 10,
+      unit: "pack",
+      description: "Parle Marie premium biscuits pack",
+      image: "/images/Biscuit/Parle Marie Biscuits.png",
+      bulkPricing: [
+        { quantity: 1, price: 60 },
+        { quantity: 10, price: 56 },
+        { quantity: 20, price: 53 },
+        { quantity: 50, price: 50 }
+      ]
+    },
+    { 
+      id: 63, 
+      name: "Hide & Seek Chocolate Chip Cookies", 
+      category: "Biscuit", 
+      price: 75,
+      wholesalePrice: 62,
+      stock: 250,
+      moq: 10,
+      unit: "pack",
+      description: "Hide & Seek chocolate chip cookies pack",
+      image: "/images/Biscuit/Hide & Seek Chocolate Chip Cookies.png",
+      bulkPricing: [
+        { quantity: 1, price: 75 },
+        { quantity: 10, price: 70 },
+        { quantity: 20, price: 66 },
+        { quantity: 50, price: 62 }
+      ]
+    },
+    { 
+      id: 64, 
+      name: "Parle Premium Real Elaichi Rusk", 
+      category: "Biscuit", 
+      price: 85,
+      wholesalePrice: 72,
+      stock: 220,
+      moq: 10,
+      unit: "pack",
+      description: "Parle Premium Real Elaichi flavored rusk",
+      image: "/images/Biscuit/Parle Premium Real Elaichi Rusk.png",
+      bulkPricing: [
+        { quantity: 1, price: 85 },
+        { quantity: 10, price: 80 },
+        { quantity: 20, price: 76 },
+        { quantity: 50, price: 72 }
+      ]
+    },
+    { 
+      id: 65, 
+      name: "Britannia Little Hearts Classic Crunch", 
+      category: "Biscuit", 
+      price: 68,
+      wholesalePrice: 55,
+      stock: 260,
+      moq: 10,
+      unit: "pack",
+      description: "Britannia Little Hearts Classic Crunch Biscuit",
+      image: "/images/Biscuit/Britannia Little Hearts Classic Crunch Biscuit.png",
+      bulkPricing: [
+        { quantity: 1, price: 68 },
+        { quantity: 10, price: 63 },
+        { quantity: 20, price: 59 },
+        { quantity: 50, price: 55 }
+      ]
+    },
+    { 
+      id: 66, 
+      name: "Cadbury Oreo Vanilla Sandwich Cream Family Pack", 
+      category: "Biscuit", 
+      price: 95,
+      wholesalePrice: 80,
+      stock: 230,
+      moq: 8,
+      unit: "pack",
+      description: "Cadbury Oreo Vanilla Sandwich Cream Biscuits Family Pack",
+      image: "/images/Biscuit/Cadbury Oreo Vanilla Sandwich Cream Biscuits Family Pack.png",
+      bulkPricing: [
+        { quantity: 1, price: 95 },
+        { quantity: 8, price: 88 },
+        { quantity: 16, price: 84 },
+        { quantity: 40, price: 80 }
+      ]
+    },
+    { 
+      id: 67, 
+      name: "Parle Krackjack Crackers Sweet & Salty", 
+      category: "Biscuit", 
+      price: 58,
+      wholesalePrice: 48,
+      stock: 290,
+      moq: 10,
+      unit: "pack",
+      description: "Parle Krackjack Crackers Sweet & Salty Biscuits",
+      image: "/images/Biscuit/Parle Krackjack Crackers Sweet & Salty Biscuits.png",
+      bulkPricing: [
+        { quantity: 1, price: 58 },
+        { quantity: 10, price: 54 },
+        { quantity: 20, price: 51 },
+        { quantity: 50, price: 48 }
+      ]
+    },
+    { 
+      id: 68, 
+      name: "Parle Monaco Classic Regular Biscuit", 
+      category: "Biscuit", 
+      price: 52,
+      wholesalePrice: 43,
+      stock: 310,
+      moq: 10,
+      unit: "pack",
+      description: "Parle Monaco Classic Regular Biscuit",
+      image: "/images/Biscuit/Parle Monaco Classic Regular Biscuit.png",
+      bulkPricing: [
+        { quantity: 1, price: 52 },
+        { quantity: 10, price: 48 },
+        { quantity: 20, price: 46 },
+        { quantity: 50, price: 43 }
+      ]
+    },
+    { 
+      id: 69, 
+      name: "Sunfeast Dark Fantasy Choco Fills Cookies", 
+      category: "Biscuit", 
+      price: 88,
+      wholesalePrice: 74,
+      stock: 240,
+      moq: 10,
+      unit: "pack",
+      description: "Sunfeast Dark Fantasy Choco Fills Cookies",
+      image: "/images/Biscuit/Sunfeast Dark Fantasy Choco Fills Cookies.png",
+      bulkPricing: [
+        { quantity: 1, price: 88 },
+        { quantity: 10, price: 82 },
+        { quantity: 20, price: 78 },
+        { quantity: 50, price: 74 }
+      ]
+    },
+    { 
+      id: 70, 
+      name: "Sunfeast Glucose Plus Biscuit", 
+      category: "Biscuit", 
+      price: 48,
+      wholesalePrice: 40,
+      stock: 320,
+      moq: 10,
+      unit: "pack",
+      description: "Sunfeast Glucose Plus Biscuit",
+      image: "/images/Biscuit/Sunfeast Glucose Plus Biscuit.png",
+      bulkPricing: [
+        { quantity: 1, price: 48 },
+        { quantity: 10, price: 45 },
+        { quantity: 20, price: 42 },
+        { quantity: 50, price: 40 }
+      ]
+    },
+    { 
+      id: 71, 
+      name: "Alpenliebe Grande Choco Delight Eclair", 
+      category: "Chocolates", 
+      price: 95,
+      wholesalePrice: 80,
+      stock: 350,
+      moq: 15,
+      unit: "pack",
+      description: "Alpenliebe Grande with Choco Delight Eclair candy",
+      image: "/images/CHOCOLATES/Alpenliebe Grande with Choco Delight Eclair.png",
+      bulkPricing: [
+        { quantity: 1, price: 95 },
+        { quantity: 15, price: 88 },
+        { quantity: 30, price: 84 },
+        { quantity: 50, price: 80 }
+      ]
+    },
+    { 
+      id: 72, 
+      name: "Alpenliebe Juzt Jelly Strawberry", 
+      category: "Chocolates", 
+      price: 65,
+      wholesalePrice: 52,
+      stock: 330,
+      moq: 15,
+      unit: "pack",
+      description: "Alpenliebe Juzt Jelly Strawberry flavour jelly candy",
+      image: "/images/CHOCOLATES/Alpenliebe Juzt Jelly - Strawberry Flavour Jelly Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 65 },
+        { quantity: 15, price: 60 },
+        { quantity: 30, price: 56 },
+        { quantity: 50, price: 52 }
+      ]
+    },
+    { 
+      id: 73, 
+      name: "Chupa Chups Sour Bites Mixed Fruit", 
+      category: "Chocolates", 
+      price: 48,
+      wholesalePrice: 40,
+      stock: 380,
+      moq: 15,
+      unit: "pack",
+      description: "Chupa Chups Sour Bites Mixed Fruit Candy",
+      image: "/images/CHOCOLATES/Chupa Chups Sour Bites Mixed Fruit Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 48 },
+        { quantity: 15, price: 44 },
+        { quantity: 30, price: 42 },
+        { quantity: 50, price: 40 }
+      ]
+    },
+    { 
+      id: 74, 
+      name: "Kopiko Cappuccino Candy Family Pack", 
+      category: "Chocolates", 
+      price: 120,
+      wholesalePrice: 100,
+      stock: 280,
+      moq: 15,
+      unit: "pack",
+      description: "Kopiko Cappuccino flavored candy family pack",
+      image: "/images/CHOCOLATES/Kopiko Cappuccino Candy - Family Pack.png",
+      bulkPricing: [
+        { quantity: 1, price: 120 },
+        { quantity: 15, price: 112 },
+        { quantity: 30, price: 106 },
+        { quantity: 50, price: 100 }
+      ]
+    },
+    { 
+      id: 75, 
+      name: "M&M's Peanut Candy", 
+      category: "Chocolates", 
+      price: 180,
+      wholesalePrice: 150,
+      stock: 200,
+      moq: 10,
+      unit: "pack",
+      description: "M&M's Peanut chocolate candy pack",
+      image: "/images/CHOCOLATES/M&M's Peanut Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 180 },
+        { quantity: 10, price: 170 },
+        { quantity: 20, price: 160 },
+        { quantity: 50, price: 150 }
+      ]
+    },
+    { 
+      id: 76, 
+      name: "Parle Kaccha Mango Bite Candies Bigger", 
+      category: "Chocolates", 
+      price: 62,
+      wholesalePrice: 52,
+      stock: 360,
+      moq: 15,
+      unit: "pack",
+      description: "Parle Kaccha Mango Bite Candies Bigger pack",
+      image: "/images/CHOCOLATES/Parle Kaccha Mango Bite Candies - Bigger.png",
+      bulkPricing: [
+        { quantity: 1, price: 62 },
+        { quantity: 15, price: 58 },
+        { quantity: 30, price: 55 },
+        { quantity: 50, price: 52 }
+      ]
+    },
+    { 
+      id: 77, 
+      name: "Parle Kismi Assorted Candy", 
+      category: "Chocolates", 
+      price: 55,
+      wholesalePrice: 45,
+      stock: 400,
+      moq: 15,
+      unit: "pack",
+      description: "Parle Kismi Assorted toffee candy pack",
+      image: "/images/CHOCOLATES/Parle Kismi Assorted Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 55 },
+        { quantity: 15, price: 51 },
+        { quantity: 30, price: 48 },
+        { quantity: 50, price: 45 }
+      ]
+    },
+    { 
+      id: 78, 
+      name: "Parle Poppins Candy", 
+      category: "Chocolates", 
+      price: 58,
+      wholesalePrice: 48,
+      stock: 340,
+      moq: 15,
+      unit: "pack",
+      description: "Parle Poppins Candy pack",
+      image: "/images/CHOCOLATES/Parle Poppins Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 58 },
+        { quantity: 15, price: 54 },
+        { quantity: 30, price: 51 },
+        { quantity: 50, price: 48 }
+      ]
+    },
+    { 
+      id: 79, 
+      name: "Pluffs Mini Marshmallow", 
+      category: "Chocolates", 
+      price: 72,
+      wholesalePrice: 60,
+      stock: 290,
+      moq: 10,
+      unit: "pack",
+      description: "Pluffs Mini Marshmallow candy pack",
+      image: "/images/CHOCOLATES/Pluffs Mini Marshmallow.png",
+      bulkPricing: [
+        { quantity: 1, price: 72 },
+        { quantity: 10, price: 67 },
+        { quantity: 20, price: 64 },
+        { quantity: 50, price: 60 }
+      ]
+    },
+    { 
+      id: 80, 
+      name: "Pulse Kachcha Aam Mango Candy", 
+      category: "Chocolates", 
+      price: 40,
+      wholesalePrice: 32,
+      stock: 420,
+      moq: 20,
+      unit: "pack",
+      description: "Pulse Kachcha Aam raw mango candy pack",
+      image: "/images/CHOCOLATES/Pulse Kachcha Aam  Mango Candy.png",
+      bulkPricing: [
+        { quantity: 1, price: 40 },
+        { quantity: 20, price: 37 },
+        { quantity: 40, price: 35 },
+        { quantity: 100, price: 32 }
       ]
     },
   ]);

@@ -24,9 +24,9 @@ function Navbar() {
   return (
     <div className="navbar">
       <Link to="/" className="logo-container">
-        <img src="/images/logos/3.png" alt="DK TRADE Logo" className="logo-image" />
+        <img src="/images/logos/3.png" alt="DK TRADERS Logo" className="logo-image" />
         <div className="logo-text">
-          <span className="logo-main">DK TRADE</span>
+          <span className="logo-main">DK TRADERS</span>
           <span className="logo-tagline">Wholesale Hub</span>
         </div>
       </Link>
