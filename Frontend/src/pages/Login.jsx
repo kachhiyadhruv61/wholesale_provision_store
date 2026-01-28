@@ -60,7 +60,7 @@ function Login() {
             </div>
             
             <div className="auth-branding">
-              <h1>Welcome to DK TRADE!</h1>
+              <h1>Welcome to DK TRADERS!</h1>
               <p>Your trusted wholesale partner for quality products and seamless business solutions</p>
             </div>
             

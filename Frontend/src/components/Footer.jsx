@@ -5,7 +5,7 @@ function Footer() {
     <footer className="footer">
       <div className="footer-container">
         <div className="footer-section">
-          <h4>DK TRADE</h4>
+          <h4>DK TRADERS</h4>
           <p>Modern wholesale e-commerce platform for B2B retailers. Fast, secure, and easy ordering with multiple payment options.</p>
         </div>
 
@@ -45,7 +45,7 @@ function Footer() {
       <div className="footer-divider"></div>
 
       <div className="footer-bottom">
-        <p className="footer-credit">© 2026 DK TRADE. All rights reserved. | Built with React & modern web tech</p>
+        <p className="footer-credit">© 2026 DK TRADERS. All rights reserved. | Built with React & modern web tech</p>
         <div className="footer-badges">
           <span className="badge">React 19</span>
           <span className="badge">Context API</span>

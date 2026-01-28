@@ -599,7 +599,7 @@ function Checkout() {
               <form className="payment-form" onSubmit={handleProcessPayment}>
                 <h4>Bank Transfer Details</h4>
                 <div className="bank-details-display">
-                  <p><strong>Account Name:</strong> DK TRADE Wholesale</p>
+                  <p><strong>Account Name:</strong> DK TRADERS Wholesale</p>
                   <p><strong>Account Number:</strong> 123456789012345</p>
                   <p><strong>IFSC Code:</strong> SBIN0001234</p>
                   <p><strong>Bank Name:</strong> State Bank of India</p>

@@ -208,7 +208,7 @@ function Register() {
                   required
                 />
                 <label htmlFor="agreeTerms" className="checkbox-label">
-                  I agree to the Terms & Conditions and Privacy Policy of DK TRADE
+                  I agree to the Terms & Conditions and Privacy Policy of DK TRADERS
                 </label>
               </div>
 

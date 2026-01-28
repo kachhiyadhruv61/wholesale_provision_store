@@ -127,7 +127,7 @@ function Contact() {
         </div>
         <div className="map-container">
           <iframe
-            title="DK TRADE Location - Anand"
+            title="DK TRADERS Location - Anand"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d117925.21689287055!2d72.86847!3d22.5546!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x395e4e6bbd6e6ea7%3A0x7b1b5c6b8a5e5a7!2sAnand%2C%20Gujarat!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
             width="100%"
             height="450"
@@ -140,7 +140,7 @@ function Contact() {
         <div className="location-details">
           <div className="location-info">
             <h3>📍 Address</h3>
-            <p>DK TRADE, Block C, Level 2<br />Anand, Gujarat - 388001</p>
+            <p>DK TRADERS, Block C, Level 2<br />Anand, Gujarat - 388001</p>
           </div>
           <div className="location-info">
             <h3>🕒 Hours</h3>
