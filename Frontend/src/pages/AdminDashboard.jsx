@@ -1,14 +1,34 @@
 import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
+import { OrderContext } from "../context/OrderContext";
+import { PaymentContext } from "../context/PaymentContext";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
+  const { orders, updateOrderStatus } = useContext(OrderContext);
+  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [showAddPaymentForm, setShowAddPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    orderId: "",
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
+    amount: "",
+    method: "UPI",
+    status: "Pending"
+  });
 
   // Form states
   const [formData, setFormData] = useState({
@@ -145,6 +165,180 @@ function AdminDashboard() {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
   };
 
+  // Order Management Functions
+  const getOrderStats = () => {
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === "Pending").length;
+    const deliveredOrders = orders.filter(o => o.status === "Delivered").length;
+    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+
+    return { totalOrders, pendingOrders, deliveredOrders, totalRevenue };
+  };
+
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      "Pending": "🟡",
+      "Processing": "🔵",
+      "Delivered": "🟢",
+      "Cancelled": "🔴"
+    };
+    return statusMap[status] || "⚪";
+  };
+
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    if (updateOrderStatus) {
+      updateOrderStatus(orderId, newStatus);
+    } else {
+      // Fallback if updateOrderStatus not available
+      const updatedOrders = orders.map(o =>
+        o.id === orderId ? { ...o, status: newStatus } : o
+      );
+      localStorage.setItem("orders", JSON.stringify(updatedOrders));
+    }
+  };
+
+  const handleViewOrder = (order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const getFilteredOrders = () => {
+    if (statusFilter === "all") return orders;
+    return orders.filter(o => o.status === statusFilter);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const getCustomerName = (order) => {
+    if (order.customerName) return order.customerName;
+    if (order.items && order.items.length > 0) return "Customer";
+    return "Guest";
+  };
+
+  // Payment Management Functions
+  const getPaymentStats = () => {
+    const totalPayments = payments.length;
+    const paidAmount = payments
+      .filter(p => p.status === "Paid")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const pendingPayments = payments.filter(p => p.status === "Pending").length;
+    const failedPayments = payments.filter(p => p.status === "Failed").length;
+
+    return { totalPayments, paidAmount, pendingPayments, failedPayments };
+  };
+
+  const getPaymentMethodIcon = (method) => {
+    const methodMap = {
+      "UPI": "📱",
+      "Debit Card": "💳",
+      "Credit Card": "💳",
+      "Net Banking": "🏦",
+      "COD": "💵"
+    };
+    return methodMap[method] || "💳";
+  };
+
+  const getPaymentStatusColor = (status) => {
+    const statusMap = {
+      "Paid": "🟢",
+      "Pending": "🟡",
+      "Failed": "🔴",
+      "Refunded": "🔵"
+    };
+    return statusMap[status] || "⚪";
+  };
+
+  const handleUpdatePaymentStatus = (paymentId, newStatus) => {
+    if (updatePaymentStatus) {
+      updatePaymentStatus(paymentId, newStatus);
+    }
+  };
+
+  const handleViewPayment = (payment) => {
+    setSelectedPayment(payment);
+    setShowPaymentModal(true);
+  };
+
+  const getFilteredPayments = () => {
+    if (paymentStatusFilter === "all") return payments;
+    return payments.filter(p => p.status === paymentStatusFilter);
+  };
+
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Payment Form Handlers
+  const handlePaymentInputChange = (e) => {
+    const { name, value } = e.target;
+    setPaymentFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Auto-fill customer info if order is selected
+    if (name === "orderId" && value) {
+      const selectedOrd = orders.find(o => o.id.toString() === value);
+      if (selectedOrd) {
+        setPaymentFormData(prev => ({
+          ...prev,
+          customerName: selectedOrd.customerName || "Customer",
+          customerEmail: selectedOrd.deliveryCity || "",
+          customerPhone: ""
+        }));
+      }
+    }
+  };
+
+  const resetPaymentForm = () => {
+    setPaymentFormData({
+      orderId: "",
+      customerName: "",
+      customerEmail: "",
+      customerPhone: "",
+      amount: "",
+      method: "UPI",
+      status: "Pending"
+    });
+    setShowAddPaymentForm(false);
+  };
+
+  const handleAddPayment = (addPaymentFn) => {
+    if (!paymentFormData.orderId || !paymentFormData.customerName || !paymentFormData.amount || !paymentFormData.method) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    const selectedOrd = orders.find(o => o.id.toString() === paymentFormData.orderId);
+    const newPayment = {
+      orderId: paymentFormData.orderId,
+      transactionId: `TXN${Date.now()}`,
+      customerName: paymentFormData.customerName,
+      customerEmail: paymentFormData.customerEmail || "N/A",
+      customerPhone: paymentFormData.customerPhone || "N/A",
+      amount: Number(paymentFormData.amount),
+      method: paymentFormData.method,
+      status: paymentFormData.status,
+      products: selectedOrd?.items?.map(item => item.name) || [],
+      totalAmount: Number(paymentFormData.amount)
+    };
+
+    addPaymentFn(newPayment);
+    alert("Payment Added Successfully!");
+    resetPaymentForm();
+  };
+
   return (
     <div className="admin-layout">
       {/* Sidebar */}
@@ -156,6 +350,18 @@ function AdminDashboard() {
             onClick={() => setActiveTab("products")}
           >
             📦 Products
+          </button>
+          <button 
+            className={activeTab === "orders" ? "active" : ""} 
+            onClick={() => { setActiveTab("orders"); setStatusFilter("all"); }}
+          >
+            📋 Orders
+          </button>
+          <button 
+            className={activeTab === "payments" ? "active" : ""} 
+            onClick={() => { setActiveTab("payments"); setPaymentStatusFilter("all"); }}
+          >
+            💳 Payments
           </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 
@@ -181,20 +387,70 @@ function AdminDashboard() {
       {/* Main Content */}
       <div className="admin-content">
         <div className="admin-header">
-          <h1>Product Management Dashboard</h1>
+          <h1>
+            {activeTab === "products" && "Product Management Dashboard"}
+            {activeTab === "orders" && "Order Management Dashboard"}
+            {activeTab === "payments" && "Payment Management Dashboard"}
+            {activeTab === "stock" && "Stock Management Dashboard"}
+            {activeTab === "pricing" && "Pricing Management"}
+          </h1>
           <div className="admin-stats">
-            <div className="stat-card">
-              <span className="stat-label">Total Products</span>
-              <span className="stat-value">{products.length}</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Low Stock Items</span>
-              <span className="stat-value warning">{getLowStockProducts().length}</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Inventory Value</span>
-              <span className="stat-value">₹{getTotalInventoryValue().toLocaleString()}</span>
-            </div>
+            {activeTab !== "orders" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Total Products</span>
+                  <span className="stat-value">{products.length}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Low Stock Items</span>
+                  <span className="stat-value warning">{getLowStockProducts().length}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Inventory Value</span>
+                  <span className="stat-value">₹{getTotalInventoryValue().toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            {activeTab === "orders" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Total Orders</span>
+                  <span className="stat-value">{getOrderStats().totalOrders}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Pending Orders</span>
+                  <span className="stat-value warning">{getOrderStats().pendingOrders}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Delivered Orders</span>
+                  <span className="stat-value success">{getOrderStats().deliveredOrders}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Total Revenue</span>
+                  <span className="stat-value">₹{getOrderStats().totalRevenue.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+            {activeTab === "payments" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Total Payments</span>
+                  <span className="stat-value">{getPaymentStats().totalPayments}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Paid Amount</span>
+                  <span className="stat-value success">₹{getPaymentStats().paidAmount.toLocaleString()}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Pending Payments</span>
+                  <span className="stat-value warning">{getPaymentStats().pendingPayments}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Failed Payments</span>
+                  <span className="stat-value" style={{color: '#ef4444'}}>{getPaymentStats().failedPayments}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -434,7 +690,6 @@ function AdminDashboard() {
                   {products.map(product => {
                     const margin = product.price - product.wholesalePrice;
                     const marginPercent = ((margin / product.price) * 100).toFixed(1);
-                    const discount = ((margin / product.price) * 100).toFixed(1);
                     
                     return (
                       <tr key={product.id}>
@@ -463,6 +718,562 @@ function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Orders Tab */}
+        {activeTab === "orders" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Order Management</h2>
+              <div className="status-filters">
+                <button 
+                  className={statusFilter === "all" ? "active" : ""} 
+                  onClick={() => setStatusFilter("all")}
+                >
+                  All ({orders.length})
+                </button>
+                <button 
+                  className={statusFilter === "Pending" ? "active" : ""} 
+                  onClick={() => setStatusFilter("Pending")}
+                >
+                  🟡 Pending ({orders.filter(o => o.status === "Pending").length})
+                </button>
+                <button 
+                  className={statusFilter === "Processing" ? "active" : ""} 
+                  onClick={() => setStatusFilter("Processing")}
+                >
+                  🔵 Processing ({orders.filter(o => o.status === "Processing").length})
+                </button>
+                <button 
+                  className={statusFilter === "Delivered" ? "active" : ""} 
+                  onClick={() => setStatusFilter("Delivered")}
+                >
+                  🟢 Delivered ({orders.filter(o => o.status === "Delivered").length})
+                </button>
+                <button 
+                  className={statusFilter === "Cancelled" ? "active" : ""} 
+                  onClick={() => setStatusFilter("Cancelled")}
+                >
+                  🔴 Cancelled ({orders.filter(o => o.status === "Cancelled").length})
+                </button>
+              </div>
+            </div>
+
+            {getFilteredOrders().length === 0 ? (
+              <div className="empty-state">
+                <p>No orders found</p>
+              </div>
+            ) : (
+              <div className="orders-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Customer</th>
+                      <th>Date</th>
+                      <th>Total Amount</th>
+                      <th>Payment</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getFilteredOrders().map(order => (
+                      <tr key={order.id}>
+                        <td>
+                          <strong>#{order.id}</strong>
+                        </td>
+                        <td>{getCustomerName(order)}</td>
+                        <td>{formatDate(order.date)}</td>
+                        <td className="amount">₹{order.total?.toLocaleString() || 0}</td>
+                        <td>
+                          <span className="payment-badge">
+                            {order.paymentMethod === "cod" ? "COD" : "Online"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`status-badge status-${order.status?.toLowerCase() || 'pending'}`}>
+                            {getStatusBadge(order.status || "Pending")} {order.status || "Pending"}
+                          </span>
+                        </td>
+                        <td className="actions">
+                          <button 
+                            className="btn-view" 
+                            onClick={() => handleViewOrder(order)}
+                            title="View Details"
+                          >
+                            👁️
+                          </button>
+                          <select 
+                            className="btn-status-select"
+                            value={order.status || "Pending"}
+                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                            title="Update Status"
+                          >
+                            <option value="Pending">🟡 Pending</option>
+                            <option value="Processing">🔵 Processing</option>
+                            <option value="Delivered">🟢 Delivered</option>
+                            <option value="Cancelled">🔴 Cancelled</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Order Details Modal */}
+            {showOrderModal && selectedOrder && (
+              <div className="modal-overlay" onClick={() => setShowOrderModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2>Order Details - #{selectedOrder.id}</h2>
+                    <button 
+                      className="modal-close"
+                      onClick={() => setShowOrderModal(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="modal-body">
+                    <div className="order-detail-section">
+                      <h3>Order Information</h3>
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="label">Order ID:</span>
+                          <span className="value">#{selectedOrder.id}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Date:</span>
+                          <span className="value">{formatDate(selectedOrder.date)}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Customer:</span>
+                          <span className="value">{getCustomerName(selectedOrder)}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Status:</span>
+                          <span className="value">
+                            {getStatusBadge(selectedOrder.status || "Pending")} {selectedOrder.status || "Pending"}
+                          </span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Payment Method:</span>
+                          <span className="value">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Online"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Payment Status:</span>
+                          <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="order-detail-section">
+                      <h3>Delivery Information</h3>
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="label">Address:</span>
+                          <span className="value">{selectedOrder.deliveryAddress || "N/A"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">City:</span>
+                          <span className="value">{selectedOrder.deliveryCity || "N/A"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">State:</span>
+                          <span className="value">{selectedOrder.deliveryState || "N/A"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Pincode:</span>
+                          <span className="value">{selectedOrder.deliveryPincode || "N/A"}</span>
+                        </div>
+                      </div>
+                      {selectedOrder.specialInstructions && (
+                        <div className="special-instructions">
+                          <strong>Special Instructions:</strong>
+                          <p>{selectedOrder.specialInstructions}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="order-detail-section">
+                      <h3>Order Items</h3>
+                      <table className="items-table">
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedOrder.items && selectedOrder.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>{item.name || "Product"}</td>
+                              <td>{item.quantity || 0}</td>
+                              <td>₹{item.price?.toLocaleString() || 0}</td>
+                              <td>₹{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="order-detail-section order-summary">
+                      <div className="summary-row">
+                        <span>Subtotal:</span>
+                        <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="summary-row">
+                        <span>Delivery Charges:</span>
+                        <span>₹0</span>
+                      </div>
+                      <div className="summary-row total">
+                        <span>Total Amount:</span>
+                        <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button 
+                      className="btn-close"
+                      onClick={() => setShowOrderModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Payments Tab */}
+        {activeTab === "payments" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Payment Management</h2>
+              {!showAddPaymentForm && (
+                <button className="btn-add" onClick={() => setShowAddPaymentForm(true)}>
+                  ➕ Add New Payment
+                </button>
+              )}
+            </div>
+
+            {showAddPaymentForm && (
+              <div className="product-form-card">
+                <h3>Add New Payment</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Select Order *</label>
+                    <select 
+                      name="orderId" 
+                      value={paymentFormData.orderId} 
+                      onChange={handlePaymentInputChange}
+                    >
+                      <option value="">-- Select an Order --</option>
+                      {orders.map(order => (
+                        <option key={order.id} value={order.id}>
+                          #{order.id} - {order.customerName || "Customer"} (₹{order.total || 0})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Name *</label>
+                    <input
+                      type="text"
+                      name="customerName"
+                      value={paymentFormData.customerName}
+                      onChange={handlePaymentInputChange}
+                      placeholder="Customer name"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Email</label>
+                    <input
+                      type="email"
+                      name="customerEmail"
+                      value={paymentFormData.customerEmail}
+                      onChange={handlePaymentInputChange}
+                      placeholder="customer@example.com"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Phone</label>
+                    <input
+                      type="tel"
+                      name="customerPhone"
+                      value={paymentFormData.customerPhone}
+                      onChange={handlePaymentInputChange}
+                      placeholder="+91-9876543210"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Amount (₹) *</label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={paymentFormData.amount}
+                      onChange={handlePaymentInputChange}
+                      placeholder="2450"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Payment Method *</label>
+                    <select name="method" value={paymentFormData.method} onChange={handlePaymentInputChange}>
+                      <option value="UPI">📱 UPI</option>
+                      <option value="Debit Card">💳 Debit Card</option>
+                      <option value="Credit Card">💳 Credit Card</option>
+                      <option value="Net Banking">🏦 Net Banking</option>
+                      <option value="COD">💵 Cash on Delivery</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Payment Status *</label>
+                    <select name="status" value={paymentFormData.status} onChange={handlePaymentInputChange}>
+                      <option value="Pending">🟡 Pending</option>
+                      <option value="Paid">🟢 Paid</option>
+                      <option value="Failed">🔴 Failed</option>
+                      <option value="Refunded">🔵 Refunded</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn-save" onClick={() => handleAddPayment(addPayment)}>
+                    ✅ Add Payment
+                  </button>
+                  <button className="btn-cancel" onClick={resetPaymentForm}>
+                    ❌ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="section-header" style={{marginTop: '20px', borderTop: '2px solid #e5e7eb', paddingTop: '20px', marginBottom: '0'}}>
+              <h3 style={{margin: '0', fontSize: '18px'}}>Payments List</h3>
+              <div className="status-filters">
+                <button 
+                  className={paymentStatusFilter === "all" ? "active" : ""} 
+                  onClick={() => setPaymentStatusFilter("all")}
+                >
+                  All ({payments.length})
+                </button>
+                <button 
+                  className={paymentStatusFilter === "Paid" ? "active" : ""} 
+                  onClick={() => setPaymentStatusFilter("Paid")}
+                >
+                  🟢 Paid ({payments.filter(p => p.status === "Paid").length})
+                </button>
+                <button 
+                  className={paymentStatusFilter === "Pending" ? "active" : ""} 
+                  onClick={() => setPaymentStatusFilter("Pending")}
+                >
+                  🟡 Pending ({payments.filter(p => p.status === "Pending").length})
+                </button>
+                <button 
+                  className={paymentStatusFilter === "Failed" ? "active" : ""} 
+                  onClick={() => setPaymentStatusFilter("Failed")}
+                >
+                  🔴 Failed ({payments.filter(p => p.status === "Failed").length})
+                </button>
+                <button 
+                  className={paymentStatusFilter === "Refunded" ? "active" : ""} 
+                  onClick={() => setPaymentStatusFilter("Refunded")}
+                >
+                  🔵 Refunded ({payments.filter(p => p.status === "Refunded").length})
+                </button>
+              </div>
+            </div>
+
+            {getFilteredPayments().length === 0 ? (
+              <div className="empty-state">
+                <p>No payments found</p>
+              </div>
+            ) : (
+              <div className="payments-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Order ID</th>
+                      <th>Customer</th>
+                      <th>Date</th>
+                      <th>Method</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getFilteredPayments().map(payment => (
+                      <tr key={payment.id}>
+                        <td>
+                          <strong>{payment.id}</strong>
+                        </td>
+                        <td>{payment.orderId}</td>
+                        <td>{payment.customerName}</td>
+                        <td>{formatDate(payment.date)}</td>
+                        <td>
+                          <span className="method-badge">
+                            {getPaymentMethodIcon(payment.method)} {payment.method}
+                          </span>
+                        </td>
+                        <td className="amount">₹{payment.amount?.toLocaleString() || 0}</td>
+                        <td>
+                          <span className={`payment-status-badge status-${payment.status?.toLowerCase() || 'pending'}`}>
+                            {getPaymentStatusColor(payment.status || "Pending")} {payment.status || "Pending"}
+                          </span>
+                        </td>
+                        <td className="actions">
+                          <button 
+                            className="btn-view" 
+                            onClick={() => handleViewPayment(payment)}
+                            title="View Details"
+                          >
+                            👁️
+                          </button>
+                          <select 
+                            className="btn-status-select"
+                            value={payment.status || "Pending"}
+                            onChange={(e) => handleUpdatePaymentStatus(payment.id, e.target.value)}
+                            title="Update Status"
+                          >
+                            <option value="Paid">🟢 Paid</option>
+                            <option value="Pending">🟡 Pending</option>
+                            <option value="Failed">🔴 Failed</option>
+                            <option value="Refunded">🔵 Refunded</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Payment Details Modal */}
+            {showPaymentModal && selectedPayment && (
+              <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2>Payment Details - {selectedPayment.id}</h2>
+                    <button 
+                      className="modal-close"
+                      onClick={() => setShowPaymentModal(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="modal-body">
+                    <div className="order-detail-section">
+                      <h3>Payment Information</h3>
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="label">Payment ID:</span>
+                          <span className="value">{selectedPayment.id}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Transaction ID:</span>
+                          <span className="value">{selectedPayment.transactionId || "N/A"}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Payment Method:</span>
+                          <span className="value">{getPaymentMethodIcon(selectedPayment.method)} {selectedPayment.method}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Date & Time:</span>
+                          <span className="value">{formatDateTime(selectedPayment.date)}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Status:</span>
+                          <span className="value">{getPaymentStatusColor(selectedPayment.status)} {selectedPayment.status}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Amount:</span>
+                          <span className="value" style={{fontSize: '16px', fontWeight: 'bold', color: '#10b981'}}>
+                            ₹{selectedPayment.amount?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="order-detail-section">
+                      <h3>Order Information</h3>
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="label">Order ID:</span>
+                          <span className="value">{selectedPayment.orderId}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Total Amount:</span>
+                          <span className="value">₹{selectedPayment.totalAmount?.toLocaleString() || 0}</span>
+                        </div>
+                      </div>
+                      {selectedPayment.products && selectedPayment.products.length > 0 && (
+                        <div className="products-list" style={{marginTop: '12px'}}>
+                          <strong>Products Ordered:</strong>
+                          <ul style={{marginTop: '8px', marginBottom: '0', paddingLeft: '20px'}}>
+                            {selectedPayment.products.map((product, idx) => (
+                              <li key={idx} style={{marginBottom: '4px', color: '#6b7280'}}>{product}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="order-detail-section">
+                      <h3>Customer Information</h3>
+                      <div className="detail-grid">
+                        <div className="detail-item">
+                          <span className="label">Customer Name:</span>
+                          <span className="value">{selectedPayment.customerName}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Email:</span>
+                          <span className="value">{selectedPayment.customerEmail}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="label">Mobile:</span>
+                          <span className="value">{selectedPayment.customerPhone}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="order-summary" style={{backgroundColor: '#f0fdf4', borderLeft: '4px solid #10b981'}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '16px'}}>
+                        <strong>Payment Status:</strong>
+                        <span style={{padding: '8px 16px', borderRadius: '20px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 'bold'}}>
+                          {getPaymentStatusColor(selectedPayment.status)} {selectedPayment.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button 
+                      className="btn-close"
+                      onClick={() => setShowPaymentModal(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

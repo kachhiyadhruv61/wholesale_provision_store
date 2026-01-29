@@ -20,6 +20,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { CartProvider } from "./context/CartContext";
 import { ProductProvider } from "./context/ProductContext";
 import { OrderProvider } from "./context/OrderContext";
+import { PaymentProvider } from "./context/PaymentContext";
 import { UserProvider } from "./context/UserContext";
 import { DeliveryProvider } from "./context/DeliveryContext";
 import OrderHistory from "./pages/OrderHistory";
@@ -75,13 +76,15 @@ function App() {
     <ProductProvider>
       <CartProvider>
         <OrderProvider>
-          <UserProvider>
-            <DeliveryProvider>
-              <BrowserRouter>
-                <AppShell />
-              </BrowserRouter>
-            </DeliveryProvider>
-          </UserProvider>
+          <PaymentProvider>
+            <UserProvider>
+              <DeliveryProvider>
+                <BrowserRouter>
+                  <AppShell />
+                </BrowserRouter>
+              </DeliveryProvider>
+            </UserProvider>
+          </PaymentProvider>
         </OrderProvider>
       </CartProvider>
     </ProductProvider>
