@@ -26,8 +26,8 @@ function AdminAnalytics() {
 
   const colors = ["#667eea", "#764ba2", "#28a745", "#ff9f43", "#e74c3c", "#17a2b8"];
 
-  const now = new Date();
   const startDate = useMemo(() => {
+    const now = new Date();
     if (range === "7d") {
       const d = new Date(now);
       d.setDate(d.getDate() - 6);

@@ -24,15 +24,30 @@ function AdminDashboard() {
     stock: "",
     moq: "",
     unit: "bag",
-    description: ""
+    description: "",
+    image: ""
   });
 
-  const categories = ["Grocery", "Masala Spices", "PAN CENTER", "Daily Used Product", "Snacks", "Biscuit", "Chocolates"];
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const categories = ["Grocery", "Masala Spices", "Pan Center", "Daily Used Product", "Snacks", "Biscuit", "Chocolates"];
   const units = ["bag", "box", "bottle", "kg", "litre"];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, image: reader.result }));
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const resetForm = () => {
@@ -44,8 +59,10 @@ function AdminDashboard() {
       stock: "",
       moq: "",
       unit: "bag",
-      description: ""
+      description: "",
+      image: ""
     });
+    setImagePreview(null);
     setEditingProduct(null);
     setShowAddForm(false);
   };
@@ -66,6 +83,7 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -94,6 +112,7 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || editingProduct.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -117,8 +136,10 @@ function AdminDashboard() {
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
-      description: product.description || ""
+      description: product.description || "",
+      image: product.image || ""
     });
+    setImagePreview(product.image || null);
     setShowAddForm(true);
   };
 
@@ -346,6 +367,25 @@ function AdminDashboard() {
                       placeholder="Brief product description"
                       rows="3"
                     />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Product Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      style={{ padding: "10px" }}
+                    />
+                    {imagePreview && (
+                      <div style={{ marginTop: "10px" }}>
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          style={{ maxWidth: "200px", maxHeight: "200px", objectFit: "contain", border: "1px solid #ddd", borderRadius: "8px", padding: "5px" }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
