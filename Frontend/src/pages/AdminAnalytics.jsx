@@ -204,14 +204,47 @@ function AdminAnalytics() {
           <h3>Revenue & Orders Trend</h3>
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={analytics.dailySeries} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#667eea" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="orders" name="Orders" stroke="#ff9f43" strokeWidth={2} dot={false} />
+              <LineChart data={analytics.dailySeries} margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6c757d"
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  stroke="#6c757d"
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '10px' }}
+                  iconType="line"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  name="Revenue (₹)" 
+                  stroke="#667eea" 
+                  strokeWidth={3} 
+                  dot={{ fill: '#667eea', r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="orders" 
+                  name="Orders" 
+                  stroke="#ff9f43" 
+                  strokeWidth={3} 
+                  dot={{ fill: '#ff9f43', r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -226,21 +259,34 @@ function AdminAnalytics() {
                   data={Object.entries(analytics.ordersByCategory).map(([name, value]) => ({ name, value }))}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={4}
+                  innerRadius={55}
+                  outerRadius={95}
+                  paddingAngle={3}
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
                 >
                   {Object.entries(analytics.ordersByCategory).map((_, idx) => (
                     <Cell key={idx} fill={colors[idx % colors.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '12px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
-
       </div>
 
       {/* Top Products Table */}
