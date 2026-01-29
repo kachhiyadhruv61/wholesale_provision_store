@@ -832,11 +832,7 @@ function AdminDashboard() {
                 <tbody>
                   {products.map((product, idx) => {
                     const margin = product.price - product.wholesalePrice;
-<<<<<<< HEAD
                     const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : 0;
-=======
-                    const marginPercent = ((margin / product.price) * 100).toFixed(1);
->>>>>>> a975bc50f1e1bd8752185ec3d64a802ac4bb40cd
                     
                     return (
                       <tr key={product.id}>
