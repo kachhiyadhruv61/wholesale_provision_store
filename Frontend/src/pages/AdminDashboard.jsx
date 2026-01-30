@@ -181,7 +181,7 @@ function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("adminLoggedIn");
-    navigate("/admin");
+    navigate("/");
   };
 
   const handlePriceEditClick = (product) => {
@@ -289,9 +289,7 @@ function AdminDashboard() {
   };
 
   const getCustomerName = (order) => {
-    if (order.customerName) return order.customerName;
-    if (order.items && order.items.length > 0) return "Customer";
-    return "Guest";
+    return order.customerName || "Customer";
   };
 
   // Payment Management Functions
@@ -427,13 +425,13 @@ function AdminDashboard() {
             className={activeTab === "orders" ? "active" : ""} 
             onClick={() => { setActiveTab("orders"); setStatusFilter("all"); }}
           >
-            📋 Orders
+            Orders
           </button>
           <button 
             className={activeTab === "payments" ? "active" : ""} 
             onClick={() => { setActiveTab("payments"); setPaymentStatusFilter("all"); }}
           >
-            💳 Payments
+            Payments
           </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 

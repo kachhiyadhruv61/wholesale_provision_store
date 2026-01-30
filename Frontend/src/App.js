@@ -12,6 +12,7 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import OrderSuccess from "./pages/OrderSuccess";
 import UserProfile from "./pages/UserProfile";
 import About from "./pages/About";
@@ -46,8 +47,8 @@ function AppShell() {
         <Route path="/order-success" element={<OrderSuccess />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/profile" element={<UserProfile />} />
-        {/* Admin Routes - Login uses same page with user type toggle */}
-        <Route path="/admin" element={<Login />} />
+        {/* Admin Routes - Dedicated admin login page */}
+        <Route path="/admin" element={<AdminLoginPage />} />
         <Route
           path="/admin-dashboard"
           element={

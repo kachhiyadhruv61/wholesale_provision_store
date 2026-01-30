@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 
 function Cart() {
-  const { cart, removeFromCart, totalPrice, incrementQuantity, decrementQuantity } = useContext(CartContext);
+  const { cart, removeFromCart, totalPrice, deliveryCharge, incrementQuantity, decrementQuantity } = useContext(CartContext);
   const navigate = useNavigate();
 
   const handleProceedToCheckout = () => {
@@ -46,6 +46,8 @@ function Cart() {
                             className="qty-btn"
                             onClick={() => decrementQuantity(index)}
                             aria-label="Decrease quantity"
+                            disabled={(item.quantity || 1) <= (item.moq || 1)}
+                            title={(item.quantity || 1) <= (item.moq || 1) ? "Minimum order quantity reached" : "Decrease quantity"}
                           >
                             −
                           </button>
@@ -92,7 +94,11 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span>Delivery Charges</span>
-                  <span className="free">FREE</span>
+                  {deliveryCharge > 0 ? (
+                    <span>₹{deliveryCharge.toFixed(2)}</span>
+                  ) : (
+                    <span className="free">FREE</span>
+                  )}
                 </div>
                 <div className="summary-row discount">
                   <span>Wholesale Discount</span>
@@ -104,11 +110,11 @@ function Cart() {
 
               <div className="summary-total">
                 <span>Total Amount</span>
-                <span className="total-amount">₹{totalPrice.toFixed(2)}</span>
+                <span className="total-amount">₹{(totalPrice + deliveryCharge).toFixed(2)}</span>
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on wholesale orders</small>
+                <small>✓ Free delivery on orders ₹1000+</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>
