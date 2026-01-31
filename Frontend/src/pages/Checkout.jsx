@@ -23,7 +23,7 @@ function Checkout() {
   const deliveryInfo = null;
   
   const [formData, setFormData] = useState({
-    customerName: "",
+    customerName: user?.username || "",
     deliveryAddress: "",
     deliveryCity: "",
     deliveryState: "",
@@ -106,6 +106,7 @@ function Checkout() {
         total: totalPrice + deliveryCharge,
         paymentMethod,
         paymentStatus: "Completed",
+        customerId: user?.id,
         customerName: formData.customerName,
         deliveryAddress: formData.deliveryAddress,
         deliveryCity: formData.deliveryCity,

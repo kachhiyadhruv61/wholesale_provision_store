@@ -346,13 +346,13 @@ function AdminDashboard() {
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="admin-sidebar">
-        <h3>🛠️ Admin Panel</h3>
+        <h3> Admin Panel</h3>
         <nav className="admin-nav">
           <button 
             className={activeTab === "products" ? "active" : ""} 
             onClick={() => setActiveTab("products")}
           >
-            📦 Products
+             Products
           </button>
           <button 
             className={activeTab === "orders" ? "active" : ""} 
@@ -370,19 +370,19 @@ function AdminDashboard() {
             className={activeTab === "stock" ? "active" : ""} 
             onClick={() => setActiveTab("stock")}
           >
-            📊 Stock Management
+             Stock Management
           </button>
           <button 
             className={activeTab === "pricing" ? "active" : ""} 
             onClick={() => setActiveTab("pricing")}
           >
-            💰 Pricing
+            Pricing
           </button>
           <button onClick={() => navigate("/admin-analytics")}>
-            📈 Analytics
+            Analytics
           </button>
           <button onClick={handleLogout} className="logout-btn">
-            🚪 Logout
+            Logout
           </button>
         </nav>
       </div>
@@ -787,7 +787,10 @@ function AdminDashboard() {
                         <td>
                           <strong>#{order.id}</strong>
                         </td>
-                        <td>{getCustomerName(order)}</td>
+                        <td>
+                          <div>{getCustomerName(order)}</div>
+                          <small style={{color: '#666'}}>ID: {order.customerId || 'N/A'}</small>
+                        </td>
                         <td>{formatDate(order.date)}</td>
                         <td className="amount">₹{order.total?.toLocaleString() || 0}</td>
                         <td>
