@@ -62,7 +62,7 @@ function Home() {
           <div className="step-card">
             <div className="step-number">1</div>
             <div className="step-icon">👤</div>
-            <h3>Create Account</h3>
+            <h3>Login or Register</h3>
             <p>Sign up as a retailer and get instant access to wholesale prices</p>
           </div>
           

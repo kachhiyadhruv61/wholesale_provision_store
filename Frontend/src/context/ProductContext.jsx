@@ -97,7 +97,7 @@ export function ProductProvider({ children }) {
     { 
       id: 6, 
       name: "Marlboro Advance", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 350,
       wholesalePrice: 310,
       stock: 95,
@@ -115,7 +115,7 @@ export function ProductProvider({ children }) {
     { 
       id: 7, 
       name: "Brazilian Spirit Tobacco", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 280,
       wholesalePrice: 240,
       stock: 65,
@@ -439,7 +439,7 @@ export function ProductProvider({ children }) {
     { 
       id: 26, 
       name: "Rajnigandha Pan Masala", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 90,
       wholesalePrice: 75,
       stock: 100,
@@ -457,7 +457,7 @@ export function ProductProvider({ children }) {
     { 
       id: 27, 
       name: "Rajnigandha Silver Pearl Elaichi", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 120,
       wholesalePrice: 100,
       stock: 80,
@@ -475,7 +475,7 @@ export function ProductProvider({ children }) {
     { 
       id: 28, 
       name: "GO DESi Meetha Paan Mints", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 50,
       wholesalePrice: 40,
       stock: 70,
@@ -493,7 +493,7 @@ export function ProductProvider({ children }) {
     { 
       id: 29, 
       name: "Cocoyaya Black Lighter", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 45,
       wholesalePrice: 35,
       stock: 95,
@@ -511,7 +511,7 @@ export function ProductProvider({ children }) {
     { 
       id: 30, 
       name: "Calm Blueberry Herbal Blend", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 180,
       wholesalePrice: 150,
       stock: 40,
@@ -529,7 +529,7 @@ export function ProductProvider({ children }) {
     { 
       id: 31, 
       name: "Luvin Wine Flavour", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 80,
       wholesalePrice: 65,
       stock: 80,
@@ -547,7 +547,7 @@ export function ProductProvider({ children }) {
     { 
       id: 32, 
       name: "Ryze Nicotine Gum 2mg", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 120,
       wholesalePrice: 100,
       stock: 65,
@@ -565,7 +565,7 @@ export function ProductProvider({ children }) {
     { 
       id: 33, 
       name: "Tulsi 2x4.25g", 
-      category: "PAN CENTER", 
+      category: "Pan Center", 
       price: 60,
       wholesalePrice: 48,
       stock: 50,
