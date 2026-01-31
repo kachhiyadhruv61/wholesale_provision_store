@@ -2,15 +2,13 @@ import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { OrderContext } from "../context/OrderContext";
-import { DeliveryContext } from "../context/DeliveryContext";
 import { UserContext } from "../context/UserContext";
 
 function Checkout() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
-  const { cart, totalPrice, clearCart } = useContext(CartContext);
+  const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
-  const { deliveryLocations, getDeliveryInfo, calculateCustomDelivery } = useContext(DeliveryContext);
 
   // Redirect to login if user is not logged in
   useEffect(() => {
@@ -22,18 +20,15 @@ function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStep, setPaymentStep] = useState("details");
-  const [deliveryType, setDeliveryType] = useState("location");
-  const [selectedLocation, setSelectedLocation] = useState(null);
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
-  const [deliveryInfo, setDeliveryInfo] = useState(null);
+  const deliveryInfo = null;
   
   const [formData, setFormData] = useState({
+    customerName: "",
     deliveryAddress: "",
     deliveryCity: "",
     deliveryState: "",
     deliveryPincode: "",
     specialInstructions: "",
-    customDistance: "",
   });
 
   const [paymentData, setPaymentData] = useState({
@@ -56,35 +51,9 @@ function Checkout() {
     setPaymentData({ ...paymentData, [name]: value });
   };
 
-  const handleLocationSelect = (location) => {
-    setSelectedLocation(location.id);
-    const info = getDeliveryInfo(location.id, totalPrice);
-    setDeliveryInfo(info);
-    setDeliveryCharge(info.finalCharge);
-  };
-
-  const handleCustomDistance = () => {
-    if (!formData.customDistance || isNaN(formData.customDistance)) {
-      alert("Please enter a valid distance");
-      return;
-    }
-    const distance = parseFloat(formData.customDistance);
-    const info = calculateCustomDelivery(distance, totalPrice);
-    setDeliveryInfo(info);
-    setDeliveryCharge(info.finalCharge);
-  };
-
   const validateDeliveryDetails = () => {
-    if (!formData.deliveryAddress || !formData.deliveryCity || !formData.deliveryState || !formData.deliveryPincode) {
+    if (!formData.customerName || !formData.deliveryAddress || !formData.deliveryCity || !formData.deliveryState || !formData.deliveryPincode) {
       alert("Please fill all delivery details");
-      return false;
-    }
-    if (deliveryType === "location" && !selectedLocation) {
-      alert("Please select a delivery location");
-      return false;
-    }
-    if (deliveryType === "custom" && !formData.customDistance) {
-      alert("Please enter delivery distance");
       return false;
     }
     return true;
@@ -137,12 +106,13 @@ function Checkout() {
         total: totalPrice + deliveryCharge,
         paymentMethod,
         paymentStatus: "Completed",
+        customerName: formData.customerName,
         deliveryAddress: formData.deliveryAddress,
         deliveryCity: formData.deliveryCity,
         deliveryState: formData.deliveryState,
         deliveryPincode: formData.deliveryPincode,
-        deliveryLocation: selectedLocation,
-        deliveryInfo: deliveryInfo,
+        deliveryLocation: null,
+        deliveryInfo: null,
         specialInstructions: formData.specialInstructions,
         status: "Confirmed",
         orderDate: new Date().toISOString(),
@@ -224,7 +194,7 @@ function Checkout() {
                     <span>₹{deliveryCharge.toFixed(2)}</span>
                   </div>
                 )}
-                {deliveryCharge === 0 && deliveryInfo && (
+                {deliveryCharge === 0 && (
                   <div className="breakdown-row discount">
                     <span>🎉 Free Delivery!</span>
                     <span className="free-badge">₹0</span>
@@ -255,84 +225,25 @@ function Checkout() {
             <h3>🚚 Delivery Details</h3>
             <form onSubmit={handleContinueToPayment}>
               
-              {/* Delivery Location Selector */}
+              {/* Customer Name */}
               <div className="form-section">
-                <h4>Select Delivery Location</h4>
+                <h4>Your Details</h4>
                 
-                <div className="location-type-selector">
-                  <label className="type-option">
-                    <input
-                      type="radio"
-                      value="location"
-                      checked={deliveryType === "location"}
-                      onChange={(e) => setDeliveryType(e.target.value)}
-                    />
-                    <span>📍 Pre-defined Location</span>
+                <div className="form-group">
+                  <label htmlFor="customerName">
+                    <span className="form-icon">👤</span>
+                    Full Name *
                   </label>
-                  <label className="type-option">
-                    <input
-                      type="radio"
-                      value="custom"
-                      checked={deliveryType === "custom"}
-                      onChange={(e) => setDeliveryType(e.target.value)}
-                    />
-                    <span>🗺️ Custom Distance</span>
-                  </label>
+                  <input
+                    id="customerName"
+                    type="text"
+                    name="customerName"
+                    placeholder="Enter your full name"
+                    value={formData.customerName}
+                    onChange={handleInputChange}
+                    required
+                  />
                 </div>
-
-                {deliveryType === "location" ? (
-                  <div className="locations-grid">
-                    {deliveryLocations.map(location => (
-                      <div
-                        key={location.id}
-                        className={`location-card ${selectedLocation === location.id ? "selected" : ""}`}
-                        onClick={() => handleLocationSelect(location)}
-                      >
-                        <div className="location-name">{location.name}</div>
-                        <div className="location-distance">
-                          <span>📏 {location.distance} km</span>
-                        </div>
-                        <div className="location-charge">
-                          {getDeliveryInfo(location.id, totalPrice).finalCharge === 0 ? (
-                            <span className="free-charge">Free</span>
-                          ) : (
-                            <span className="charge-amount">
-                              ₹{getDeliveryInfo(location.id, totalPrice).finalCharge}
-                            </span>
-                          )}
-                        </div>
-                        {selectedLocation === location.id && (
-                          <div className="selected-badge">✓ Selected</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="custom-distance-input">
-                    <label>Enter Distance (in km) *</label>
-                    <div className="distance-input-group">
-                      <input
-                        type="number"
-                        name="customDistance"
-                        placeholder="e.g., 5.5"
-                        value={formData.customDistance}
-                        onChange={handleInputChange}
-                        step="0.1"
-                        min="0"
-                      />
-                      <button type="button" onClick={handleCustomDistance} className="btn-calculate">
-                        Calculate Charge
-                      </button>
-                    </div>
-                    {deliveryInfo && (
-                      <div className="charge-info">
-                        <p>Distance: {deliveryInfo.distance} km</p>
-                        <p>Delivery Charge: ₹{deliveryInfo.finalCharge}</p>
-                        <p>Estimated Time: {deliveryInfo.estimatedDeliveryText}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Address Details */}

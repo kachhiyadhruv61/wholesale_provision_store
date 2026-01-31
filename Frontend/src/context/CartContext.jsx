@@ -63,16 +63,16 @@ export function CartProvider({ children }) {
       const next = prevCart.map((item, i) => {
         if (i !== index) return item;
 
-        const newQuantity = (item.quantity || 1) - 1;
+        const minQty = item.moq || 1;
+        const newQuantity = Math.max((item.quantity || 1) - 1, minQty);
         return {
           ...item,
           quantity: newQuantity,
-          price: getBulkPrice(item, Math.max(newQuantity, 1)),
+          price: getBulkPrice(item, newQuantity),
         };
       });
 
-      // Drop items when quantity goes below 1
-      return next.filter((item) => (item.quantity || 1) > 0);
+      return next;
     });
   };
 
@@ -90,6 +90,8 @@ export function CartProvider({ children }) {
     0
   );
 
+  const deliveryCharge = totalPrice > 0 && totalPrice < 1000 ? 40 : 0;
+
   return (
     <CartContext.Provider
       value={{
@@ -97,6 +99,7 @@ export function CartProvider({ children }) {
         addToCart,
         removeFromCart,
         totalPrice,
+        deliveryCharge,
         clearCart,
         incrementQuantity,
         decrementQuantity,

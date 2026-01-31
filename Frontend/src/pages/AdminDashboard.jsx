@@ -13,6 +13,11 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("products");
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [priceFormData, setPriceFormData] = useState({
+    retailPrice: "",
+    wholesalePrice: ""
+  });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -154,7 +159,7 @@ function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("adminLoggedIn");
-    navigate("/admin");
+    navigate("/");
   };
 
   const getLowStockProducts = () => {
@@ -217,9 +222,7 @@ function AdminDashboard() {
   };
 
   const getCustomerName = (order) => {
-    if (order.customerName) return order.customerName;
-    if (order.items && order.items.length > 0) return "Customer";
-    return "Guest";
+    return order.customerName || "Customer";
   };
 
   // Payment Management Functions
@@ -355,13 +358,13 @@ function AdminDashboard() {
             className={activeTab === "orders" ? "active" : ""} 
             onClick={() => { setActiveTab("orders"); setStatusFilter("all"); }}
           >
-            📋 Orders
+            Orders
           </button>
           <button 
             className={activeTab === "payments" ? "active" : ""} 
             onClick={() => { setActiveTab("payments"); setPaymentStatusFilter("all"); }}
           >
-            💳 Payments
+            Payments
           </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 
@@ -689,7 +692,7 @@ function AdminDashboard() {
                 <tbody>
                   {products.map(product => {
                     const margin = product.price - product.wholesalePrice;
-                    const marginPercent = ((margin / product.price) * 100).toFixed(1);
+                    const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : 0;
                     
                     return (
                       <tr key={product.id}>
