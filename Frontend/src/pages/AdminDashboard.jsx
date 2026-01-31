@@ -182,12 +182,12 @@ function AdminDashboard() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      "Pending": "🟡",
-      "Processing": "🔵",
-      "Delivered": "🟢",
-      "Cancelled": "🔴"
+      "Pending": "Pending",
+      "Processing": "Processing",
+      "Delivered": "Delivered",
+      "Cancelled": "Cancelled"
     };
-    return statusMap[status] || "⚪";
+    return statusMap[status] || "Unknown";
   };
 
   const handleUpdateOrderStatus = (orderId, newStatus) => {
@@ -239,23 +239,23 @@ function AdminDashboard() {
 
   const getPaymentMethodIcon = (method) => {
     const methodMap = {
-      "UPI": "📱",
-      "Debit Card": "💳",
-      "Credit Card": "💳",
-      "Net Banking": "🏦",
-      "COD": "💵"
+      "UPI": "UPI",
+      "Debit Card": "Card",
+      "Credit Card": "Card",
+      "Net Banking": "Banking",
+      "COD": "COD"
     };
-    return methodMap[method] || "💳";
+    return methodMap[method] || "Card";
   };
 
   const getPaymentStatusColor = (status) => {
     const statusMap = {
-      "Paid": "🟢",
-      "Pending": "🟡",
-      "Failed": "🔴",
-      "Refunded": "🔵"
+      "Paid": "Paid",
+      "Pending": "Pending",
+      "Failed": "Failed",
+      "Refunded": "Refunded"
     };
-    return statusMap[status] || "⚪";
+    return statusMap[status] || "Unknown";
   };
 
   const handleUpdatePaymentStatus = (paymentId, newStatus) => {
@@ -740,25 +740,25 @@ function AdminDashboard() {
                   className={statusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setStatusFilter("Pending")}
                 >
-                  🟡 Pending ({orders.filter(o => o.status === "Pending").length})
+                  Pending ({orders.filter(o => o.status === "Pending").length})
                 </button>
                 <button 
                   className={statusFilter === "Processing" ? "active" : ""} 
                   onClick={() => setStatusFilter("Processing")}
                 >
-                  🔵 Processing ({orders.filter(o => o.status === "Processing").length})
+                  Processing ({orders.filter(o => o.status === "Processing").length})
                 </button>
                 <button 
                   className={statusFilter === "Delivered" ? "active" : ""} 
                   onClick={() => setStatusFilter("Delivered")}
                 >
-                  🟢 Delivered ({orders.filter(o => o.status === "Delivered").length})
+                  Delivered ({orders.filter(o => o.status === "Delivered").length})
                 </button>
                 <button 
                   className={statusFilter === "Cancelled" ? "active" : ""} 
                   onClick={() => setStatusFilter("Cancelled")}
                 >
-                  🔴 Cancelled ({orders.filter(o => o.status === "Cancelled").length})
+                  Cancelled ({orders.filter(o => o.status === "Cancelled").length})
                 </button>
               </div>
             </div>
@@ -814,10 +814,10 @@ function AdminDashboard() {
                             onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
                             title="Update Status"
                           >
-                            <option value="Pending">🟡 Pending</option>
-                            <option value="Processing">🔵 Processing</option>
-                            <option value="Delivered">🟢 Delivered</option>
-                            <option value="Cancelled">🔴 Cancelled</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
                           </select>
                         </td>
                       </tr>
@@ -837,7 +837,7 @@ function AdminDashboard() {
                       className="modal-close"
                       onClick={() => setShowOrderModal(false)}
                     >
-                      ✕
+                      ×
                     </button>
                   </div>
 
@@ -1035,21 +1035,21 @@ function AdminDashboard() {
                   <div className="form-group">
                     <label>Payment Method *</label>
                     <select name="method" value={paymentFormData.method} onChange={handlePaymentInputChange}>
-                      <option value="UPI">📱 UPI</option>
-                      <option value="Debit Card">💳 Debit Card</option>
-                      <option value="Credit Card">💳 Credit Card</option>
-                      <option value="Net Banking">🏦 Net Banking</option>
-                      <option value="COD">💵 Cash on Delivery</option>
+                      <option value="UPI">UPI</option>
+                      <option value="Debit Card">Debit Card</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="COD">Cash on Delivery</option>
                     </select>
                   </div>
 
                   <div className="form-group">
                     <label>Payment Status *</label>
                     <select name="status" value={paymentFormData.status} onChange={handlePaymentInputChange}>
-                      <option value="Pending">🟡 Pending</option>
-                      <option value="Paid">🟢 Paid</option>
-                      <option value="Failed">🔴 Failed</option>
-                      <option value="Refunded">🔵 Refunded</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Failed">Failed</option>
+                      <option value="Refunded">Refunded</option>
                     </select>
                   </div>
                 </div>
@@ -1078,25 +1078,25 @@ function AdminDashboard() {
                   className={paymentStatusFilter === "Paid" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Paid")}
                 >
-                  🟢 Paid ({payments.filter(p => p.status === "Paid").length})
+                  Paid ({payments.filter(p => p.status === "Paid").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Pending")}
                 >
-                  🟡 Pending ({payments.filter(p => p.status === "Pending").length})
+                  Pending ({payments.filter(p => p.status === "Pending").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Failed" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Failed")}
                 >
-                  🔴 Failed ({payments.filter(p => p.status === "Failed").length})
+                  Failed ({payments.filter(p => p.status === "Failed").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Refunded" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Refunded")}
                 >
-                  🔵 Refunded ({payments.filter(p => p.status === "Refunded").length})
+                  Refunded ({payments.filter(p => p.status === "Refunded").length})
                 </button>
               </div>
             </div>
@@ -1154,10 +1154,10 @@ function AdminDashboard() {
                             onChange={(e) => handleUpdatePaymentStatus(payment.id, e.target.value)}
                             title="Update Status"
                           >
-                            <option value="Paid">🟢 Paid</option>
-                            <option value="Pending">🟡 Pending</option>
-                            <option value="Failed">🔴 Failed</option>
-                            <option value="Refunded">🔵 Refunded</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Failed">Failed</option>
+                            <option value="Refunded">Refunded</option>
                           </select>
                         </td>
                       </tr>
@@ -1177,7 +1177,7 @@ function AdminDashboard() {
                       className="modal-close"
                       onClick={() => setShowPaymentModal(false)}
                     >
-                      ✕
+                      ×
                     </button>
                   </div>
 
