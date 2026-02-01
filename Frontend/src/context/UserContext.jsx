@@ -29,6 +29,7 @@ export function UserProvider({ children }) {
 
   const loginUser = (username, email) => {
     const userData = {
+      id: Date.now(),
       username,
       email,
       password: "password123",
