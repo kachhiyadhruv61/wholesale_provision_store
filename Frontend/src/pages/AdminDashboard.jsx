@@ -1,8 +1,9 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
+import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
@@ -258,6 +259,56 @@ function AdminDashboard() {
     return statusMap[status] || "Unknown";
   };
 
+  const getCustomers = () => {
+    const customerMap = new Map();
+
+    payments.forEach(payment => {
+      const rawKey = payment.customerEmail || payment.customerPhone || payment.customerName || payment.orderId || payment.id || "";
+      const key = rawKey.toString().toLowerCase() || payment.id;
+
+      const existing = customerMap.get(key) || {
+        id: key,
+        name: payment.customerName || "Customer",
+        email: payment.customerEmail || "N/A",
+        phone: payment.customerPhone || "N/A",
+        totalSpent: 0,
+        orders: new Set(),
+        methods: new Set(),
+        lastPaymentDate: null,
+        paidCount: 0,
+        pendingCount: 0,
+        failedCount: 0
+      };
+
+      existing.totalSpent += Number(payment.amount || 0);
+      if (payment.orderId) existing.orders.add(payment.orderId);
+      if (payment.method) existing.methods.add(payment.method);
+      if (payment.date) {
+        existing.lastPaymentDate = !existing.lastPaymentDate || new Date(payment.date) > new Date(existing.lastPaymentDate)
+          ? payment.date
+          : existing.lastPaymentDate;
+      }
+      if (payment.status === "Paid") existing.paidCount += 1;
+      if (payment.status === "Pending") existing.pendingCount += 1;
+      if (payment.status === "Failed") existing.failedCount += 1;
+
+      customerMap.set(key, existing);
+    });
+
+    return Array.from(customerMap.values()).map(customer => ({
+      ...customer,
+      orders: Array.from(customer.orders),
+      methods: Array.from(customer.methods)
+    }));
+  };
+
+  const getCustomerStatus = (customer) => {
+    if (customer.paidCount > 0) return { label: "Active", className: "status-paid" };
+    if (customer.pendingCount > 0) return { label: "Pending", className: "status-pending" };
+    if (customer.failedCount > 0) return { label: "Attention", className: "status-failed" };
+    return { label: "New", className: "status-pending" };
+  };
+
   const handleUpdatePaymentStatus = (paymentId, newStatus) => {
     if (updatePaymentStatus) {
       updatePaymentStatus(paymentId, newStatus);
@@ -342,6 +393,341 @@ function AdminDashboard() {
     resetPaymentForm();
   };
 
+  const customers = getCustomers();
+
+  const productTableData = useMemo(
+    () => products.map(product => ({ ...product, actions: "" })),
+    [products]
+  );
+
+  const customerTableData = useMemo(
+    () => customers.map(customer => {
+      const status = getCustomerStatus(customer);
+      return {
+        ...customer,
+        ordersCount: customer.orders.length,
+        totalSpentValue: customer.totalSpent,
+        lastPaymentDateValue: customer.lastPaymentDate,
+        statusLabel: status.label,
+        statusClass: status.className
+      };
+    }),
+    [customers, getCustomerStatus]
+  );
+
+  const orderTableData = useMemo(
+    () => getFilteredOrders().map(order => ({
+      ...order,
+      customerDisplay: getCustomerName(order),
+      customerIdDisplay: order.customerId || "N/A",
+      dateDisplay: formatDate(order.date),
+      totalAmount: order.total || 0,
+      paymentLabel: order.paymentMethod === "cod" ? "COD" : "Online",
+      statusLabel: order.status || "Pending",
+      actions: ""
+    })),
+    [getFilteredOrders, getCustomerName, formatDate]
+  );
+
+  const paymentTableData = useMemo(
+    () => getFilteredPayments().map(payment => ({
+      ...payment,
+      dateDisplay: formatDate(payment.date),
+      methodLabel: `${getPaymentMethodIcon(payment.method)} ${payment.method}`,
+      amountValue: payment.amount || 0,
+      statusLabel: payment.status || "Pending",
+      actions: ""
+    })),
+    [getFilteredPayments, formatDate, getPaymentMethodIcon]
+  );
+
+  const pricingTableData = useMemo(
+    () => products.map(product => {
+      const margin = product.price - product.wholesalePrice;
+      const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+      return {
+        ...product,
+        margin,
+        marginPercent,
+        actions: ""
+      };
+    }),
+    [products]
+  );
+
+  const productColumns = useMemo(() => [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "name", header: "Name" },
+    {
+      accessorKey: "category",
+      header: "Category",
+      Cell: ({ cell }) => <span className="category-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "price",
+      header: "Retail Price",
+      Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "wholesalePrice",
+      header: "Wholesale",
+      Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "stock",
+      header: "Stock",
+      Cell: ({ row }) => (
+        <span className={`stock-badge ${row.original.stock < 50 ? "low" : ""}`}>
+          {row.original.stock}
+        </span>
+      )
+    },
+    { accessorKey: "moq", header: "MOQ" },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-edit"
+            onClick={() => handleEditClick(row.original)}
+            title="Edit"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-delete"
+            onClick={() => handleDeleteProduct(row.original.id, row.original.name)}
+            title="Delete"
+          >
+            🗑️
+          </button>
+        </div>
+      )
+    }
+  ], [handleEditClick, handleDeleteProduct]);
+
+  const customerColumns = useMemo(() => [
+    {
+      accessorKey: "name",
+      header: "Customer",
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>
+    },
+    { accessorKey: "email", header: "Email" },
+    { accessorKey: "phone", header: "Phone" },
+    { accessorKey: "ordersCount", header: "Orders" },
+    {
+      accessorKey: "totalSpentValue",
+      header: "Total Spent",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "lastPaymentDateValue",
+      header: "Last Payment",
+      Cell: ({ cell }) => (cell.getValue() ? formatDate(cell.getValue()) : "N/A")
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`payment-status-badge ${row.original.statusClass}`}>
+          {row.original.statusLabel}
+        </span>
+      )
+    }
+  ], [formatDate]);
+
+  const orderColumns = useMemo(() => [
+    {
+      accessorKey: "id",
+      header: "Order ID",
+      Cell: ({ cell }) => <strong>#{cell.getValue()}</strong>
+    },
+    {
+      accessorKey: "customerDisplay",
+      header: "Customer",
+      Cell: ({ row }) => (
+        <div>
+          <div>{row.original.customerDisplay}</div>
+          <small style={{ color: "#666" }}>ID: {row.original.customerIdDisplay}</small>
+        </div>
+      )
+    },
+    { accessorKey: "dateDisplay", header: "Date" },
+    {
+      accessorKey: "totalAmount",
+      header: "Total Amount",
+      Cell: ({ cell }) => <span className="amount">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "paymentLabel",
+      header: "Payment",
+      Cell: ({ cell }) => <span className="payment-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`status-badge status-${row.original.statusLabel?.toLowerCase() || "pending"}`}>
+          {getStatusBadge(row.original.statusLabel || "Pending")} {row.original.statusLabel || "Pending"}
+        </span>
+      )
+    },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-view"
+            onClick={() => handleViewOrder(row.original)}
+            title="View Details"
+          >
+            👁️
+          </button>
+          <select
+            className="btn-status-select"
+            value={row.original.statusLabel || "Pending"}
+            onChange={(e) => handleUpdateOrderStatus(row.original.id, e.target.value)}
+            title="Update Status"
+          >
+            <option value="Pending">Pending</option>
+            <option value="Processing">Processing</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+      )
+    }
+  ], [handleUpdateOrderStatus, handleViewOrder, getStatusBadge]);
+
+  const paymentColumns = useMemo(() => [
+    {
+      accessorKey: "id",
+      header: "Payment ID",
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>
+    },
+    { accessorKey: "orderId", header: "Order ID" },
+    { accessorKey: "customerName", header: "Customer" },
+    { accessorKey: "dateDisplay", header: "Date" },
+    {
+      accessorKey: "methodLabel",
+      header: "Method",
+      Cell: ({ cell }) => <span className="method-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "amountValue",
+      header: "Amount",
+      Cell: ({ cell }) => <span className="amount">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`payment-status-badge status-${row.original.statusLabel?.toLowerCase() || "pending"}`}>
+          {getPaymentStatusColor(row.original.statusLabel || "Pending")} {row.original.statusLabel || "Pending"}
+        </span>
+      )
+    },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-view"
+            onClick={() => handleViewPayment(row.original)}
+            title="View Details"
+          >
+            👁️
+          </button>
+          <select
+            className="btn-status-select"
+            value={row.original.statusLabel || "Pending"}
+            onChange={(e) => handleUpdatePaymentStatus(row.original.id, e.target.value)}
+            title="Update Status"
+          >
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Failed">Failed</option>
+            <option value="Refunded">Refunded</option>
+          </select>
+        </div>
+      )
+    }
+  ], [handleUpdatePaymentStatus, handleViewPayment, getPaymentStatusColor]);
+
+  const pricingColumns = useMemo(() => [
+    {
+      accessorKey: "name",
+      header: "Product",
+      Cell: ({ row }) => (
+        <div>
+          <strong>{row.original.name}</strong>
+          <br />
+          <small>{row.original.category}</small>
+        </div>
+      )
+    },
+    {
+      accessorKey: "price",
+      header: "Retail Price",
+      Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "wholesalePrice",
+      header: "Wholesale Price",
+      Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "margin",
+      header: "Margin",
+      Cell: ({ cell }) => <span className="margin">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "marginPercent",
+      header: "Discount %",
+      Cell: ({ row }) => <span className="discount-badge">{row.original.marginPercent}%</span>
+    },
+    {
+      accessorKey: "actions",
+      header: "Action",
+      Cell: ({ row }) => (
+        <button
+          className="btn-edit-small"
+          onClick={() => handleEditClick(row.original)}
+        >
+          Edit Pricing
+        </button>
+      )
+    }
+  ], [handleEditClick]);
+
+  const orderItemsColumns = useMemo(() => [
+    { accessorKey: "name", header: "Product" },
+    { accessorKey: "quantity", header: "Quantity" },
+    {
+      accessorKey: "price",
+      header: "Price",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "total",
+      header: "Total",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    }
+  ], []);
+
+  const orderItemsData = useMemo(
+    () => (selectedOrder?.items || []).map(item => ({
+      name: item.name || "Product",
+      quantity: item.quantity || 0,
+      price: item.price || 0,
+      total: (item.quantity || 0) * (item.price || 0)
+    })),
+    [selectedOrder]
+  );
+
   return (
     <div className="admin-layout">
       {/* Sidebar */}
@@ -365,6 +751,12 @@ function AdminDashboard() {
             onClick={() => { setActiveTab("payments"); setPaymentStatusFilter("all"); }}
           >
             Payments
+          </button>
+          <button 
+            className={activeTab === "customers" ? "active" : ""} 
+            onClick={() => setActiveTab("customers")}
+          >
+            Customers
           </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 
@@ -394,6 +786,7 @@ function AdminDashboard() {
             {activeTab === "products" && "Product Management Dashboard"}
             {activeTab === "orders" && "Order Management Dashboard"}
             {activeTab === "payments" && "Payment Management Dashboard"}
+            {activeTab === "customers" && "Customer Management Dashboard"}
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
           </h1>
@@ -576,53 +969,34 @@ function AdminDashboard() {
             )}
 
             <div className="products-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Retail Price</th>
-                    <th>Wholesale</th>
-                    <th>Stock</th>
-                    <th>MOQ</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(product => (
-                    <tr key={product.id}>
-                      <td>{product.id}</td>
-                      <td>{product.name}</td>
-                      <td><span className="category-badge">{product.category}</span></td>
-                      <td>₹{product.price}</td>
-                      <td>₹{product.wholesalePrice}</td>
-                      <td>
-                        <span className={`stock-badge ${product.stock < 50 ? 'low' : ''}`}>
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td>{product.moq}</td>
-                      <td className="actions">
-                        <button 
-                          className="btn-edit" 
-                          onClick={() => handleEditClick(product)}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="btn-delete" 
-                          onClick={() => handleDeleteProduct(product.id, product.name)}
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <CommonTable
+                columns={productColumns}
+                data={productTableData}
+                fileName="products"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === "customers" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Customer Directory</h2>
+            </div>
+
+            <div className="customers-table">
+              {customers.length === 0 ? (
+                <div className="empty-state">
+                  <p>No customer records available.</p>
+                </div>
+              ) : (
+                <CommonTable
+                  columns={customerColumns}
+                  data={customerTableData}
+                  fileName="customers"
+                />
+              )}
             </div>
           </div>
         )}
@@ -678,48 +1052,11 @@ function AdminDashboard() {
             <h2>Pricing Overview</h2>
             
             <div className="pricing-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Retail Price</th>
-                    <th>Wholesale Price</th>
-                    <th>Margin</th>
-                    <th>Discount %</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(product => {
-                    const margin = product.price - product.wholesalePrice;
-                    const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : 0;
-                    
-                    return (
-                      <tr key={product.id}>
-                        <td>
-                          <strong>{product.name}</strong>
-                          <br />
-                          <small>{product.category}</small>
-                        </td>
-                        <td className="price">₹{product.price}</td>
-                        <td className="price">₹{product.wholesalePrice}</td>
-                        <td className="margin">₹{margin}</td>
-                        <td>
-                          <span className="discount-badge">{marginPercent}%</span>
-                        </td>
-                        <td>
-                          <button 
-                            className="btn-edit-small" 
-                            onClick={() => handleEditClick(product)}
-                          >
-                            Edit Pricing
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <CommonTable
+                columns={pricingColumns}
+                data={pricingTableData}
+                fileName="pricing"
+              />
             </div>
           </div>
         )}
@@ -769,64 +1106,11 @@ function AdminDashboard() {
               </div>
             ) : (
               <div className="orders-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Total Amount</th>
-                      <th>Payment</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredOrders().map(order => (
-                      <tr key={order.id}>
-                        <td>
-                          <strong>#{order.id}</strong>
-                        </td>
-                        <td>
-                          <div>{getCustomerName(order)}</div>
-                          <small style={{color: '#666'}}>ID: {order.customerId || 'N/A'}</small>
-                        </td>
-                        <td>{formatDate(order.date)}</td>
-                        <td className="amount">₹{order.total?.toLocaleString() || 0}</td>
-                        <td>
-                          <span className="payment-badge">
-                            {order.paymentMethod === "cod" ? "COD" : "Online"}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-badge status-${order.status?.toLowerCase() || 'pending'}`}>
-                            {getStatusBadge(order.status || "Pending")} {order.status || "Pending"}
-                          </span>
-                        </td>
-                        <td className="actions">
-                          <button 
-                            className="btn-view" 
-                            onClick={() => handleViewOrder(order)}
-                            title="View Details"
-                          >
-                            👁️
-                          </button>
-                          <select 
-                            className="btn-status-select"
-                            value={order.status || "Pending"}
-                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                            title="Update Status"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <CommonTable
+                  columns={orderColumns}
+                  data={orderTableData}
+                  fileName="orders"
+                />
               </div>
             )}
 
@@ -907,26 +1191,14 @@ function AdminDashboard() {
 
                     <div className="order-detail-section">
                       <h3>Order Items</h3>
-                      <table className="items-table">
-                        <thead>
-                          <tr>
-                            <th>Product</th>
-                            <th>Quantity</th>
-                            <th>Price</th>
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedOrder.items && selectedOrder.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td>{item.name || "Product"}</td>
-                              <td>{item.quantity || 0}</td>
-                              <td>₹{item.price?.toLocaleString() || 0}</td>
-                              <td>₹{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="items-table">
+                        <CommonTable
+                          columns={orderItemsColumns}
+                          data={orderItemsData}
+                          fileName={`order-${selectedOrder.id}-items`}
+                          showSelection={false}
+                        />
+                      </div>
                     </div>
 
                     <div className="order-detail-section order-summary">
@@ -1110,63 +1382,11 @@ function AdminDashboard() {
               </div>
             ) : (
               <div className="payments-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Payment ID</th>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Method</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredPayments().map(payment => (
-                      <tr key={payment.id}>
-                        <td>
-                          <strong>{payment.id}</strong>
-                        </td>
-                        <td>{payment.orderId}</td>
-                        <td>{payment.customerName}</td>
-                        <td>{formatDate(payment.date)}</td>
-                        <td>
-                          <span className="method-badge">
-                            {getPaymentMethodIcon(payment.method)} {payment.method}
-                          </span>
-                        </td>
-                        <td className="amount">₹{payment.amount?.toLocaleString() || 0}</td>
-                        <td>
-                          <span className={`payment-status-badge status-${payment.status?.toLowerCase() || 'pending'}`}>
-                            {getPaymentStatusColor(payment.status || "Pending")} {payment.status || "Pending"}
-                          </span>
-                        </td>
-                        <td className="actions">
-                          <button 
-                            className="btn-view" 
-                            onClick={() => handleViewPayment(payment)}
-                            title="View Details"
-                          >
-                            👁️
-                          </button>
-                          <select 
-                            className="btn-status-select"
-                            value={payment.status || "Pending"}
-                            onChange={(e) => handleUpdatePaymentStatus(payment.id, e.target.value)}
-                            title="Update Status"
-                          >
-                            <option value="Paid">Paid</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Failed">Failed</option>
-                            <option value="Refunded">Refunded</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <CommonTable
+                  columns={paymentColumns}
+                  data={paymentTableData}
+                  fileName="payments"
+                />
               </div>
             )}
 

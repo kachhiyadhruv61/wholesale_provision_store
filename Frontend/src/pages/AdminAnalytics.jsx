@@ -1,7 +1,9 @@
 import { useContext, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { OrderContext } from "../context/OrderContext";
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
+import CommonTable from "../components/CommonTable";
 import {
   ResponsiveContainer,
   LineChart,
@@ -23,6 +25,7 @@ function AdminAnalytics() {
   const { products } = useContext(ProductContext);
   const { cart } = useContext(CartContext);
   const [range, setRange] = useState("7d"); // 7d | 30d | all
+  const navigate = useNavigate();
 
   const colors = ["#667eea", "#764ba2", "#28a745", "#ff9f43", "#e74c3c", "#17a2b8"];
 
@@ -141,20 +144,94 @@ function AdminAnalytics() {
     };
   }, [filteredOrders, prevFilteredOrders, products, cart]);
 
+  const topProductsColumns = useMemo(() => [
+    { accessorKey: "name", header: "Product Name" },
+    { accessorKey: "units", header: "Units Sold" },
+    {
+      accessorKey: "revenue",
+      header: "Revenue",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toFixed(2)}`
+    }
+  ], []);
+
+  const topProductsData = useMemo(
+    () => analytics.topProducts.map((p) => ({ ...p })),
+    [analytics.topProducts]
+  );
+
+  const recentOrdersColumns = useMemo(() => [
+    {
+      accessorKey: "id",
+      header: "Order ID",
+      Cell: ({ cell }) => `#${cell.getValue()}`
+    },
+    { accessorKey: "dateDisplay", header: "Date" },
+    { accessorKey: "itemsCount", header: "Items" },
+    {
+      accessorKey: "totalValue",
+      header: "Total",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toFixed(2)}`
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      Cell: ({ row }) => <span className="status-badge confirmed">{row.original.status}</span>
+    },
+    {
+      accessorKey: "paymentStatus",
+      header: "Payment",
+      Cell: ({ row }) => <span className="status-badge paid">{row.original.paymentStatus}</span>
+    }
+  ], []);
+
+  const recentOrdersData = useMemo(
+    () => analytics.recentOrders.map((order) => ({
+      ...order,
+      dateDisplay: new Date(order.date).toLocaleDateString(),
+      itemsCount: order.items.length,
+      totalValue: order.total || 0,
+      status: order.status || "Confirmed",
+      paymentStatus: order.paymentStatus || "Completed"
+    })),
+    [analytics.recentOrders]
+  );
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminLoggedIn");
+    navigate("/");
+  };
+
   return (
-    <div className="admin-analytics">
-      <div className="analytics-header">
-        <h2>Admin Analytics</h2>
-        <div className="filter-bar">
-          <span>Range:</span>
-          <button className={`filter-btn ${range === "7d" ? "active" : ""}`} onClick={() => setRange("7d")}>7 Days</button>
-          <button className={`filter-btn ${range === "30d" ? "active" : ""}`} onClick={() => setRange("30d")}>30 Days</button>
-          <button className={`filter-btn ${range === "all" ? "active" : ""}`} onClick={() => setRange("all")}>All Time</button>
-        </div>
+    <div className="admin-layout">
+      {/* Sidebar */}
+      <div className="admin-sidebar">
+        <h3> Admin Panel</h3>
+        <nav className="admin-nav">
+          <button onClick={() => navigate("/admin-dashboard")}>Dashboard</button>
+          <button className="active" onClick={() => navigate("/admin-analytics")}>Analytics</button>
+          <button onClick={handleLogout} className="logout-btn">Logout</button>
+        </nav>
       </div>
 
-      {/* KPI Cards */}
-      <div className="kpi-grid">
+      {/* Main Content */}
+      <div className="admin-content">
+        <div className="admin-header">
+          <h1>Admin Analytics</h1>
+        </div>
+
+        <div className="admin-section admin-analytics">
+          <div className="analytics-header">
+            <h2>Admin Analytics</h2>
+            <div className="filter-bar">
+              <span>Range:</span>
+              <button className={`filter-btn ${range === "7d" ? "active" : ""}`} onClick={() => setRange("7d")}>7 Days</button>
+              <button className={`filter-btn ${range === "30d" ? "active" : ""}`} onClick={() => setRange("30d")}>30 Days</button>
+              <button className={`filter-btn ${range === "all" ? "active" : ""}`} onClick={() => setRange("all")}>All Time</button>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="kpi-grid">
         <div className="kpi-card">
           <div className="kpi-icon">🛒</div>
           <div className="kpi-content">
@@ -198,8 +275,8 @@ function AdminAnalytics() {
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="chart-grid">
+          {/* Charts */}
+          <div className="chart-grid">
         <div className="analytics-card">
           <h3>Revenue & Orders Trend</h3>
           <div className="chart-wrap">
@@ -289,68 +366,38 @@ function AdminAnalytics() {
         </div>
       </div>
 
-      {/* Top Products Table */}
-      <div className="analytics-section">
+          {/* Top Products Table */}
+          <div className="analytics-section">
         <h3>Top 5 Best-Selling Products</h3>
         {analytics.topProducts.length > 0 ? (
-          <table className="analytics-table">
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th>Units Sold</th>
-                <th>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.topProducts.map((p, idx) => (
-                <tr key={idx}>
-                  <td>{p.name}</td>
-                  <td>{p.units}</td>
-                  <td>₹{p.revenue.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              <CommonTable
+                columns={topProductsColumns}
+                data={topProductsData}
+                fileName="top-products"
+                showSelection={false}
+              />
         ) : (
           <p>No sales data available yet.</p>
         )}
       </div>
 
-      {/* Recent Orders */}
-      <div className="analytics-section">
+          {/* Recent Orders */}
+          <div className="analytics-section">
         <h3>Recent Orders</h3>
         {analytics.recentOrders.length > 0 ? (
-          <table className="analytics-table">
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Date</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Payment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.recentOrders.map((order) => (
-                <tr key={order.id}>
-                  <td>#{order.id}</td>
-                  <td>{new Date(order.date).toLocaleDateString()}</td>
-                  <td>{order.items.length}</td>
-                  <td>₹{(order.total || 0).toFixed(2)}</td>
-                  <td><span className="status-badge confirmed">{order.status || "Confirmed"}</span></td>
-                  <td><span className="status-badge paid">{order.paymentStatus || "Completed"}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <CommonTable
+            columns={recentOrdersColumns}
+            data={recentOrdersData}
+            fileName="recent-orders"
+            showSelection={false}
+          />
         ) : (
           <p>No orders placed yet.</p>
         )}
       </div>
 
-      {/* Stats Summary */}
-      <div className="analytics-section summary">
+          {/* Stats Summary */}
+          <div className="analytics-section summary">
         <h3>Quick Summary</h3>
         <ul>
           <li>
@@ -369,6 +416,8 @@ function AdminAnalytics() {
             📦 <strong>Inventory:</strong> {analytics.totalProducts} SKUs available
           </li>
         </ul>
+          </div>
+        </div>
       </div>
     </div>
   );
