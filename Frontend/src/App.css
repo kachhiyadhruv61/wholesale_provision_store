@@ -1124,6 +1124,33 @@ h2 {
   text-decoration: underline;
 }
 
+.form-helper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.message {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  background: #ffecec;
+  color: #b42318;
+  border: 1px solid #f5c2c2;
+}
+
+.success-message {
+  background: #e7f8ee;
+  color: #1f7a3f;
+  border: 1px solid #b8e7c8;
+}
+
 /* Login Page - Clean Form Style */
 .login-page-container {
   min-height: 100vh;

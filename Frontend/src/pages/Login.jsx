@@ -89,6 +89,12 @@ function Login() {
               </small>
             </div>
 
+            <div className="form-helper">
+              <Link to="/forgot-password" className="auth-link">
+                Forgot password?
+              </Link>
+            </div>
+
             <button type="submit" className="login-submit-btn">
               <span>Login</span>
               <span className="btn-arrow">→</span>
