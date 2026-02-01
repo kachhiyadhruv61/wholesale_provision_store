@@ -1,6 +1,19 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useContext } from "react";
+import { ProductContext } from "../context/ProductContext";
+import { CartContext } from "../context/CartContext";
 
 function Home() {
+  const navigate = useNavigate();
+  const { products } = useContext(ProductContext);
+  const { addToCart } = useContext(CartContext);
+  
+  // Get first 6 products for home page
+  const featuredProducts = products.slice(0, 6);
+
+  const handleAddToCart = (product) => {
+    addToCart(product);
+  };
   return (
     <main className="home">
       {/* Hero Section */}
@@ -89,47 +102,59 @@ function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="features-modern">
-        <h2 className="section-title">Why Choose DK TRADERS?</h2>
-        <p className="section-subtitle">Benefits that make us stand out</p>
+      {/* Featured Products Section */}
+      <section className="featured-products">
+        <h2 className="section-title">Featured Products</h2>
+        <p className="section-subtitle">Check out our popular wholesale items</p>
         
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">⚡</div>
-            <h3>Lightning Fast</h3>
-            <p>Quick browsing, instant cart updates, and seamless checkout experience</p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">🎯</div>
-            <h3>Best Prices</h3>
-            <p>Competitive wholesale prices with exclusive deals and bulk discounts</p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">🛡️</div>
-            <h3>Quality Assured</h3>
-            <p>All products are verified and quality-checked before delivery</p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">📱</div>
-            <h3>Modern Platform</h3>
-            <p>Built with React for smooth, responsive experience on all devices</p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">📊</div>
-            <h3>Order Tracking</h3>
-            <p>Track your order history and manage your purchases easily</p>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">🎁</div>
-            <h3>Member Rewards</h3>
-            <p>Earn points on every purchase and unlock exclusive benefits</p>
-          </div>
+        <div className="products-grid">
+          {featuredProducts.map((product) => (
+            <div className="product-card-home" key={product.id}>
+              <div className="product-image-wrapper">
+                <img 
+                  src={product.image} 
+                  alt={product.name}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.parentElement.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #e9ecef; color: #6c757d; font-size: 48px;">📦</div>';
+                  }}
+                />
+                <span className="product-badge">{product.category}</span>
+              </div>
+              <div className="product-info-home">
+                <h3>{product.name}</h3>
+                <p className="product-description">{product.description}</p>
+                <div className="product-pricing">
+                  <span className="price-label">Wholesale Price:</span>
+                  <span className="price">₹{product.wholesalePrice}</span>
+                </div>
+                <div className="product-moq">
+                  <span>MOQ: {product.moq} {product.unit}</span>
+                </div>
+                <div className="product-actions">
+                  <button 
+                    className="btn-add-to-cart"
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    🛒 Add to Cart
+                  </button>
+                  <Link 
+                    to={`/product/${product.id}`}
+                    className="btn-view-details"
+                  >
+                    View Details
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="view-all-products">
+          <Link to="/products" className="btn btn-hero-primary">
+            View All Products →
+          </Link>
         </div>
       </section>
 

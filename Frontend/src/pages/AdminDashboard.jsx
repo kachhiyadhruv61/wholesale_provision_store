@@ -1,8 +1,9 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
+import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
@@ -18,7 +19,6 @@ function AdminDashboard() {
     retailPrice: "",
     wholesalePrice: ""
   });
-
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -39,19 +39,16 @@ function AdminDashboard() {
   // Form states
   const [formData, setFormData] = useState({
     name: "",
-    category: "Grocery",
+    category: "Grains",
     price: "",
     wholesalePrice: "",
     stock: "",
     moq: "",
     unit: "bag",
-    description: "",
-    image: ""
+    description: ""
   });
 
-  const [imagePreview, setImagePreview] = useState(null);
-
-  const categories = ["Grocery", "Masala Spices", "Pan Center", "Daily Used Product", "Snacks", "Biscuit", "Chocolates"];
+  const categories = ["Grains", "Sweeteners", "Oils", "Spices", "Snacks", "Others"];
   const units = ["bag", "box", "bottle", "kg", "litre"];
 
   const handleInputChange = (e) => {
@@ -59,31 +56,17 @@ function AdminDashboard() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image: reader.result }));
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const resetForm = () => {
     setFormData({
       name: "",
-      category: "Grocery",
+      category: "Grains",
       price: "",
       wholesalePrice: "",
       stock: "",
       moq: "",
       unit: "bag",
-      description: "",
-      image: ""
+      description: ""
     });
-    setImagePreview(null);
     setEditingProduct(null);
     setShowAddForm(false);
   };
@@ -104,7 +87,6 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
-      image: formData.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -133,7 +115,6 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
-      image: formData.image || editingProduct.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -157,10 +138,8 @@ function AdminDashboard() {
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
-      description: product.description || "",
-      image: product.image || ""
+      description: product.description || ""
     });
-    setImagePreview(product.image || null);
     setShowAddForm(true);
   };
 
@@ -184,51 +163,6 @@ function AdminDashboard() {
     navigate("/");
   };
 
-  const handlePriceEditClick = (product) => {
-    setEditingPrice(product);
-    setPriceFormData({
-      retailPrice: product.price,
-      wholesalePrice: product.wholesalePrice
-    });
-  };
-
-  const handleUpdatePrice = () => {
-    if (!priceFormData.retailPrice || !priceFormData.wholesalePrice) {
-      alert("Please fill all price fields");
-      return;
-    }
-
-    const retailPrice = Number(priceFormData.retailPrice);
-    const wholesalePrice = Number(priceFormData.wholesalePrice);
-
-    if (retailPrice < wholesalePrice) {
-      alert("Retail price must be greater than wholesale price");
-      return;
-    }
-
-    const updatedData = {
-      ...editingPrice,
-      price: retailPrice,
-      wholesalePrice: wholesalePrice,
-      bulkPricing: [
-        { quantity: 1, price: retailPrice },
-        { quantity: 5, price: retailPrice * 0.95 },
-        { quantity: 10, price: retailPrice * 0.90 },
-        { quantity: 20, price: wholesalePrice }
-      ]
-    };
-
-    updateProduct(editingPrice.id, updatedData);
-    alert("Price Updated Successfully!");
-    setEditingPrice(null);
-    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
-  };
-
-  const handleCancelPriceEdit = () => {
-    setEditingPrice(null);
-    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
-  };
-
   const getLowStockProducts = () => {
     return products.filter(p => p.stock < 50);
   };
@@ -249,12 +183,12 @@ function AdminDashboard() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      "Pending": "🟡",
-      "Processing": "🔵",
-      "Delivered": "🟢",
-      "Cancelled": "🔴"
+      "Pending": "Pending",
+      "Processing": "Processing",
+      "Delivered": "Delivered",
+      "Cancelled": "Cancelled"
     };
-    return statusMap[status] || "⚪";
+    return statusMap[status] || "Unknown";
   };
 
   const handleUpdateOrderStatus = (orderId, newStatus) => {
@@ -306,23 +240,73 @@ function AdminDashboard() {
 
   const getPaymentMethodIcon = (method) => {
     const methodMap = {
-      "UPI": "📱",
-      "Debit Card": "💳",
-      "Credit Card": "💳",
-      "Net Banking": "🏦",
-      "COD": "💵"
+      "UPI": "UPI",
+      "Debit Card": "Card",
+      "Credit Card": "Card",
+      "Net Banking": "Banking",
+      "COD": "COD"
     };
-    return methodMap[method] || "💳";
+    return methodMap[method] || "Card";
   };
 
   const getPaymentStatusColor = (status) => {
     const statusMap = {
-      "Paid": "🟢",
-      "Pending": "🟡",
-      "Failed": "🔴",
-      "Refunded": "🔵"
+      "Paid": "Paid",
+      "Pending": "Pending",
+      "Failed": "Failed",
+      "Refunded": "Refunded"
     };
-    return statusMap[status] || "⚪";
+    return statusMap[status] || "Unknown";
+  };
+
+  const getCustomers = () => {
+    const customerMap = new Map();
+
+    payments.forEach(payment => {
+      const rawKey = payment.customerEmail || payment.customerPhone || payment.customerName || payment.orderId || payment.id || "";
+      const key = rawKey.toString().toLowerCase() || payment.id;
+
+      const existing = customerMap.get(key) || {
+        id: key,
+        name: payment.customerName || "Customer",
+        email: payment.customerEmail || "N/A",
+        phone: payment.customerPhone || "N/A",
+        totalSpent: 0,
+        orders: new Set(),
+        methods: new Set(),
+        lastPaymentDate: null,
+        paidCount: 0,
+        pendingCount: 0,
+        failedCount: 0
+      };
+
+      existing.totalSpent += Number(payment.amount || 0);
+      if (payment.orderId) existing.orders.add(payment.orderId);
+      if (payment.method) existing.methods.add(payment.method);
+      if (payment.date) {
+        existing.lastPaymentDate = !existing.lastPaymentDate || new Date(payment.date) > new Date(existing.lastPaymentDate)
+          ? payment.date
+          : existing.lastPaymentDate;
+      }
+      if (payment.status === "Paid") existing.paidCount += 1;
+      if (payment.status === "Pending") existing.pendingCount += 1;
+      if (payment.status === "Failed") existing.failedCount += 1;
+
+      customerMap.set(key, existing);
+    });
+
+    return Array.from(customerMap.values()).map(customer => ({
+      ...customer,
+      orders: Array.from(customer.orders),
+      methods: Array.from(customer.methods)
+    }));
+  };
+
+  const getCustomerStatus = (customer) => {
+    if (customer.paidCount > 0) return { label: "Active", className: "status-paid" };
+    if (customer.pendingCount > 0) return { label: "Pending", className: "status-pending" };
+    if (customer.failedCount > 0) return { label: "Attention", className: "status-failed" };
+    return { label: "New", className: "status-pending" };
   };
 
   const handleUpdatePaymentStatus = (paymentId, newStatus) => {
@@ -409,17 +393,352 @@ function AdminDashboard() {
     resetPaymentForm();
   };
 
+  const customers = getCustomers();
+
+  const productTableData = useMemo(
+    () => products.map(product => ({ ...product, actions: "" })),
+    [products]
+  );
+
+  const customerTableData = useMemo(
+    () => customers.map(customer => {
+      const status = getCustomerStatus(customer);
+      return {
+        ...customer,
+        ordersCount: customer.orders.length,
+        totalSpentValue: customer.totalSpent,
+        lastPaymentDateValue: customer.lastPaymentDate,
+        statusLabel: status.label,
+        statusClass: status.className
+      };
+    }),
+    [customers, getCustomerStatus]
+  );
+
+  const orderTableData = useMemo(
+    () => getFilteredOrders().map(order => ({
+      ...order,
+      customerDisplay: getCustomerName(order),
+      customerIdDisplay: order.customerId || "N/A",
+      dateDisplay: formatDate(order.date),
+      totalAmount: order.total || 0,
+      paymentLabel: order.paymentMethod === "cod" ? "COD" : "Online",
+      statusLabel: order.status || "Pending",
+      actions: ""
+    })),
+    [getFilteredOrders, getCustomerName, formatDate]
+  );
+
+  const paymentTableData = useMemo(
+    () => getFilteredPayments().map(payment => ({
+      ...payment,
+      dateDisplay: formatDate(payment.date),
+      methodLabel: `${getPaymentMethodIcon(payment.method)} ${payment.method}`,
+      amountValue: payment.amount || 0,
+      statusLabel: payment.status || "Pending",
+      actions: ""
+    })),
+    [getFilteredPayments, formatDate, getPaymentMethodIcon]
+  );
+
+  const pricingTableData = useMemo(
+    () => products.map(product => {
+      const margin = product.price - product.wholesalePrice;
+      const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+      return {
+        ...product,
+        margin,
+        marginPercent,
+        actions: ""
+      };
+    }),
+    [products]
+  );
+
+  const productColumns = useMemo(() => [
+    { accessorKey: "id", header: "ID" },
+    { accessorKey: "name", header: "Name" },
+    {
+      accessorKey: "category",
+      header: "Category",
+      Cell: ({ cell }) => <span className="category-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "price",
+      header: "Retail Price",
+      Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "wholesalePrice",
+      header: "Wholesale",
+      Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "stock",
+      header: "Stock",
+      Cell: ({ row }) => (
+        <span className={`stock-badge ${row.original.stock < 50 ? "low" : ""}`}>
+          {row.original.stock}
+        </span>
+      )
+    },
+    { accessorKey: "moq", header: "MOQ" },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-edit"
+            onClick={() => handleEditClick(row.original)}
+            title="Edit"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-delete"
+            onClick={() => handleDeleteProduct(row.original.id, row.original.name)}
+            title="Delete"
+          >
+            🗑️
+          </button>
+        </div>
+      )
+    }
+  ], [handleEditClick, handleDeleteProduct]);
+
+  const customerColumns = useMemo(() => [
+    {
+      accessorKey: "name",
+      header: "Customer",
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>
+    },
+    { accessorKey: "email", header: "Email" },
+    { accessorKey: "phone", header: "Phone" },
+    { accessorKey: "ordersCount", header: "Orders" },
+    {
+      accessorKey: "totalSpentValue",
+      header: "Total Spent",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "lastPaymentDateValue",
+      header: "Last Payment",
+      Cell: ({ cell }) => (cell.getValue() ? formatDate(cell.getValue()) : "N/A")
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`payment-status-badge ${row.original.statusClass}`}>
+          {row.original.statusLabel}
+        </span>
+      )
+    }
+  ], [formatDate]);
+
+  const orderColumns = useMemo(() => [
+    {
+      accessorKey: "id",
+      header: "Order ID",
+      Cell: ({ cell }) => <strong>#{cell.getValue()}</strong>
+    },
+    {
+      accessorKey: "customerDisplay",
+      header: "Customer",
+      Cell: ({ row }) => (
+        <div>
+          <div>{row.original.customerDisplay}</div>
+          <small style={{ color: "#666" }}>ID: {row.original.customerIdDisplay}</small>
+        </div>
+      )
+    },
+    { accessorKey: "dateDisplay", header: "Date" },
+    {
+      accessorKey: "totalAmount",
+      header: "Total Amount",
+      Cell: ({ cell }) => <span className="amount">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "paymentLabel",
+      header: "Payment",
+      Cell: ({ cell }) => <span className="payment-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`status-badge status-${row.original.statusLabel?.toLowerCase() || "pending"}`}>
+          {getStatusBadge(row.original.statusLabel || "Pending")} {row.original.statusLabel || "Pending"}
+        </span>
+      )
+    },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-view"
+            onClick={() => handleViewOrder(row.original)}
+            title="View Details"
+          >
+            👁️
+          </button>
+          <select
+            className="btn-status-select"
+            value={row.original.statusLabel || "Pending"}
+            onChange={(e) => handleUpdateOrderStatus(row.original.id, e.target.value)}
+            title="Update Status"
+          >
+            <option value="Pending">Pending</option>
+            <option value="Processing">Processing</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+      )
+    }
+  ], [handleUpdateOrderStatus, handleViewOrder, getStatusBadge]);
+
+  const paymentColumns = useMemo(() => [
+    {
+      accessorKey: "id",
+      header: "Payment ID",
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>
+    },
+    { accessorKey: "orderId", header: "Order ID" },
+    { accessorKey: "customerName", header: "Customer" },
+    { accessorKey: "dateDisplay", header: "Date" },
+    {
+      accessorKey: "methodLabel",
+      header: "Method",
+      Cell: ({ cell }) => <span className="method-badge">{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "amountValue",
+      header: "Amount",
+      Cell: ({ cell }) => <span className="amount">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "statusLabel",
+      header: "Status",
+      Cell: ({ row }) => (
+        <span className={`payment-status-badge status-${row.original.statusLabel?.toLowerCase() || "pending"}`}>
+          {getPaymentStatusColor(row.original.statusLabel || "Pending")} {row.original.statusLabel || "Pending"}
+        </span>
+      )
+    },
+    {
+      accessorKey: "actions",
+      header: "Actions",
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-view"
+            onClick={() => handleViewPayment(row.original)}
+            title="View Details"
+          >
+            👁️
+          </button>
+          <select
+            className="btn-status-select"
+            value={row.original.statusLabel || "Pending"}
+            onChange={(e) => handleUpdatePaymentStatus(row.original.id, e.target.value)}
+            title="Update Status"
+          >
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Failed">Failed</option>
+            <option value="Refunded">Refunded</option>
+          </select>
+        </div>
+      )
+    }
+  ], [handleUpdatePaymentStatus, handleViewPayment, getPaymentStatusColor]);
+
+  const pricingColumns = useMemo(() => [
+    {
+      accessorKey: "name",
+      header: "Product",
+      Cell: ({ row }) => (
+        <div>
+          <strong>{row.original.name}</strong>
+          <br />
+          <small>{row.original.category}</small>
+        </div>
+      )
+    },
+    {
+      accessorKey: "price",
+      header: "Retail Price",
+      Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "wholesalePrice",
+      header: "Wholesale Price",
+      Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "margin",
+      header: "Margin",
+      Cell: ({ cell }) => <span className="margin">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "marginPercent",
+      header: "Discount %",
+      Cell: ({ row }) => <span className="discount-badge">{row.original.marginPercent}%</span>
+    },
+    {
+      accessorKey: "actions",
+      header: "Action",
+      Cell: ({ row }) => (
+        <button
+          className="btn-edit-small"
+          onClick={() => handleEditClick(row.original)}
+        >
+          Edit Pricing
+        </button>
+      )
+    }
+  ], [handleEditClick]);
+
+  const orderItemsColumns = useMemo(() => [
+    { accessorKey: "name", header: "Product" },
+    { accessorKey: "quantity", header: "Quantity" },
+    {
+      accessorKey: "price",
+      header: "Price",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "total",
+      header: "Total",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    }
+  ], []);
+
+  const orderItemsData = useMemo(
+    () => (selectedOrder?.items || []).map(item => ({
+      name: item.name || "Product",
+      quantity: item.quantity || 0,
+      price: item.price || 0,
+      total: (item.quantity || 0) * (item.price || 0)
+    })),
+    [selectedOrder]
+  );
+
   return (
     <div className="admin-layout">
       {/* Sidebar */}
       <div className="admin-sidebar">
-        <h3>Admin Panel</h3>
+        <h3> Admin Panel</h3>
         <nav className="admin-nav">
           <button 
             className={activeTab === "products" ? "active" : ""} 
             onClick={() => setActiveTab("products")}
           >
-            Products
+             Products
           </button>
           <button 
             className={activeTab === "orders" ? "active" : ""} 
@@ -434,10 +753,16 @@ function AdminDashboard() {
             Payments
           </button>
           <button 
+            className={activeTab === "customers" ? "active" : ""} 
+            onClick={() => setActiveTab("customers")}
+          >
+            Customers
+          </button>
+          <button 
             className={activeTab === "stock" ? "active" : ""} 
             onClick={() => setActiveTab("stock")}
           >
-            Stock Management
+             Stock Management
           </button>
           <button 
             className={activeTab === "pricing" ? "active" : ""} 
@@ -461,6 +786,7 @@ function AdminDashboard() {
             {activeTab === "products" && "Product Management Dashboard"}
             {activeTab === "orders" && "Order Management Dashboard"}
             {activeTab === "payments" && "Payment Management Dashboard"}
+            {activeTab === "customers" && "Customer Management Dashboard"}
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
           </h1>
@@ -531,7 +857,7 @@ function AdminDashboard() {
               <h2>Product Catalog</h2>
               {!showAddForm && (
                 <button className="btn-add" onClick={() => setShowAddForm(true)}>
-                  Add New Product
+                  ➕ Add New Product
                 </button>
               )}
             </div>
@@ -623,25 +949,6 @@ function AdminDashboard() {
                       rows="3"
                     />
                   </div>
-
-                  <div className="form-group full-width">
-                    <label>Product Image</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      style={{ padding: "10px" }}
-                    />
-                    {imagePreview && (
-                      <div style={{ marginTop: "10px" }}>
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
-                          style={{ maxWidth: "200px", maxHeight: "200px", objectFit: "contain", border: "1px solid #ddd", borderRadius: "8px", padding: "5px" }}
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="form-actions">
@@ -662,53 +969,34 @@ function AdminDashboard() {
             )}
 
             <div className="products-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Retail Price</th>
-                    <th>Wholesale</th>
-                    <th>Stock</th>
-                    <th>MOQ</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(product => (
-                    <tr key={product.id}>
-                      <td>{product.id}</td>
-                      <td>{product.name}</td>
-                      <td><span className="category-badge">{product.category}</span></td>
-                      <td>₹{product.price}</td>
-                      <td>₹{product.wholesalePrice}</td>
-                      <td>
-                        <span className={`stock-badge ${product.stock < 50 ? 'low' : ''}`}>
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td>{product.moq}</td>
-                      <td className="actions">
-                        <button 
-                          className="btn-edit" 
-                          onClick={() => handleEditClick(product)}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="btn-delete" 
-                          onClick={() => handleDeleteProduct(product.id, product.name)}
-                          title="Delete"
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <CommonTable
+                columns={productColumns}
+                data={productTableData}
+                fileName="products"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Customers Tab */}
+        {activeTab === "customers" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Customer Directory</h2>
+            </div>
+
+            <div className="customers-table">
+              {customers.length === 0 ? (
+                <div className="empty-state">
+                  <p>No customer records available.</p>
+                </div>
+              ) : (
+                <CommonTable
+                  columns={customerColumns}
+                  data={customerTableData}
+                  fileName="customers"
+                />
+              )}
             </div>
           </div>
         )}
@@ -761,104 +1049,14 @@ function AdminDashboard() {
         {/* Pricing Tab */}
         {activeTab === "pricing" && (
           <div className="admin-section">
-            <div className="section-header">
-              <h2>Pricing Overview</h2>
-            </div>
-
-            {editingPrice && (
-              <div className="product-form-card">
-                <h3>Edit Price - {editingPrice.name}</h3>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Retail Price (₹) *</label>
-                    <input
-                      type="number"
-                      value={priceFormData.retailPrice}
-                      onChange={(e) => setPriceFormData(prev => ({ ...prev, retailPrice: e.target.value }))}
-                      placeholder="1200"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Wholesale Price (₹) *</label>
-                    <input
-                      type="number"
-                      value={priceFormData.wholesalePrice}
-                      onChange={(e) => setPriceFormData(prev => ({ ...prev, wholesalePrice: e.target.value }))}
-                      placeholder="1050"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-                
-                <div className="price-info">
-                  <div className="price-info-row">
-                    <span>Margin:</span>
-                    <strong>₹{(Number(priceFormData.retailPrice) - Number(priceFormData.wholesalePrice)).toFixed(2)}</strong>
-                  </div>
-                  <div className="price-info-row">
-                    <span>Margin %:</span>
-                    <strong>{Number(priceFormData.retailPrice) > 0 ? (((Number(priceFormData.retailPrice) - Number(priceFormData.wholesalePrice)) / Number(priceFormData.retailPrice)) * 100).toFixed(1) : 0}%</strong>
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <button className="btn-save" onClick={handleUpdatePrice}>
-                    💾 Update Price
-                  </button>
-                  <button className="btn-cancel" onClick={handleCancelPriceEdit}>
-                    ❌ Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+            <h2>Pricing Overview</h2>
             
             <div className="pricing-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Retail Price</th>
-                    <th>Wholesale Price</th>
-                    <th>Margin</th>
-                    <th>Margin %</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((product, idx) => {
-                    const margin = product.price - product.wholesalePrice;
-                    const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : 0;
-                    
-                    return (
-                      <tr key={product.id}>
-                        <td>
-                          <strong>{product.name}</strong>
-                          <br />
-                          <small>{product.category}</small>
-                        </td>
-                        <td className="price">₹{product.price.toLocaleString()}</td>
-                        <td className="price">₹{product.wholesalePrice.toLocaleString()}</td>
-                        <td className="margin">₹{margin.toLocaleString()}</td>
-                        <td>
-                          <span className="margin-badge">{marginPercent}%</span>
-                        </td>
-                        <td>
-                          <button 
-                            className="btn-edit" 
-                            onClick={() => handlePriceEditClick(product)}
-                            title="Edit Price"
-                          >
-                            ✏️
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <CommonTable
+                columns={pricingColumns}
+                data={pricingTableData}
+                fileName="pricing"
+              />
             </div>
           </div>
         )}
@@ -879,25 +1077,25 @@ function AdminDashboard() {
                   className={statusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setStatusFilter("Pending")}
                 >
-                  🟡 Pending ({orders.filter(o => o.status === "Pending").length})
+                  Pending ({orders.filter(o => o.status === "Pending").length})
                 </button>
                 <button 
                   className={statusFilter === "Processing" ? "active" : ""} 
                   onClick={() => setStatusFilter("Processing")}
                 >
-                  🔵 Processing ({orders.filter(o => o.status === "Processing").length})
+                  Processing ({orders.filter(o => o.status === "Processing").length})
                 </button>
                 <button 
                   className={statusFilter === "Delivered" ? "active" : ""} 
                   onClick={() => setStatusFilter("Delivered")}
                 >
-                  🟢 Delivered ({orders.filter(o => o.status === "Delivered").length})
+                  Delivered ({orders.filter(o => o.status === "Delivered").length})
                 </button>
                 <button 
                   className={statusFilter === "Cancelled" ? "active" : ""} 
                   onClick={() => setStatusFilter("Cancelled")}
                 >
-                  🔴 Cancelled ({orders.filter(o => o.status === "Cancelled").length})
+                  Cancelled ({orders.filter(o => o.status === "Cancelled").length})
                 </button>
               </div>
             </div>
@@ -908,61 +1106,11 @@ function AdminDashboard() {
               </div>
             ) : (
               <div className="orders-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Total Amount</th>
-                      <th>Payment</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredOrders().map(order => (
-                      <tr key={order.id}>
-                        <td>
-                          <strong>#{order.id}</strong>
-                        </td>
-                        <td>{getCustomerName(order)}</td>
-                        <td>{formatDate(order.date)}</td>
-                        <td className="amount">₹{order.total?.toLocaleString() || 0}</td>
-                        <td>
-                          <span className="payment-badge">
-                            {order.paymentMethod === "cod" ? "COD" : "Online"}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-badge status-${order.status?.toLowerCase() || 'pending'}`}>
-                            {getStatusBadge(order.status || "Pending")} {order.status || "Pending"}
-                          </span>
-                        </td>
-                        <td className="actions">
-                          <button 
-                            className="btn-view" 
-                            onClick={() => handleViewOrder(order)}
-                            title="View Details"
-                          >
-                            👁️
-                          </button>
-                          <select 
-                            className="btn-status-select"
-                            value={order.status || "Pending"}
-                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                            title="Update Status"
-                          >
-                            <option value="Pending">🟡 Pending</option>
-                            <option value="Processing">🔵 Processing</option>
-                            <option value="Delivered">🟢 Delivered</option>
-                            <option value="Cancelled">🔴 Cancelled</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <CommonTable
+                  columns={orderColumns}
+                  data={orderTableData}
+                  fileName="orders"
+                />
               </div>
             )}
 
@@ -976,7 +1124,7 @@ function AdminDashboard() {
                       className="modal-close"
                       onClick={() => setShowOrderModal(false)}
                     >
-                      ✕
+                      ×
                     </button>
                   </div>
 
@@ -1043,26 +1191,14 @@ function AdminDashboard() {
 
                     <div className="order-detail-section">
                       <h3>Order Items</h3>
-                      <table className="items-table">
-                        <thead>
-                          <tr>
-                            <th>Product</th>
-                            <th>Quantity</th>
-                            <th>Price</th>
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedOrder.items && selectedOrder.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td>{item.name || "Product"}</td>
-                              <td>{item.quantity || 0}</td>
-                              <td>₹{item.price?.toLocaleString() || 0}</td>
-                              <td>₹{((item.quantity || 0) * (item.price || 0)).toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="items-table">
+                        <CommonTable
+                          columns={orderItemsColumns}
+                          data={orderItemsData}
+                          fileName={`order-${selectedOrder.id}-items`}
+                          showSelection={false}
+                        />
+                      </div>
                     </div>
 
                     <div className="order-detail-section order-summary">
@@ -1174,21 +1310,21 @@ function AdminDashboard() {
                   <div className="form-group">
                     <label>Payment Method *</label>
                     <select name="method" value={paymentFormData.method} onChange={handlePaymentInputChange}>
-                      <option value="UPI">📱 UPI</option>
-                      <option value="Debit Card">💳 Debit Card</option>
-                      <option value="Credit Card">💳 Credit Card</option>
-                      <option value="Net Banking">🏦 Net Banking</option>
-                      <option value="COD">💵 Cash on Delivery</option>
+                      <option value="UPI">UPI</option>
+                      <option value="Debit Card">Debit Card</option>
+                      <option value="Credit Card">Credit Card</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="COD">Cash on Delivery</option>
                     </select>
                   </div>
 
                   <div className="form-group">
                     <label>Payment Status *</label>
                     <select name="status" value={paymentFormData.status} onChange={handlePaymentInputChange}>
-                      <option value="Pending">🟡 Pending</option>
-                      <option value="Paid">🟢 Paid</option>
-                      <option value="Failed">🔴 Failed</option>
-                      <option value="Refunded">🔵 Refunded</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Failed">Failed</option>
+                      <option value="Refunded">Refunded</option>
                     </select>
                   </div>
                 </div>
@@ -1217,25 +1353,25 @@ function AdminDashboard() {
                   className={paymentStatusFilter === "Paid" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Paid")}
                 >
-                  🟢 Paid ({payments.filter(p => p.status === "Paid").length})
+                  Paid ({payments.filter(p => p.status === "Paid").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Pending")}
                 >
-                  🟡 Pending ({payments.filter(p => p.status === "Pending").length})
+                  Pending ({payments.filter(p => p.status === "Pending").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Failed" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Failed")}
                 >
-                  🔴 Failed ({payments.filter(p => p.status === "Failed").length})
+                  Failed ({payments.filter(p => p.status === "Failed").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Refunded" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Refunded")}
                 >
-                  🔵 Refunded ({payments.filter(p => p.status === "Refunded").length})
+                  Refunded ({payments.filter(p => p.status === "Refunded").length})
                 </button>
               </div>
             </div>
@@ -1246,63 +1382,11 @@ function AdminDashboard() {
               </div>
             ) : (
               <div className="payments-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Payment ID</th>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Method</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredPayments().map(payment => (
-                      <tr key={payment.id}>
-                        <td>
-                          <strong>{payment.id}</strong>
-                        </td>
-                        <td>{payment.orderId}</td>
-                        <td>{payment.customerName}</td>
-                        <td>{formatDate(payment.date)}</td>
-                        <td>
-                          <span className="method-badge">
-                            {getPaymentMethodIcon(payment.method)} {payment.method}
-                          </span>
-                        </td>
-                        <td className="amount">₹{payment.amount?.toLocaleString() || 0}</td>
-                        <td>
-                          <span className={`payment-status-badge status-${payment.status?.toLowerCase() || 'pending'}`}>
-                            {getPaymentStatusColor(payment.status || "Pending")} {payment.status || "Pending"}
-                          </span>
-                        </td>
-                        <td className="actions">
-                          <button 
-                            className="btn-view" 
-                            onClick={() => handleViewPayment(payment)}
-                            title="View Details"
-                          >
-                            👁️
-                          </button>
-                          <select 
-                            className="btn-status-select"
-                            value={payment.status || "Pending"}
-                            onChange={(e) => handleUpdatePaymentStatus(payment.id, e.target.value)}
-                            title="Update Status"
-                          >
-                            <option value="Paid">🟢 Paid</option>
-                            <option value="Pending">🟡 Pending</option>
-                            <option value="Failed">🔴 Failed</option>
-                            <option value="Refunded">🔵 Refunded</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <CommonTable
+                  columns={paymentColumns}
+                  data={paymentTableData}
+                  fileName="payments"
+                />
               </div>
             )}
 
@@ -1316,7 +1400,7 @@ function AdminDashboard() {
                       className="modal-close"
                       onClick={() => setShowPaymentModal(false)}
                     >
-                      ✕
+                      ×
                     </button>
                   </div>
 
