@@ -8,7 +8,7 @@ function Login() {
   const [credentials, setCredentials] = useState({
     username: "",
     email: "",
-    password: "",
+    password: "", 
   });
 
   const handleChange = (e) => {
