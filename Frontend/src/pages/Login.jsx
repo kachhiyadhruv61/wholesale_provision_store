@@ -10,7 +10,7 @@ function Login() {
     email: "",
     password: "", 
   });
-
+// abcd
   const handleChange = (e) => {
     const { name, value } = e.target; 
     setCredentials({ ...credentials, [name]: value });
