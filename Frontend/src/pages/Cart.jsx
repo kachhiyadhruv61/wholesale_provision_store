@@ -114,7 +114,7 @@ function Cart() {
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on orders ₹1000+</small>
+                <small>✓ Free delivery on orders ₹5000+</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>

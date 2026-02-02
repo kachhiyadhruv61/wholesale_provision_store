@@ -28,7 +28,7 @@ function Home() {
             </h1>
             <p className="hero-description">
               Your trusted wholesale partner for quality products at unbeatable prices.
-              Fast checkout, doorstep delivery, and 24/7 support.
+              Fast checkout and doorstep delivery.
             </p>
             <div className="hero-cta-buttons">
               <Link className="btn btn-hero-primary" to="/products">
@@ -41,25 +41,52 @@ function Home() {
           </div>
           
           <div className="hero-stats-card">
-            <div className="stat-item">
-              <div className="stat-icon">🚚</div>
-              <div className="stat-info">
-                <h4>Free Shipping</h4>
-                <p>On orders over ₹500</p>
+            <div className="hero-stats-inner">
+              <div className="hero-feature-item">
+                <div className="hero-feature-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="7" width="12" height="8" rx="2" />
+                    <path d="M13 9h4l3 3v3h-7" />
+                    <circle cx="6" cy="17" r="2" />
+                    <circle cx="18" cy="17" r="2" />
+                  </svg>
+                </div>
+                <div className="hero-feature-text">
+                  <h4>Free Shipping</h4>
+                  <p>On orders over ₹5000</p>
+                </div>
               </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-icon">💬</div>
-              <div className="stat-info">
-                <h4>24/7 Support</h4>
-                <p>We're here to help</p>
+
+              <div className="hero-feature-divider" />
+
+              <div className="hero-feature-item">
+                <div className="hero-feature-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4h7v7H4z" />
+                    <path d="M13 13h7v7h-7z" />
+                    <path d="M13 4h7v7h-7z" />
+                  </svg>
+                </div>
+                <div className="hero-feature-text">
+                  <h4>Bulk Order Support</h4>
+                  <p>Special pricing for bulk buyers</p>
+                </div>
               </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-icon">🔒</div>
-              <div className="stat-info">
-                <h4>Secure Payment</h4>
-                <p>100% Protected</p>
+
+              <div className="hero-feature-divider" />
+
+              <div className="hero-feature-item">
+                <div className="hero-feature-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="11" width="16" height="9" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                    <circle cx="12" cy="15.5" r="1.5" />
+                  </svg>
+                </div>
+                <div className="hero-feature-text">
+                  <h4>Secure Payment</h4>
+                  <p>100% protected payments</p>
+                </div>
               </div>
             </div>
           </div>

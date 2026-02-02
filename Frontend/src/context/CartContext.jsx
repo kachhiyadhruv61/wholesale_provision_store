@@ -90,7 +90,7 @@ export function CartProvider({ children }) {
     0
   );
 
-  const deliveryCharge = totalPrice > 0 && totalPrice < 1000 ? 40 : 0;
+  const deliveryCharge = totalPrice > 0 && totalPrice < 5000 ? 40 : 0;
 
   return (
     <CartContext.Provider
