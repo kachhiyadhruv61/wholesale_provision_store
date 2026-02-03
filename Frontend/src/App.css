@@ -9046,6 +9046,63 @@ h2 {
     max-width: 100%;
   }
 }
+/* ====== Checkout Minimum Order ====== */
+.checkout-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+  border: 2px solid #ff9800;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.warning-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: center;
+}
+
+.warning-content {
+  flex: 1;
+}
+
+.warning-content h4 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #d84315;
+}
+
+.warning-content p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #bf360c;
+  line-height: 1.5;
+}
+
+.warning-content .current-total {
+  margin: 12px 0 0 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.btn-continue:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #ccc 0%, #999 100%);
+}
+
+.btn-continue:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
 /* ====== Admin Home Page ====== */
 .admin-home-container {
   min-height: 100vh;

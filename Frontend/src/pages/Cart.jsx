@@ -94,7 +94,7 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span>Delivery Charges</span>
-                  {deliveryCharge > 0 ? (
+                  {deliveryCharge > 50000 ? (
                     <span>₹{deliveryCharge.toFixed(2)}</span>
                   ) : (
                     <span className="free">FREE</span>
@@ -114,7 +114,7 @@ function Cart() {
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on orders ₹1000+</small>
+                <small>✓ Free delivery on orders ₹5000+</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>

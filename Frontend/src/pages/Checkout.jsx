@@ -81,6 +81,14 @@ function Checkout() {
 
   const handleContinueToPayment = (e) => {
     e.preventDefault();
+    
+    // Validate minimum order value
+    const finalTotal = totalPrice + deliveryCharge;
+    if (finalTotal < 5000) {
+      alert("Minimum order value is ₹5000. Current total: ₹" + finalTotal.toFixed(2));
+      return;
+    }
+    
     if (validateDeliveryDetails()) {
       setPaymentStep("payment");
     }
@@ -88,6 +96,13 @@ function Checkout() {
 
   const handleProcessPayment = async (e) => {
     e.preventDefault();
+
+    // Validate minimum order value
+    const finalTotal = totalPrice + deliveryCharge;
+    if (finalTotal < 5000) {
+      alert("Minimum order value is ₹5000. Current total: ₹" + finalTotal.toFixed(2));
+      return;
+    }
 
     if (!validatePaymentDetails()) {
       return;
@@ -223,6 +238,18 @@ function Checkout() {
         {/* Delivery Details Step */}
         {paymentStep === "details" && (
           <div className="checkout-section delivery-details">
+            
+            {/* Minimum Order Warning */}
+            {finalTotal < 5000 && (
+              <div className="checkout-warning">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-content">
+                  <h4>Minimum Order Value Required</h4>
+                  <p>You need to add items worth ₹{(5000 - finalTotal).toFixed(2)} more to reach the minimum order value of ₹5000</p>
+                  <p className="current-total">Current Total: <strong>₹{finalTotal.toFixed(2)}</strong></p>
+                </div>
+              </div>
+            )}
             <h3>🚚 Delivery Details</h3>
             <form onSubmit={handleContinueToPayment}>
               
@@ -334,8 +361,12 @@ function Checkout() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-continue">
-                Continue to Payment →
+              <button 
+                type="submit" 
+                className="btn-continue"
+                disabled={finalTotal < 5000}
+              >
+                {finalTotal < 5000 ? `Add ₹${(5000 - finalTotal).toFixed(2)} more to continue` : "Continue to Payment →"}
               </button>
             </form>
           </div>
