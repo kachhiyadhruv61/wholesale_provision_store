@@ -14,6 +14,7 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import AdminHome from "./pages/AdminHome";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import OrderSuccess from "./pages/OrderSuccess";
 import UserProfile from "./pages/UserProfile";
@@ -53,6 +54,14 @@ function AppShell() {
         <Route path="/profile" element={<UserProfile />} />
         {/* Admin Routes - Dedicated admin login page */}
         <Route path="/admin" element={<AdminLoginPage />} />
+        <Route
+          path="/admin-home"
+          element={
+            <ProtectedRoute>
+              <AdminHome />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin-dashboard"
           element={

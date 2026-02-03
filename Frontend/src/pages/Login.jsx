@@ -26,7 +26,8 @@ function Login() {
     // Automatically detect admin login
     if (credentials.username === "admin" && credentials.password === "admin123") {
       localStorage.setItem("adminLoggedIn", "true");
-      navigate("/admin-dashboard");
+      localStorage.setItem("adminUsername", "admin");
+      navigate("/admin-home");
     } else if (credentials.username && credentials.email) {
       // Regular user login
       loginUser(credentials.username, credentials.email);
