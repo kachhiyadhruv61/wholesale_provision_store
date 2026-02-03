@@ -5,8 +5,19 @@ function Footer() {
     <footer className="footer">
       <div className="footer-container">
         <div className="footer-section">
-          <h4>A1 Store</h4>
+          <h4>DK TRADERS</h4>
           <p>Modern wholesale e-commerce platform for B2B retailers. Fast, secure, and easy ordering with multiple payment options.</p>
+          <div className="social-media">
+            <a href="https://www.facebook.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-facebook-f"></i>
+            </a>
+            <a href="https://www.twitter.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-twitter"></i>
+            </a>
+            <a href="https://www.instagram.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+              <i className="fab fa-instagram"></i>
+            </a>
+          </div>
         </div>
 
         <div className="footer-section">
@@ -34,7 +45,7 @@ function Footer() {
         <div className="footer-section">
           <h4>Support</h4>
           <ul className="footer-links">
-            <li><a href="mailto:support@a1store.com">Email Support</a></li>
+            <li><a href="mailto:support@dktrade.com">Email Support</a></li>
             <li><a href="tel:+919876543210">+91 98765 43210</a></li>
             <li><a href="#">Live Chat</a></li>
             <li><a href="#">FAQs</a></li>
@@ -45,7 +56,7 @@ function Footer() {
       <div className="footer-divider"></div>
 
       <div className="footer-bottom">
-        <p className="footer-credit">© 2026 A1 Store. All rights reserved. | Built with React & modern web tech</p>
+        <p className="footer-credit">© 2026 DK TRADERS. All rights reserved. | Built with React & modern web tech</p>
         <div className="footer-badges">
           <span className="badge">React 19</span>
           <span className="badge">Context API</span>

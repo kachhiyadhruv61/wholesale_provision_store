@@ -29,6 +29,7 @@ export function UserProvider({ children }) {
 
   const loginUser = (username, email) => {
     const userData = {
+      id: Date.now(),
       username,
       email,
       password: "password123",
@@ -40,6 +41,26 @@ export function UserProvider({ children }) {
     localStorage.setItem("user", JSON.stringify(userData));
   };
 
+  const resetPassword = (identifier, newPassword) => {
+    const savedUser = localStorage.getItem("user");
+    if (!savedUser) {
+      return { success: false, message: "No user found. Please register first." };
+    }
+
+    const parsedUser = JSON.parse(savedUser);
+    const matchesIdentifier =
+      parsedUser.username === identifier || parsedUser.email === identifier;
+
+    if (!matchesIdentifier) {
+      return { success: false, message: "User not found with provided details." };
+    }
+
+    const updatedUser = { ...parsedUser, password: newPassword };
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    return { success: true };
+  };
+
   const logoutUser = () => {
     setUser(null);
     localStorage.removeItem("user");
@@ -47,7 +68,14 @@ export function UserProvider({ children }) {
 
   return (
     <UserContext.Provider
-      value={{ user, updateUserProfile, changePassword, loginUser, logoutUser }}
+      value={{
+        user,
+        updateUserProfile,
+        changePassword,
+        loginUser,
+        logoutUser,
+        resetPassword,
+      }}
     >
       {children}
     </UserContext.Provider>

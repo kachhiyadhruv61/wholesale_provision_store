@@ -1,30 +1,37 @@
 import { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { ProductContext } from "../context/ProductContext";
+import Toast from "../components/Toast";
 
 function Products() {
+  const navigate = useNavigate();
   const { addToCart } = useContext(CartContext);
   const { products, getPriceForQuantity } = useContext(ProductContext);
 
   // Filter and search states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [priceRange, setPriceRange] = useState([0, 2000]);
   const [quantities, setQuantities] = useState({});
+  const [toast, setToast] = useState(null);
 
-  // Get unique categories
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
+  // Helper to display category names (rename Grains -> Grocery)
+  const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
 
-  // Filter products based on search, category, and price
+  // Get unique categories with display mapping
+  const categories = ["All", ...new Set(products.map((p) => displayCategory(p.category)))];
+
+  // Filter products based on search and category
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory;
-    const matchesPrice =
-      product.price >= priceRange[0] && product.price <= priceRange[1];
-    return matchesSearch && matchesCategory && matchesPrice;
+      selectedCategory === "All" ||
+      (selectedCategory === "Grocery"
+        ? product.category === "Grains"
+        : product.category === selectedCategory);
+    return matchesSearch && matchesCategory;
   });
 
   const handleQuantityChange = (productId, quantity) => {
@@ -35,7 +42,10 @@ function Products() {
     const quantity = parseInt(quantities[product.id] || 1);
     
     if (quantity < product.moq) {
-      alert(`Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`);
+      setToast({
+        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`,
+        type: "warning"
+      });
       return;
     }
 
@@ -46,7 +56,10 @@ function Products() {
     });
     
     setQuantities({ ...quantities, [product.id]: 1 });
-    alert(`Added ${quantity} ${product.unit}(s) to cart!`);
+    setToast({
+      message: `✨ Added ${quantity} ${product.unit}(s) of ${product.name} to cart!`,
+      type: "success"
+    });
   };
 
   return (
@@ -83,105 +96,90 @@ function Products() {
             </select>
           </div>
         </div>
-
-        {/* Price Range Filter */}
-        <div className="filter-group">
-          <h4>Price Range</h4>
-          <div className="price-range">
-            <label>
-              Min: ₹
-              <input
-                type="number"
-                value={priceRange[0]}
-                onChange={(e) =>
-                  setPriceRange([parseInt(e.target.value), priceRange[1]])
-                }
-                className="price-input"
-              />
-            </label>
-            <label>
-              Max: ₹
-              <input
-                type="number"
-                value={priceRange[1]}
-                onChange={(e) =>
-                  setPriceRange([priceRange[0], parseInt(e.target.value)])
-                }
-                className="price-input"
-              />
-            </label>
-          </div>
-        </div>
       </div>
 
-      {/* Products Table */}
-      <div className="products-table-container">
+      {/* Products Grid */}
+      <div className="products-grid-container">
         {filteredProducts.length > 0 ? (
-          <table className="products-table">
-            <thead>
-              <tr>
-                <th>Image</th>
-                <th>Product Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>MOQ</th>
-                <th>Bulk Pricing</th>
-                <th>Quantity</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <img
-                      src={p.image || `https://placehold.co/80x80?text=${encodeURIComponent(p.name)}`}
-                      alt={p.name}
-                      className="product-thumb"
-                    />
-                  </td>
-                  <td>
-                    <strong>{p.name}</strong>
-                  </td>
-                  <td>
-                    <span className="category-badge">{p.category}</span>
-                  </td>
-                  <td className="price">₹{p.price}</td>
-                  <td className="moq-badge">
-                    {p.moq} {p.unit}(s)
-                  </td>
-                  <td className="bulk-pricing-info">
-                    <div className="pricing-tiers">
-                      {p.bulkPricing.slice(0, 3).map((tier, idx) => (
-                        <span key={idx} className="tier-badge">
-                          {tier.quantity}+ @ ₹{tier.price}
-                        </span>
-                      ))}
+          <>
+            {/* Category Header */}
+            <div className="category-header">
+              <h3>{selectedCategory === "All" ? "All Products" : selectedCategory}</h3>
+              <button 
+                onClick={() => setSelectedCategory("All")} 
+                className="see-all-link"
+              >
+                see all
+              </button>
+            </div>
+            
+            <div className="products-grid">
+              {filteredProducts.map((p, index) => {
+                const liveQty = parseInt(quantities[p.id] || p.moq || 1);
+                const tierPrice = getPriceForQuantity(p.id, liveQty);
+                const originalPrice = p.price;
+                const hasDiscount = tierPrice < originalPrice;
+
+                return (
+                  <div 
+                    key={p.id} 
+                    className="product-card"
+                    style={{ '--card-index': index }}
+                    onClick={() => navigate(`/product/${p.id}`)}
+                  >
+                    {/* Product Image */}
+                    <div className="product-image">
+                      <img
+                        src={p.image || `https://placehold.co/200x200?text=${encodeURIComponent(p.name)}`}
+                        alt={p.name}
+                        onError={(e) => {
+                          e.target.src = `https://placehold.co/200x200?text=${encodeURIComponent(p.name)}`;
+                        }}
+                      />
                     </div>
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      min={p.moq}
-                      value={quantities[p.id] || 1}
-                      onChange={(e) =>
-                        handleQuantityChange(p.id, e.target.value)
-                      }
-                      className="quantity-input"
-                    />
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => handleAddToCart(p)}
-                      className="add-to-cart-btn"
-                    >
-                      Add to Cart
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+                    {/* Product Info */}
+                    <div className="product-info">
+                      <h3 className="product-name">{p.name}</h3>
+                      <p className="product-quantity">{p.moq} {p.unit}</p>
+
+                      {/* Price Section */}
+                      <div className="product-price-section">
+                        <div className="price-display">
+                          {hasDiscount && (
+                            <span className="original-price">₹{originalPrice}</span>
+                          )}
+                          <span className="current-price">₹{tierPrice}</span>
+                        </div>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(p);
+                          }}
+                          className="add-btn"
+                        >
+                          ADD
+                        </button>
+                      </div>
+
+                      {/* Quantity Selector (Hidden by default, shows on hover) */}
+                      <div className="quantity-selector">
+                        <input
+                          type="number"
+                          min={p.moq}
+                          value={quantities[p.id] || p.moq}
+                          onChange={(e) => handleQuantityChange(p.id, e.target.value)}
+                          className="quantity-input-card"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : (
           <p className="no-products">No products found matching your filters.</p>
         )}
@@ -192,6 +190,15 @@ function Products() {
         <h3>💡 Bulk Pricing Benefits</h3>
         <p>Buy more, save more! Our wholesale prices decrease with larger quantities. Check the bulk pricing column for each product.</p>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

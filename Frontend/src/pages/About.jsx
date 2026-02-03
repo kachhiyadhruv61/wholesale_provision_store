@@ -1,14 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-// Project-focused highlights for A1 Store
+// Project-focused highlights for DK TRADERS
 const highlights = [
-  { label: "Wholesale Products", value: "10+", hint: "with MOQ & bulk pricing" },
-  { label: "Payment Methods", value: "4", hint: "COD · UPI · Card · Bank" },
+  { label: "Wholesale Products", value: "50+", hint: "with MOQ & bulk pricing" },
+  { label: "Payment Methods", value: "Multiple", hint: "COD · UPI · Card · Bank · Crypto" },
   { label: "Checkout", value: "3-Step", hint: "Delivery → Payment → Confirm" },
 ];
 
-// Project pillars that describe what A1 Store offers
+// Project pillars that describe what DK TRADERS offers
 const pillars = [
   {
     title: "MOQ & Bulk Pricing",
@@ -47,12 +47,12 @@ function About() {
         <div className="about-hero__overlay" />
         <div className="about-hero__grid">
           <div className="about-hero__copy">
-            <p className="page-tag">About A1 Store</p>
+            <p className="page-tag">About DK TRADERS</p>
             <h1 className="about-hero__title">
               Wholesale B2B platform for <span className="accent">smart</span> retail purchasing
             </h1>
             <p className="about-hero__subtitle">
-              A1 Store is a modern wholesale e‑commerce project built for B2B retailers. 
+              DK TRADERS is a modern wholesale e‑commerce project built for B2B retailers. 
               It features MOQ validation, bulk pricing, a smooth 3‑step checkout, multiple payment options, 
               and complete order management — all with a clean, responsive UI.
             </p>
@@ -72,31 +72,13 @@ function About() {
           </div>
           <div className="about-hero__panel">
             <div className="panel-block">
-              <h3>What A1 Store Offers</h3>
+              <h3>What DK TRADERS Offers</h3>
               <ul>
                 <li>Wholesale catalog with search, filters, and MOQ enforcement</li>
                 <li>Bulk pricing tiers with clear savings</li>
                 <li>3-step checkout with method-specific validations</li>
                 <li>Order history, profile management, and secure auth</li>
               </ul>
-            </div>
-            <div className="panel-block panel-block__accent">
-              <h3>Quality Focus</h3>
-              <p className="panel-note">Responsive UI, accessible forms, and performance-first design.</p>
-              <div className="impact-grid">
-                <div>
-                  <p className="impact-number">3</p>
-                  <p className="impact-label">step checkout</p>
-                </div>
-                <div>
-                  <p className="impact-number">4</p>
-                  <p className="impact-label">payment methods</p>
-                </div>
-                <div>
-                  <p className="impact-number">A11y</p>
-                  <p className="impact-label">accessible inputs</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -121,7 +103,7 @@ function About() {
       <section className="about-timeline">
         <div className="section-header">
           <p className="page-tag">Tech Stack</p>
-          <h2>Technologies used in A1 Store</h2>
+          <h2>Technologies used in DK TRADERS</h2>
         </div>
         <div className="timeline-grid">
           {techStack.map((item, index) => (

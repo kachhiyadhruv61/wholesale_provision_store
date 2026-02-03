@@ -9,7 +9,7 @@ function AdminLogin() {
   const handleLogin = () => {
     if (username === "admin" && password === "admin123") {
       localStorage.setItem("adminLoggedIn", "true");
-      navigate("/admin-dashboard");
+      navigate("/admin-analytics");
     } else {
       alert("Invalid Admin Credentials");
     }

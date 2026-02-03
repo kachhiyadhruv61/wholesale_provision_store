@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 
 function Cart() {
-  const { cart, removeFromCart, totalPrice } = useContext(CartContext);
+  const { cart, removeFromCart, totalPrice, deliveryCharge, incrementQuantity, decrementQuantity } = useContext(CartContext);
   const navigate = useNavigate();
 
   const handleProceedToCheckout = () => {
@@ -19,10 +19,10 @@ function Cart() {
   };
 
   return (
-    <div className="cart-page">
+    <div className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}>
       <h2>🛒 Your Shopping Cart</h2>
 
-      <div className="cart-content">
+      <div className={`cart-content${cart.length === 0 ? " cart-content-empty" : ""}`}>
         <div className="cart-items-section">
           {cart.length === 0 ? (
             <div className="empty-cart-message">
@@ -41,11 +41,28 @@ function Cart() {
                     <div className="item-details">
                       <div className="item-name">{item.name}</div>
                       <div className="item-meta">
-                        <span className="item-quantity">Qty: {item.quantity || 1}</span>
-                        <span className="item-unit">({item.unit || "Unit"})</span>
-                        {item.quantity > 1 && (
-                          <span className="unit-price">@ ₹{item.price}/{item.unit}</span>
-                        )}
+                        <div className="quantity-controls">
+                          <button
+                            className="qty-btn"
+                            onClick={() => decrementQuantity(index)}
+                            aria-label="Decrease quantity"
+                            disabled={(item.quantity || 1) <= (item.moq || 1)}
+                            title={(item.quantity || 1) <= (item.moq || 1) ? "Minimum order quantity reached" : "Decrease quantity"}
+                          >
+                            −
+                          </button>
+                          <span className="quantity-display">{item.quantity || 1}</span>
+                          <button
+                            className="qty-btn"
+                            onClick={() => incrementQuantity(index)}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="item-unit">{item.unit || "Unit"}</span>
+                        <span className="unit-price">@ ₹{item.price.toFixed(2)} / {item.unit || "Unit"}</span>
+                        <span className="bulk-pill">Auto bulk pricing</span>
                       </div>
                     </div>
                     <div className="item-price">
@@ -77,7 +94,11 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span>Delivery Charges</span>
-                  <span className="free">FREE</span>
+                  {deliveryCharge > 0 ? (
+                    <span>₹{deliveryCharge.toFixed(2)}</span>
+                  ) : (
+                    <span className="free">FREE</span>
+                  )}
                 </div>
                 <div className="summary-row discount">
                   <span>Wholesale Discount</span>
@@ -89,11 +110,11 @@ function Cart() {
 
               <div className="summary-total">
                 <span>Total Amount</span>
-                <span className="total-amount">₹{totalPrice.toFixed(2)}</span>
+                <span className="total-amount">₹{(totalPrice + deliveryCharge).toFixed(2)}</span>
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on wholesale orders</small>
+                <small>✓ Free delivery on orders ₹1000+</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>
