@@ -98,7 +98,7 @@ function Cart() {
                 </div>
                 <div className="summary-row">
                   <span>Delivery Charges</span>
-                  {deliveryCharge > 0 ? (
+                  {deliveryCharge > 50000 ? (
                     <span>₹{deliveryCharge.toFixed(2)}</span>
                   ) : (
                     <span className="free">FREE</span>
