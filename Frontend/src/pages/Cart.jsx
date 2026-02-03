@@ -11,6 +11,10 @@ function Cart() {
       alert("Cart is empty. Please add products before checkout");
       return;
     }
+    if (totalPrice < 5000) {
+      alert(`Minimum order value is ₹5000. Please add ₹${(5000 - totalPrice).toFixed(2)} more to proceed.`);
+      return;
+    }
     navigate("/checkout");
   };
 
@@ -114,7 +118,12 @@ function Cart() {
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on orders ₹1000+</small>
+                {totalPrice < 5000 && (
+                  <small style={{ color: '#ff6b6b', fontWeight: 'bold' }}>
+                    ⚠️ Add ₹{(5000 - totalPrice).toFixed(2)} more for minimum order
+                  </small>
+                )}
+                <small>✓ Free delivery on orders ₹5000+</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>
@@ -122,8 +131,10 @@ function Cart() {
               <button
                 onClick={handleProceedToCheckout}
                 className="btn-checkout"
+                disabled={totalPrice < 5000}
+                style={totalPrice < 5000 ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
               >
-                <span>Proceed to Checkout</span>
+                <span>{totalPrice < 5000 ? 'Minimum Order ₹5000' : 'Proceed to Checkout'}</span>
                 <span className="arrow">→</span>
               </button>
 
