@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@mantine/styles": "^6.0.22"
+  }
+}
