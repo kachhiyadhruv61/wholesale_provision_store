@@ -45,7 +45,7 @@ function Home() {
               <div className="stat-icon">🚚</div>
               <div className="stat-info">
                 <h4>Free Shipping</h4>
-                <p>On orders over ₹500</p>
+                <p>On orders over ₹5000</p>
               </div>
             </div>
             <div className="stat-item">
