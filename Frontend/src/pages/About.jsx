@@ -24,20 +24,89 @@ const pillars = [
   },
 ];
 
-// Tech stack used in this project
-const techStack = [
+const benefits = [
   {
-    title: "Frontend",
-    description: "React 19, React Router 7, Context API, HTML5, CSS3",
+    title: "Retailer-first onboarding",
+    detail: "Quick registration with profile verification and MOQ-ready access.",
   },
   {
-    title: "State & Storage",
-    description: "React Context for global state and localStorage persistence",
+    title: "Clear pricing transparency",
+    detail: "Tiered wholesale pricing with visible savings at each quantity slab.",
   },
   {
-    title: "Build & Tooling",
-    description: "Create React App, npm scripts, VS Code, Web Vitals",
+    title: "Reliable fulfillment",
+    detail: "Order status tracking, delivery updates, and invoice-friendly records.",
   },
+  {
+    title: "Secure transactions",
+    detail: "Multiple payment options with method-wise validation and confirmations.",
+  },
+];
+
+const steps = [
+  {
+    step: "01",
+    title: "Create account",
+    detail: "Register as a retailer and complete your business profile.",
+  },
+  {
+    step: "02",
+    title: "Browse & shortlist",
+    detail: "Filter products, compare MOQ, and lock your best bulk deals.",
+  },
+  {
+    step: "03",
+    title: "Place wholesale order",
+    detail: "Review totals, choose a payment method, and confirm instantly.",
+  },
+];
+
+const trustBadges = ["MOQ Ready", "Bulk Pricing", "Secure Checkout", "Fast Support", "Order History"];
+
+const whyChooseIcons = [
+  {
+    icon: "🏪",
+    title: "Local wholesale experience",
+    detail: "Built by retailers, for retailers in India.",
+  },
+  {
+    icon: "📦",
+    title: "MOQ & bulk pricing focus",
+    detail: "Clear tiers, smart validation, real savings.",
+  },
+  {
+    icon: "🚚",
+    title: "Reliable delivery & support",
+    detail: "Fast dispatch, tracking, 24/7 help.",
+  },
+  {
+    icon: "🔐",
+    title: "Secure B2B ordering",
+    detail: "Multiple payments, verified retailers, safe.",
+  },
+];
+
+const credibilityStats = [
+  { icon: "🏬", label: "Retailers served", value: "100+" },
+  { icon: "📦", label: "Products in catalog", value: "500+" },
+  { icon: "🚚", label: "Daily bulk dispatch", value: "Yes" },
+  { icon: "⭐", label: "Trusted in", value: "Anand & nearby" },
+];
+
+const businessProof = [
+  "GST Registered Wholesale Business",
+  "Local Warehouse & Logistics",
+  "Secure B2B Payment Gateway",
+  "Made for Indian Retailers",
+];
+
+const howItWorksFlow = [
+  { step: "1", title: "Register as Retailer", desc: "Complete verification in minutes" },
+  { step: "2", title: "Browse Bulk Catalog", desc: "MOQ enforced, pricing transparent" },
+  { step: "3", title: "Meet pricing tiers", desc: "Buy more, save more instantly" },
+  { step: "4", title: "Secure checkout", desc: "Multiple payment methods available" },
+  { step: "5", title: "Fast support", desc: "WhatsApp, Call, Email—24/7" },
+  { step: "6", title: "Same-day dispatch", desc: "Track orders, get real updates" },
 ];
 
 function About() {
@@ -100,17 +169,117 @@ function About() {
         </div>
       </section>
 
-      <section className="about-timeline">
+      <section className="about-benefits">
         <div className="section-header">
-          <p className="page-tag">Tech Stack</p>
-          <h2>Technologies used in DK TRADERS</h2>
+          <p className="page-tag">Why choose DK TRADERS</p>
+          <h2>Built to grow wholesale businesses</h2>
+          <p className="section-subtitle">Everything retailers need to order faster and smarter.</p>
         </div>
-        <div className="timeline-grid">
-          {techStack.map((item, index) => (
-            <div className="timeline-card" key={item.title}>
-              <span className="timeline-step">0{index + 1}</span>
+        <div className="benefits-grid">
+          {benefits.map((benefit) => (
+            <div className="benefit-card" key={benefit.title}>
+              <h3>{benefit.title}</h3>
+              <p>{benefit.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-steps">
+        <div className="section-header">
+          <p className="page-tag">How it works</p>
+          <h2>Three simple steps to order</h2>
+        </div>
+        <div className="about-steps-grid">
+          {steps.map((step) => (
+            <div className="about-step-card" key={step.title}>
+              <span className="about-step-number">{step.step}</span>
+              <h3>{step.title}</h3>
+              <p>{step.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-why-icons">
+        <div className="section-header">
+          <p className="page-tag">Why DK TRADERS?</p>
+          <h2>See what makes us different</h2>
+        </div>
+        <div className="why-icons-grid">
+          {whyChooseIcons.map((item) => (
+            <div className="why-icon-card" key={item.title}>
+              <div className="why-icon-emoji">{item.icon}</div>
               <h3>{item.title}</h3>
-              <p>{item.description}</p>
+              <p>{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-story">
+        <div className="section-header">
+          <p className="page-tag">Our Story</p>
+          <h2>From local wholesale to digital platform</h2>
+        </div>
+        <div className="story-content">
+          <div className="story-text">
+            <p>
+              DK TRADERS started with a simple realization: Retail shop owners in India deserve a better way to buy wholesale. 
+              Physical wholesale markets are chaotic, prices are unclear, and bulk ordering takes days. We built DK TRADERS to fix that.
+            </p>
+            <p>
+              Today, we're a trusted wholesale platform serving retailers in Anand and nearby areas. Our mission is simple: 
+              <strong> give retailers the power to grow their business faster with smarter wholesale buying.</strong>
+            </p>
+          </div>
+          <div className="story-icon">🏭</div>
+        </div>
+      </section>
+
+      <section className="about-credibility">
+        <div className="section-header">
+          <p className="page-tag">By the numbers</p>
+          <h2>Trusted by Indian retailers</h2>
+        </div>
+        <div className="credibility-stats-grid">
+          {credibilityStats.map((stat) => (
+            <div className="credibility-stat" key={stat.label}>
+              <span className="credibility-stat-icon">{stat.icon}</span>
+              <p className="credibility-stat-value">{stat.value}</p>
+              <p className="credibility-stat-label">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-proof">
+        <div className="section-header">
+          <p className="page-tag">Business legitimacy</p>
+          <h2>Built for real B2B commerce</h2>
+        </div>
+        <div className="proof-badges">
+          {businessProof.map((badge) => (
+            <div className="proof-badge" key={badge}>
+              <span className="proof-check">✓</span>
+              <span>{badge}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-flow">
+        <div className="section-header">
+          <p className="page-tag">The workflow</p>
+          <h2>How DK TRADERS works</h2>
+          <p className="section-subtitle">Six simple steps to smarter wholesale buying.</p>
+        </div>
+        <div className="about-flow-grid">
+          {howItWorksFlow.map((item) => (
+            <div className="about-flow-card" key={item.title}>
+              <span className="flow-step-badge">{item.step}</span>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
             </div>
           ))}
         </div>
@@ -118,16 +287,16 @@ function About() {
 
       <section className="about-cta">
         <div>
-          <p className="page-tag">Continue Shopping</p>
-          <h2>Ready to place a wholesale order?</h2>
+          <p className="page-tag">Ready to grow</p>
+          <h2>Ready to grow your retail business with smarter wholesale buying?</h2>
           <p className="section-subtitle">
-            Explore products with MOQ and bulk pricing, add items to your cart, 
-            and checkout with COD, UPI, Card, or Bank Transfer — fast and simple.
+            Start exploring our catalog now. Discover MOQ-friendly products, transparent bulk pricing, 
+            and fast support whenever you need it. Order today and experience the difference.
           </p>
         </div>
         <div className="cta-buttons">
-          <Link className="btn-hero-primary" to="/products">Browse Catalog</Link>
-          <Link className="btn-hero-secondary" to="/cart">View Cart</Link>
+          <Link className="btn-hero-primary" to="/products">🟣 Browse Wholesale Catalog</Link>
+          <a className="btn-hero-secondary" href="https://wa.me/919999999999?text=Hi%20I%20need%20wholesale%20support" target="_blank" rel="noreferrer">🟢 Talk to Sales</a>
         </div>
       </section>
     </div>
