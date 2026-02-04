@@ -1,18 +1,27 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
+import Toast from "../components/Toast";
 
 function Home() {
   const navigate = useNavigate();
   const { products } = useContext(ProductContext);
   const { addToCart } = useContext(CartContext);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
   
   // Get first 6 products for home page
   const featuredProducts = products.slice(0, 6);
 
   const handleAddToCart = (product) => {
-    addToCart(product);
+    const moqQuantity = product.moq || 1;
+    addToCart({ ...product, quantity: moqQuantity });
+    setToast({
+      show: true,
+      message: `${product.name} (${moqQuantity} ${product.unit}) added to cart!`,
+      type: "success"
+    });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
   return (
     <main className="home">
@@ -49,10 +58,10 @@ function Home() {
               </div>
             </div>
             <div className="stat-item">
-              <div className="stat-icon">💬</div>
+              <div className="stat-icon">📦</div>
               <div className="stat-info">
-                <h4>24/7 Support</h4>
-                <p>We're here to help</p>
+                <h4>Wide Product Range</h4>
+                <p>Diverse selection of quality items</p>
               </div>
             </div>
             <div className="stat-item">
@@ -158,6 +167,7 @@ function Home() {
         </div>
       </section>
 
+      {toast.show && <Toast message={toast.message} type={toast.type} />}
     </main>
   );
 }

@@ -35,7 +35,7 @@ function Contact() {
       <section className="contact-hero">
         <div className="contact-hero__content">
           <p className="page-tag">Contact</p>
-          <h1>We’re here when you need us.</h1>
+          <h1>We're here when you need us.</h1>
           <p className="contact-hero__subtitle">
             Reach out for support, partnerships, or quick guidance. We keep channels open so you never wait for answers.
           </p>
@@ -83,7 +83,7 @@ function Contact() {
         <div className="section-header">
           <p className="page-tag">Drop a note</p>
           <h2>Tell us what you need</h2>
-          <p className="section-subtitle">We’ll route your message to the right person and reply quickly.</p>
+          <p className="section-subtitle">We'll route your message to the right person and reply quickly.</p>
         </div>
         <form className="contact-form" onSubmit={handleSubmit}>
           <div className="form-row">
