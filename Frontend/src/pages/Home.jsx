@@ -118,7 +118,7 @@ function Home() {
               <h3>Fast & Reliable Delivery</h3>
               <p>Quick doorstep delivery ensuring your stock never runs low</p>
             </div>
-            
+             
             <div className="why-dk-card">
               <div className="why-dk-icon">🔐</div>
               <h3>Secure B2B Ordering</h3>
