@@ -7,8 +7,8 @@ import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
-  const { addPayment } = useContext(PaymentContext);
+  const { orders, updateOrderStatus } = useContext(OrderContext);
+  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -17,13 +17,7 @@ function AdminDashboard() {
   const [editingPrice, setEditingPrice] = useState(null);
   const [priceFormData, setPriceFormData] = useState({
     retailPrice: "",
-    wholesalePrice: "",
-    bulkPricing: [
-      { quantity: 1, price: "" },
-      { quantity: 5, price: "" },
-      { quantity: 10, price: "" },
-      { quantity: 20, price: "" }
-    ]
+    wholesalePrice: ""
   });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -205,70 +199,6 @@ function AdminDashboard() {
     navigate("/");
   };
 
-  const openPriceEditor = (product) => {
-    setEditingPrice(product);
-    setPriceFormData({
-      retailPrice: product.price ?? "",
-      wholesalePrice: product.wholesalePrice ?? "",
-      bulkPricing: product.bulkPricing?.length > 0 ? product.bulkPricing.map(bp => ({
-        quantity: bp.quantity,
-        price: bp.price ?? ""
-      })) : [
-        { quantity: 1, price: product.price ?? "" },
-        { quantity: 5, price: "" },
-        { quantity: 10, price: "" },
-        { quantity: 20, price: product.wholesalePrice ?? "" }
-      ]
-    });
-  };
-
-  const handlePriceInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name.startsWith("bulk_")) {
-      const index = parseInt(name.split("_")[1]);
-      const newBulk = [...priceFormData.bulkPricing];
-      newBulk[index].price = value;
-      setPriceFormData(prev => ({ ...prev, bulkPricing: newBulk }));
-    } else {
-      setPriceFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const closePriceEditor = () => {
-    setEditingPrice(null);
-    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
-  };
-
-  const handleSavePrice = () => {
-    if (!editingPrice) return;
-    if (!priceFormData.retailPrice || !priceFormData.wholesalePrice) {
-      alert("Please enter retail and wholesale prices");
-      return;
-    }
-
-    const allFilled = priceFormData.bulkPricing.every(bp => bp.price);
-    if (!allFilled) {
-      alert("Please fill all bulk pricing prices");
-      return;
-    }
-
-    const retail = Number(priceFormData.retailPrice);
-    const wholesale = Number(priceFormData.wholesalePrice);
-    const bulkPricing = priceFormData.bulkPricing.map(bp => ({
-      quantity: bp.quantity,
-      price: Number(bp.price)
-    }));
-
-    updateProduct(editingPrice.id, {
-      price: retail,
-      wholesalePrice: wholesale,
-      bulkPricing
-    });
-
-    alert("Pricing Updated Successfully!");
-    closePriceEditor();
-  };
-
   const getLowStockProducts = () => {
     return products.filter(p => p.stock < 50);
   };
@@ -340,7 +270,11 @@ function AdminDashboard() {
     }))
   ), [orders]);
 
-  const displayPayments = useMemo(() => paymentsFromOrders, [paymentsFromOrders]);
+  const displayPayments = useMemo(() => {
+    const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
+    const extraPayments = manualPayments.filter(p => !orderIds.has(p.orderId?.toString()));
+    return [...paymentsFromOrders, ...extraPayments];
+  }, [paymentsFromOrders, manualPayments]);
 
   const paymentStatusBreakdown = useMemo(() => {
     const total = displayPayments.length || 1;
@@ -510,6 +444,10 @@ function AdminDashboard() {
   const handleUpdatePaymentStatus = (payment, newStatus) => {
     if (payment?.source === "order" && updateOrderPaymentStatus) {
       updateOrderPaymentStatus(payment.orderNumericId, newStatus);
+      return;
+    }
+    if (updatePaymentStatus) {
+      updatePaymentStatus(payment.id, newStatus);
     }
   };
 
@@ -842,7 +780,7 @@ function AdminDashboard() {
           <select
             className="btn-status-select"
             value={row.original.statusLabel || "Pending"}
-            onChange={(e) => handleUpdatePaymentStatus(row.original, e.target.value)}
+            onChange={(e) => handleUpdatePaymentStatus(row.original.id, e.target.value)}
             title="Update Status"
           >
             <option value="Paid">Paid</option>
@@ -893,13 +831,13 @@ function AdminDashboard() {
       Cell: ({ row }) => (
         <button
           className="btn-edit-small"
-          onClick={() => openPriceEditor(row.original)}
+          onClick={() => handleEditClick(row.original)}
         >
           Edit Pricing
         </button>
       )
     }
-  ], [openPriceEditor]);
+  ], [handleEditClick]);
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -1359,72 +1297,6 @@ function AdminDashboard() {
                 fileName="pricing"
               />
             </div>
-
-            {editingPrice && (
-              <div className="modal-overlay" onClick={closePriceEditor}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3>Edit Pricing</h3>
-                    <button className="btn-close" onClick={closePriceEditor}>✕</button>
-                  </div>
-
-                  <div className="modal-body">
-                    <p style={{ marginTop: 0 }}>
-                      <strong>{editingPrice.name}</strong>
-                      <br />
-                      <small>{editingPrice.category}</small>
-                    </p>
-
-                    <div className="form-grid" style={{ marginBottom: 0 }}>
-                      <div className="form-group">
-                        <label>Retail Price (₹) *</label>
-                        <input
-                          type="number"
-                          name="retailPrice"
-                          value={priceFormData.retailPrice}
-                          onChange={handlePriceInputChange}
-                          placeholder="e.g., 1200"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Wholesale Price (₹) *</label>
-                        <input
-                          type="number"
-                          name="wholesalePrice"
-                          value={priceFormData.wholesalePrice}
-                          onChange={handlePriceInputChange}
-                          placeholder="e.g., 1050"
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: '20px', borderTop: '2px solid #eee', paddingTop: '16px' }}>
-                      <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: '#374151' }}>Bulk Pricing Tiers</h4>
-                      <div className="form-grid" style={{ marginBottom: 0 }}>
-                        {priceFormData.bulkPricing?.map((tier, index) => (
-                          <div className="form-group" key={index}>
-                            <label>{tier.quantity} {editingPrice?.unit || 'unit'}s (₹) *</label>
-                            <input
-                              type="number"
-                              name={`bulk_${index}`}
-                              value={tier.price}
-                              onChange={handlePriceInputChange}
-                              placeholder={`Price for ${tier.quantity} ${editingPrice?.unit || 'unit'}s`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="modal-footer">
-                    <button className="btn-save" onClick={handleSavePrice}>💾 Save Pricing</button>
-                    <button className="btn-cancel" onClick={closePriceEditor}>❌ Cancel</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
