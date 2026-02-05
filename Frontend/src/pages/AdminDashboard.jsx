@@ -7,8 +7,8 @@ import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus } = useContext(OrderContext);
-  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
+  const { addPayment } = useContext(PaymentContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -17,7 +17,13 @@ function AdminDashboard() {
   const [editingPrice, setEditingPrice] = useState(null);
   const [priceFormData, setPriceFormData] = useState({
     retailPrice: "",
-    wholesalePrice: ""
+    wholesalePrice: "",
+    bulkPricing: [
+      { quantity: 1, price: "" },
+      { quantity: 5, price: "" },
+      { quantity: 10, price: "" },
+      { quantity: 20, price: "" }
+    ]
   });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -45,15 +51,45 @@ function AdminDashboard() {
     stock: "",
     moq: "",
     unit: "bag",
-    description: ""
+    description: "",
+    image: ""
   });
+  const [imagePreview, setImagePreview] = useState(null);
 
-  const categories = ["Grains", "Sweeteners", "Oils", "Spices", "Snacks", "Others"];
+  const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
+  const categories = useMemo(() => {
+    const unique = new Set(products.map(product => product.category || "Others"));
+    unique.add("Grains");
+    unique.add("Others");
+    return Array.from(unique);
+  }, [products]);
   const units = ["bag", "box", "bottle", "kg", "litre"];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, image: reader.result }));
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, image: "" }));
+    setImagePreview(null);
   };
 
   const resetForm = () => {
@@ -65,8 +101,10 @@ function AdminDashboard() {
       stock: "",
       moq: "",
       unit: "bag",
-      description: ""
+      description: "",
+      image: ""
     });
+    setImagePreview(null);
     setEditingProduct(null);
     setShowAddForm(false);
   };
@@ -87,6 +125,7 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -115,6 +154,7 @@ function AdminDashboard() {
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || editingProduct.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -138,8 +178,10 @@ function AdminDashboard() {
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
-      description: product.description || ""
+      description: product.description || "",
+      image: product.image || ""
     });
+    setImagePreview(product.image || null);
     setShowAddForm(true);
   };
 
@@ -163,9 +205,165 @@ function AdminDashboard() {
     navigate("/");
   };
 
+  const openPriceEditor = (product) => {
+    setEditingPrice(product);
+    setPriceFormData({
+      retailPrice: product.price ?? "",
+      wholesalePrice: product.wholesalePrice ?? "",
+      bulkPricing: product.bulkPricing?.length > 0 ? product.bulkPricing.map(bp => ({
+        quantity: bp.quantity,
+        price: bp.price ?? ""
+      })) : [
+        { quantity: 1, price: product.price ?? "" },
+        { quantity: 5, price: "" },
+        { quantity: 10, price: "" },
+        { quantity: 20, price: product.wholesalePrice ?? "" }
+      ]
+    });
+  };
+
+  const handlePriceInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name.startsWith("bulk_")) {
+      const index = parseInt(name.split("_")[1]);
+      const newBulk = [...priceFormData.bulkPricing];
+      newBulk[index].price = value;
+      setPriceFormData(prev => ({ ...prev, bulkPricing: newBulk }));
+    } else {
+      setPriceFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const closePriceEditor = () => {
+    setEditingPrice(null);
+    setPriceFormData({ retailPrice: "", wholesalePrice: "" });
+  };
+
+  const handleSavePrice = () => {
+    if (!editingPrice) return;
+    if (!priceFormData.retailPrice || !priceFormData.wholesalePrice) {
+      alert("Please enter retail and wholesale prices");
+      return;
+    }
+
+    const allFilled = priceFormData.bulkPricing.every(bp => bp.price);
+    if (!allFilled) {
+      alert("Please fill all bulk pricing prices");
+      return;
+    }
+
+    const retail = Number(priceFormData.retailPrice);
+    const wholesale = Number(priceFormData.wholesalePrice);
+    const bulkPricing = priceFormData.bulkPricing.map(bp => ({
+      quantity: bp.quantity,
+      price: Number(bp.price)
+    }));
+
+    updateProduct(editingPrice.id, {
+      price: retail,
+      wholesalePrice: wholesale,
+      bulkPricing
+    });
+
+    alert("Pricing Updated Successfully!");
+    closePriceEditor();
+  };
+
   const getLowStockProducts = () => {
     return products.filter(p => p.stock < 50);
   };
+
+  const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+
+  const categoryBreakdown = useMemo(() => {
+    const total = products.length || 1;
+    const counts = products.reduce((acc, product) => {
+      const key = product.category || "Others";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(counts)
+      .map(([category, count]) => ({
+        category,
+        count,
+        percent: Math.round((count / total) * 100)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [products]);
+
+  const orderStatusBreakdown = useMemo(() => {
+    const total = orders.length || 1;
+    const statuses = ["Pending", "Processing", "Delivered", "Cancelled"];
+    return statuses.map(status => {
+      const count = orders.filter(order => order.status === status).length;
+      return {
+        status,
+        count,
+        percent: Math.round((count / total) * 100)
+      };
+    });
+  }, [orders]);
+
+  const normalizePaymentStatus = (status) => {
+    if (!status) return "Pending";
+    if (status === "Completed") return "Paid";
+    return status;
+  };
+
+  const normalizePaymentMethod = (method) => {
+    if (!method) return "COD";
+    const normalized = method.toLowerCase();
+    if (normalized === "cod") return "COD";
+    if (normalized === "upi") return "UPI";
+    if (normalized === "card") return "Card";
+    if (normalized === "bank") return "Net Banking";
+    return method;
+  };
+
+  const paymentsFromOrders = useMemo(() => (
+    orders.map(order => ({
+      id: `PAY${order.id}`,
+      orderId: order.id,
+      orderNumericId: order.id,
+      transactionId: order.transactionId || "",
+      customerName: order.customerName || "Customer",
+      customerEmail: order.customerEmail || "N/A",
+      customerPhone: order.customerPhone || "N/A",
+      amount: Number(order.total || 0),
+      method: normalizePaymentMethod(order.paymentMethod),
+      date: order.orderDate || order.date,
+      status: normalizePaymentStatus(order.paymentStatus),
+      products: order.items?.map(item => item.name) || [],
+      totalAmount: Number(order.total || 0),
+      source: "order"
+    }))
+  ), [orders]);
+
+  const displayPayments = useMemo(() => paymentsFromOrders, [paymentsFromOrders]);
+
+  const paymentStatusBreakdown = useMemo(() => {
+    const total = displayPayments.length || 1;
+    const statuses = ["Paid", "Pending", "Failed"];
+    return statuses.map(status => {
+      const count = displayPayments.filter(payment => payment.status === status).length;
+      return {
+        status,
+        count,
+        percent: Math.round((count / total) * 100)
+      };
+    });
+  }, [displayPayments]);
+
+  const stockHealth = useMemo(() => {
+    const total = products.length || 1;
+    const low = lowStockProducts.length;
+    const healthy = total - low;
+    return [
+      { label: "Healthy Stock", count: healthy, percent: Math.round((healthy / total) * 100) },
+      { label: "Low Stock", count: low, percent: Math.round((low / total) * 100) }
+    ];
+  }, [products, lowStockProducts]);
 
   const getTotalInventoryValue = () => {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
@@ -228,12 +426,12 @@ function AdminDashboard() {
 
   // Payment Management Functions
   const getPaymentStats = () => {
-    const totalPayments = payments.length;
-    const paidAmount = payments
+    const totalPayments = displayPayments.length;
+    const paidAmount = displayPayments
       .filter(p => p.status === "Paid")
       .reduce((sum, p) => sum + p.amount, 0);
-    const pendingPayments = payments.filter(p => p.status === "Pending").length;
-    const failedPayments = payments.filter(p => p.status === "Failed").length;
+    const pendingPayments = displayPayments.filter(p => p.status === "Pending").length;
+    const failedPayments = displayPayments.filter(p => p.status === "Failed").length;
 
     return { totalPayments, paidAmount, pendingPayments, failedPayments };
   };
@@ -262,7 +460,7 @@ function AdminDashboard() {
   const getCustomers = () => {
     const customerMap = new Map();
 
-    payments.forEach(payment => {
+    displayPayments.forEach(payment => {
       const rawKey = payment.customerEmail || payment.customerPhone || payment.customerName || payment.orderId || payment.id || "";
       const key = rawKey.toString().toLowerCase() || payment.id;
 
@@ -309,9 +507,9 @@ function AdminDashboard() {
     return { label: "New", className: "status-pending" };
   };
 
-  const handleUpdatePaymentStatus = (paymentId, newStatus) => {
-    if (updatePaymentStatus) {
-      updatePaymentStatus(paymentId, newStatus);
+  const handleUpdatePaymentStatus = (payment, newStatus) => {
+    if (payment?.source === "order" && updateOrderPaymentStatus) {
+      updateOrderPaymentStatus(payment.orderNumericId, newStatus);
     }
   };
 
@@ -321,8 +519,8 @@ function AdminDashboard() {
   };
 
   const getFilteredPayments = () => {
-    if (paymentStatusFilter === "all") return payments;
-    return payments.filter(p => p.status === paymentStatusFilter);
+    if (paymentStatusFilter === "all") return displayPayments;
+    return displayPayments.filter(p => p.status === paymentStatusFilter);
   };
 
   const formatDateTime = (dateString) => {
@@ -644,7 +842,7 @@ function AdminDashboard() {
           <select
             className="btn-status-select"
             value={row.original.statusLabel || "Pending"}
-            onChange={(e) => handleUpdatePaymentStatus(row.original.id, e.target.value)}
+            onChange={(e) => handleUpdatePaymentStatus(row.original, e.target.value)}
             title="Update Status"
           >
             <option value="Paid">Paid</option>
@@ -695,13 +893,13 @@ function AdminDashboard() {
       Cell: ({ row }) => (
         <button
           className="btn-edit-small"
-          onClick={() => handleEditClick(row.original)}
+          onClick={() => openPriceEditor(row.original)}
         >
           Edit Pricing
         </button>
       )
     }
-  ], [handleEditClick]);
+  ], [openPriceEditor]);
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -790,6 +988,15 @@ function AdminDashboard() {
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
           </h1>
+          {lowStockProducts.length > 0 && (
+            <div className="admin-alert warning">
+              <strong>⚠️ Low Stock Alert:</strong> {lowStockProducts.length} products need restocking.
+              <span className="alert-hint">
+                {lowStockProducts.slice(0, 3).map(p => p.name).join(", ")}
+                {lowStockProducts.length > 3 && ` +${lowStockProducts.length - 3} more`}
+              </span>
+            </div>
+          )}
           <div className="admin-stats">
             {activeTab !== "orders" && (
               <>
@@ -850,6 +1057,71 @@ function AdminDashboard() {
           </div>
         </div>
 
+        <div className="admin-analytics-grid">
+          <div className="analytics-card">
+            <h3>Top Categories</h3>
+            <div className="bar-chart">
+              {categoryBreakdown.length === 0 && (
+                <p className="chart-empty">No product data yet.</p>
+              )}
+              {categoryBreakdown.map(item => (
+                <div className="bar-row" key={item.category}>
+                  <span className="bar-label">{item.category}</span>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
+                  </div>
+                  <span className="bar-value">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <h3>Order Status</h3>
+            <div className="bar-chart">
+              {orderStatusBreakdown.map(item => (
+                <div className="bar-row" key={item.status}>
+                  <span className="bar-label">{item.status}</span>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
+                  </div>
+                  <span className="bar-value">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <h3>Payment Status</h3>
+            <div className="bar-chart">
+              {paymentStatusBreakdown.map(item => (
+                <div className="bar-row" key={item.status}>
+                  <span className="bar-label">{item.status}</span>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
+                  </div>
+                  <span className="bar-value">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="analytics-card">
+            <h3>Stock Health</h3>
+            <div className="bar-chart">
+              {stockHealth.map(item => (
+                <div className="bar-row" key={item.label}>
+                  <span className="bar-label">{item.label}</span>
+                  <div className="bar-track">
+                    <div className={`bar-fill ${item.label === "Low Stock" ? "bar-danger" : ""}`} style={{ width: `${item.percent}%` }} />
+                  </div>
+                  <span className="bar-value">{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Products Tab */}
         {activeTab === "products" && (
           <div className="admin-section">
@@ -881,7 +1153,7 @@ function AdminDashboard() {
                     <label>Category *</label>
                     <select name="category" value={formData.category} onChange={handleInputChange}>
                       {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                        <option key={cat} value={cat}>{displayCategory(cat)}</option>
                       ))}
                     </select>
                   </div>
@@ -937,6 +1209,35 @@ function AdminDashboard() {
                         <option key={u} value={u}>{u}</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Product Image</label>
+                    <div className="image-upload-container">
+                      {imagePreview ? (
+                        <div className="image-preview-wrapper">
+                          <img src={imagePreview} alt="Product preview" className="image-preview" />
+                          <button type="button" className="btn-remove-image" onClick={removeImage}>
+                            ✕ Remove Image
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="image-upload-area">
+                          <input
+                            type="file"
+                            id="product-image"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="product-image" className="image-upload-label">
+                            <span className="upload-icon">📷</span>
+                            <span className="upload-text">Click to upload product image</span>
+                            <span className="upload-hint">PNG, JPG, JPEG up to 5MB</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="form-group full-width">
@@ -1058,6 +1359,72 @@ function AdminDashboard() {
                 fileName="pricing"
               />
             </div>
+
+            {editingPrice && (
+              <div className="modal-overlay" onClick={closePriceEditor}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>Edit Pricing</h3>
+                    <button className="btn-close" onClick={closePriceEditor}>✕</button>
+                  </div>
+
+                  <div className="modal-body">
+                    <p style={{ marginTop: 0 }}>
+                      <strong>{editingPrice.name}</strong>
+                      <br />
+                      <small>{editingPrice.category}</small>
+                    </p>
+
+                    <div className="form-grid" style={{ marginBottom: 0 }}>
+                      <div className="form-group">
+                        <label>Retail Price (₹) *</label>
+                        <input
+                          type="number"
+                          name="retailPrice"
+                          value={priceFormData.retailPrice}
+                          onChange={handlePriceInputChange}
+                          placeholder="e.g., 1200"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Wholesale Price (₹) *</label>
+                        <input
+                          type="number"
+                          name="wholesalePrice"
+                          value={priceFormData.wholesalePrice}
+                          onChange={handlePriceInputChange}
+                          placeholder="e.g., 1050"
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '20px', borderTop: '2px solid #eee', paddingTop: '16px' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: '#374151' }}>Bulk Pricing Tiers</h4>
+                      <div className="form-grid" style={{ marginBottom: 0 }}>
+                        {priceFormData.bulkPricing?.map((tier, index) => (
+                          <div className="form-group" key={index}>
+                            <label>{tier.quantity} {editingPrice?.unit || 'unit'}s (₹) *</label>
+                            <input
+                              type="number"
+                              name={`bulk_${index}`}
+                              value={tier.price}
+                              onChange={handlePriceInputChange}
+                              placeholder={`Price for ${tier.quantity} ${editingPrice?.unit || 'unit'}s`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button className="btn-save" onClick={handleSavePrice}>💾 Save Pricing</button>
+                    <button className="btn-cancel" onClick={closePriceEditor}>❌ Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1347,31 +1714,31 @@ function AdminDashboard() {
                   className={paymentStatusFilter === "all" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("all")}
                 >
-                  All ({payments.length})
+                  All ({displayPayments.length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Paid" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Paid")}
                 >
-                  Paid ({payments.filter(p => p.status === "Paid").length})
+                  Paid ({displayPayments.filter(p => p.status === "Paid").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Pending")}
                 >
-                  Pending ({payments.filter(p => p.status === "Pending").length})
+                  Pending ({displayPayments.filter(p => p.status === "Pending").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Failed" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Failed")}
                 >
-                  Failed ({payments.filter(p => p.status === "Failed").length})
+                  Failed ({displayPayments.filter(p => p.status === "Failed").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Refunded" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Refunded")}
                 >
-                  Refunded ({payments.filter(p => p.status === "Refunded").length})
+                  Refunded ({displayPayments.filter(p => p.status === "Refunded").length})
                 </button>
               </div>
             </div>

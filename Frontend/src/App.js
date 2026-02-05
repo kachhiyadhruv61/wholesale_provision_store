@@ -20,6 +20,7 @@ import OrderSuccess from "./pages/OrderSuccess";
 import UserProfile from "./pages/UserProfile";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import FAQs from "./pages/FAQs";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { CartProvider } from "./context/CartContext";
 import { ProductProvider } from "./context/ProductContext";
@@ -47,6 +48,7 @@ function AppShell() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/faqs" element={<FAQs />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-success" element={<OrderSuccess />} />
