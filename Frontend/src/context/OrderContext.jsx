@@ -45,8 +45,15 @@ export function OrderProvider({ children }) {
     setOrders(updatedOrders);
   };
 
+  const updateOrderPaymentStatus = (orderId, newPaymentStatus) => {
+    const updatedOrders = orders.map(order =>
+      order.id === orderId ? { ...order, paymentStatus: newPaymentStatus } : order
+    );
+    setOrders(updatedOrders);
+  };
+
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus }}>
+    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
       {children}
     </OrderContext.Provider>
   );

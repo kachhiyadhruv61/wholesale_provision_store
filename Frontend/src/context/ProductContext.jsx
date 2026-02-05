@@ -1,9 +1,9 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 
 export const ProductContext = createContext();
 
 export function ProductProvider({ children }) {
-  const [products, setProducts] = useState([
+  const initialProducts = [
     { 
       id: 1, 
       name: "Dawat Rice", 
@@ -1282,7 +1282,29 @@ export function ProductProvider({ children }) {
         { quantity: 100, price: 32 }
       ]
     },
-  ]);
+  ];
+
+  const [products, setProducts] = useState(initialProducts);
+
+  useEffect(() => {
+    const savedProducts = localStorage.getItem("products");
+    if (savedProducts) {
+      try {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to parse saved products", error);
+      }
+    }
+    localStorage.setItem("products", JSON.stringify(initialProducts));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("products", JSON.stringify(products));
+  }, [products]);
 
   const addProduct = (product) => {
     setProducts([...products, product]);
