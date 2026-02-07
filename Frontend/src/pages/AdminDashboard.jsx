@@ -270,6 +270,8 @@ function AdminDashboard() {
     }))
   ), [orders]);
 
+  const manualPayments = payments;
+
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
     const extraPayments = payments.filter(p => !orderIds.has(p.orderId?.toString()));
