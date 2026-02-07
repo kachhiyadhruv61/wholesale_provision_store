@@ -1,15 +1,11 @@
-<<<<<<< HEAD
-import { Link } from "react-router-dom";
-import { useContext, useState } from "react";
-=======
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
->>>>>>> 25ff759f78a452ffde54119d34cd9335fe6b3bb7
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
 import Toast from "../components/Toast";
 
 function Home() {
+  const navigate = useNavigate();
   const { products } = useContext(ProductContext);
   const { addToCart } = useContext(CartContext);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });

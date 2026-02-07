@@ -7,7 +7,7 @@ import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus } = useContext(OrderContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
   const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const navigate = useNavigate();
 
@@ -269,6 +269,8 @@ function AdminDashboard() {
       source: "order"
     }))
   ), [orders]);
+
+  const manualPayments = payments;
 
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
