@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 import { Link } from "react-router-dom";
-import { useContext, useState } from "react";
-=======
-import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
->>>>>>> 25ff759f78a452ffde54119d34cd9335fe6b3bb7
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
 import Toast from "../components/Toast";
@@ -184,7 +179,7 @@ function Home() {
           <div className="stat-item-strip">
             <div className="stat-icon-strip">📦</div>
             <div className="stat-content-strip">
-              <h3>500+</h3>
+              <h3>50+</h3>
               <p>Products</p>
             </div>
           </div>

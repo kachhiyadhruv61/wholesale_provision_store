@@ -7,7 +7,7 @@ import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus } = useContext(OrderContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
   const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const navigate = useNavigate();
 
@@ -272,9 +272,9 @@ function AdminDashboard() {
 
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
-    const extraPayments = manualPayments.filter(p => !orderIds.has(p.orderId?.toString()));
+    const extraPayments = payments.filter(p => !orderIds.has(p.orderId?.toString()));
     return [...paymentsFromOrders, ...extraPayments];
-  }, [paymentsFromOrders, manualPayments]);
+  }, [paymentsFromOrders, payments]);
 
   const paymentStatusBreakdown = useMemo(() => {
     const total = displayPayments.length || 1;
