@@ -149,6 +149,14 @@ function About() {
                 <li>Order history, profile management, and secure auth</li>
               </ul>
             </div>
+            <div className="panel-image-card" aria-hidden="true">
+              <img
+                src="/images/Cover/Cover%20about.jpg"
+                alt=""
+                loading="lazy"
+                className="panel-image"
+              />
+            </div>
           </div>
         </div>
       </section>
