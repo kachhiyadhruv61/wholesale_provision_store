@@ -1,3 +1,4 @@
+
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
 import { ProductContext } from "../context/ProductContext";
@@ -180,7 +181,7 @@ function Home() {
           <div className="stat-item-strip">
             <div className="stat-icon-strip">📦</div>
             <div className="stat-content-strip">
-              <h3>500+</h3>
+              <h3>50+</h3>
               <p>Products</p>
             </div>
           </div>

@@ -368,15 +368,15 @@ h2 {
 }
 
 .hero-stats-card {
-  background: linear-gradient(135deg, #5b82ff 0%, #6aa5ff 50%, #5c88ff 100%);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 26px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+  padding: 40px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   gap: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   animation: slideInRight 0.8s ease 0.3s backwards;
 }
 
@@ -450,48 +450,50 @@ h2 {
   }
 }
 
+
 .stat-item {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 20px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  border: 1px solid rgba(200, 200, 200, 0.2);
+  padding: 18px 20px;
+  background: #f3f6fb;
+  border-radius: 18px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  border: 1px solid rgba(160, 170, 230, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .stat-item:hover {
-  transform: translateX(8px) translateY(-2px);
-  background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
-  border-color: #667eea;
+  transform: translateY(-4px);
+  background: #eef2ff;
+  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.18);
+  border-color: rgba(102, 126, 234, 0.45);
 }
 
 .stat-icon {
-  font-size: 32px;
-  width: 70px;
-  height: 70px;
+  font-size: 30px;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
+  background: linear-gradient(135deg, #6b7cff 0%, #7253c9 100%);
+  border-radius: 18px;
   flex-shrink: 0;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 22px rgba(107, 124, 255, 0.28);
 }
 
 .stat-info h4 {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #1f2a44;
 }
 
 .stat-info p {
-  margin: 4px 0 0 0;
+  margin: 6px 0 0 0;
   font-size: 14px;
-  color: #666;
+  color: #6b7280;
 }
 
 /* Why DK TRADERS Section */
@@ -1461,8 +1463,97 @@ h2 {
 .analytics-card h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: #2c3e50; padding-bottom: 8px; border-bottom: 2px solid #f0f0f0; }
 .chart-wrap { width: 100%; height: 260px; }
 
+/* Admin Dashboard mini tables (Top Categories / Status / Stock Health) */
+.admin-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.admin-analytics-grid .analytics-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-analytics-grid .analytics-card h3 {
+  margin: 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.bar-chart {
+  display: grid;
+  gap: 0;
+  background: white;
+}
+
+.chart-empty {
+  padding: 18px 16px;
+  color: #6b7280;
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 1.2fr 2fr 0.6fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-row:hover {
+  background: linear-gradient(90deg, #f3f4f6 0%, #f9fafb 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: scale(1.01);
+}
+
+.bar-row:last-child {
+  border-bottom: none;
+}
+
+.bar-label {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.bar-track {
+  height: 10px;
+  background: #eef2ff;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #e0e7ff;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 999px;
+}
+
+.bar-fill.bar-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+}
+
+.bar-value {
+  text-align: right;
+  font-weight: 700;
+  color: #111827;
+}
+
 @media (max-width: 768px) {
   .analytics-card { padding: 16px; }
+  .admin-analytics-grid .analytics-card { padding: 0; }
 }
 
 .analytics-section { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border: 1px solid #f1f1f1; margin-top: 16px; }
@@ -2140,6 +2231,78 @@ h2 {
   border-color: #667eea;
   background: white;
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+}
+
+.otp-group {
+  gap: 12px;
+}
+
+.otp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.otp-action-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.otp-action-btn:hover {
+  border-color: #667eea;
+  color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+}
+
+.otp-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.otp-verify-btn {
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.otp-verify-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.otp-verify-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.3);
+}
+
+.otp-status {
+  margin: 0;
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.otp-error {
+  margin: 0;
+  font-size: 13px;
+  color: #b42318;
+  font-weight: 600;
 }
 
 .login-form .input-hint {
@@ -10326,64 +10489,7 @@ h2 {
     max-width: 100%;
   }
 }
-/* ====== Checkout Minimum Order ====== */
-.checkout-warning {
-  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
-  border: 2px solid #ff9800;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.warning-icon {
-  font-size: 32px;
-  flex-shrink: 0;
-  min-width: 40px;
-  text-align: center;
-}
-
-.warning-content {
-  flex: 1;
-}
-
-.warning-content h4 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #d84315;
-}
-
-.warning-content p {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  color: #bf360c;
-  line-height: 1.5;
-}
-
-.warning-content .current-total {
-  margin: 12px 0 0 0;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  font-size: 14px;
-  color: #333;
-}
-
-.btn-continue:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  background: linear-gradient(135deg, #ccc 0%, #999 100%);
-}
-
-.btn-continue:disabled:hover {
-  transform: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* ====== Admin Home Page ====== */
+/* adminhome */
 .admin-home-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -10634,208 +10740,5 @@ h2 {
 
   .admin-home-stats {
     padding: 24px;
-  }
-}
-
-/* ====== FAQs Page ====== */
-.faqs-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 60px 20px;
-}
-
-.faqs-header {
-  text-align: center;
-  margin-bottom: 60px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.faqs-header h1 {
-  font-size: 48px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 16px;
-}
-
-.faqs-header p {
-  font-size: 18px;
-  color: #666;
-}
-
-.faqs-container {
-  max-width: 900px;
-  margin: 0 auto 60px;
-}
-
-.faq-category {
-  margin-bottom: 50px;
-}
-
-.category-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 24px;
-  padding-bottom: 12px;
-  border-bottom: 3px solid #6366f1;
-}
-
-.faq-items {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.faq-item {
-  background: white;
-  border-radius: 12px;
-  border: 2px solid #e9ecef;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.faq-item:hover {
-  border-color: #6366f1;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.1);
-}
-
-.faq-item.expanded {
-  border-color: #6366f1;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
-}
-
-.faq-question {
-  width: 100%;
-  padding: 20px 24px;
-  background: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  transition: all 0.3s ease;
-}
-
-.faq-question:hover {
-  background: #f8f9ff;
-}
-
-.question-text {
-  text-align: left;
-}
-
-.faq-icon {
-  font-size: 24px;
-  color: #6366f1;
-  flex-shrink: 0;
-  margin-left: 16px;
-  font-weight: bold;
-}
-
-.faq-answer {
-  padding: 0 24px 20px;
-  background: #f8f9ff;
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
-  }
-}
-
-.faq-answer p {
-  color: #555;
-  line-height: 1.6;
-  font-size: 15px;
-  margin: 0;
-}
-
-.faqs-contact-section {
-  background: white;
-  border-radius: 16px;
-  padding: 60px 40px;
-  text-align: center;
-  max-width: 900px;
-  margin: 0 auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.faqs-contact-section h2 {
-  font-size: 36px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 12px;
-}
-
-.faqs-contact-section p {
-  font-size: 18px;
-  color: #666;
-  margin-bottom: 32px;
-}
-
-.contact-buttons {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.contact-buttons a {
-  padding: 14px 32px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 16px;
-  transition: all 0.3s ease;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .faqs-page {
-    padding: 40px 16px;
-  }
-
-  .faqs-header h1 {
-    font-size: 36px;
-  }
-
-  .category-title {
-    font-size: 22px;
-  }
-
-  .faq-question {
-    padding: 16px 20px;
-    font-size: 15px;
-  }
-
-  .faq-answer {
-    padding: 0 20px 16px;
-  }
-
-  .faqs-contact-section {
-    padding: 40px 24px;
-  }
-
-  .faqs-contact-section h2 {
-    font-size: 28px;
-  }
-
-  .contact-buttons {
-    flex-direction: column;
-  }
-
-  .contact-buttons a {
-    width: 100%;
   }
 }
