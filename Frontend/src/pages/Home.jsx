@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-import { Link } from "react-router-dom";
-import { useContext, useState } from "react";
-=======
+
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
 import { ProductContext } from "../context/ProductContext";
