@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 // Project-focused highlights for DK TRADERS
 const highlights = [
   { label: "Wholesale Products", value: "50+", hint: "with MOQ & bulk pricing" },
-  { label: "Payment Methods", value: "Multiple", hint: "COD · UPI · Card · Bank · Crypto" },
+  { label: "Payment Methods", value: "Multiple", hint: "COD · UPI · Card · Bank Transfer" },
   { label: "Checkout", value: "3-Step", hint: "Delivery → Payment → Confirm" },
 ];
 

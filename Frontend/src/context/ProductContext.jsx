@@ -1322,6 +1322,32 @@ export function ProductProvider({ children }) {
     setProducts(products.map(p => p.id === id ? { ...p, stock: newStock } : p));
   };
 
+  const deductStockForOrder = (orderItems) => {
+    if (!Array.isArray(orderItems) || orderItems.length === 0) {
+      return;
+    }
+
+    const quantityById = orderItems.reduce((acc, item) => {
+      const key = item?.id;
+      if (key == null) return acc;
+      const qty = Number(item?.quantity || 0);
+      if (!Number.isFinite(qty) || qty <= 0) return acc;
+      acc[key] = (acc[key] || 0) + qty;
+      return acc;
+    }, {});
+
+    setProducts((prevProducts) =>
+      prevProducts.map((product) => {
+        const qty = quantityById[product.id];
+        if (!qty) return product;
+        const currentStock = Number(product.stock || 0);
+        const nextStock = Math.max(currentStock - qty, 0);
+        if (nextStock === currentStock) return product;
+        return { ...product, stock: nextStock };
+      })
+    );
+  };
+
   const getPriceForQuantity = (productId, quantity) => {
     const product = products.find(p => p.id === productId);
     if (!product) return 0;
@@ -1343,6 +1369,7 @@ export function ProductProvider({ children }) {
       updateProduct, 
       deleteProduct, 
       updateStock,
+      deductStockForOrder,
       getPriceForQuantity 
     }}>
       {children}

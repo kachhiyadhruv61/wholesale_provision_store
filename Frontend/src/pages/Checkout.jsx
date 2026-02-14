@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
+import { ProductContext } from "../context/ProductContext";
 
 function Checkout() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
+  const { deductStockForOrder } = useContext(ProductContext);
 
   // Redirect to login if user is not logged in
   useEffect(() => {
@@ -135,6 +137,7 @@ function Checkout() {
       };
 
       addOrder(order);
+      deductStockForOrder(cart);
       clearCart();
 
       setTimeout(() => {
