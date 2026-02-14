@@ -50,7 +50,7 @@ function FAQs() {
       id: 8,
       category: "Ordering",
       question: "What is the minimum order value?",
-      answer: "There is no specific minimum order value. However, orders under ₹5000 will incur standard shipping charges. Orders above ₹5000 qualify for FREE SHIPPING."
+      answer: "There is no specific minimum order value. Orders over ₹6000 get free delivery. Below ₹6000, delivery charges apply and are shown at checkout before payment."
     },
     {
       id: 9,
@@ -80,7 +80,7 @@ function FAQs() {
       id: 13,
       category: "Shipping & Delivery",
       question: "What are shipping charges?",
-      answer: "Orders above ₹5000 get FREE SHIPPING. For orders below ₹5000, shipping charges are calculated based on weight and location. Charges are displayed at checkout before payment."
+      answer: "Orders over ₹6000 get free delivery. Below ₹6000, delivery charges are calculated based on weight and location. Charges are displayed at checkout before payment."
     },
     {
       id: 14,
