@@ -39,7 +39,7 @@ function Products() {
   };
 
   const handleAddToCart = (product) => {
-    const quantity = parseInt(quantities[product.id] || 1);
+    const quantity = parseInt(quantities[product.id] || product.moq);
     
     if (quantity < product.moq) {
       setToast({
@@ -55,7 +55,7 @@ function Products() {
       price: getPriceForQuantity(product.id, quantity)
     });
     
-    setQuantities({ ...quantities, [product.id]: 1 });
+    setQuantities({ ...quantities, [product.id]: product.moq });
     setToast({
       message: `✨ Added ${quantity} ${product.unit}(s) of ${product.name} to cart!`,
       type: "success"

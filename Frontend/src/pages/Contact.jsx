@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../context/UserContext";
+import { NotificationContext } from "../context/NotificationContext";
 
-const supportPhone = "+919999999999";
-const supportWhatsApp = "919999999999";
+const supportPhone = "+919313616159";
+const supportWhatsApp = "919313616159";
 const supportEmail = "support@dktrade.com";
 const partnerEmail = "partners@dktrade.com";
 const whatsappMessage = encodeURIComponent("Hi, I need wholesale support.");
@@ -61,9 +64,39 @@ const officeHours = [
 ];
 
 function Contact() {
+  const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const { addNotification } = useContext(NotificationContext);
+
   const handleSubmit = (event) => {
     event.preventDefault();
-    // Prevent page reload; handoff could be wired to a backend later.
+
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const formData = new FormData(event.target);
+    const name = (formData.get("name") || "").toString().trim();
+    const email = (formData.get("email") || "").toString().trim();
+    const topic = (formData.get("topic") || "").toString().trim();
+    const phone = (formData.get("phone") || "").toString().trim();
+    const message = (formData.get("message") || "").toString().trim();
+
+    addNotification({
+      type: "contact",
+      title: "New contact message",
+      message: message || "No message provided.",
+      meta: {
+        name,
+        email,
+        topic,
+        phone,
+      },
+    });
+
+    event.target.reset();
+    alert("Thanks! Your message has been sent.");
   };
 
   return (
@@ -233,7 +266,7 @@ function Contact() {
           </div>
           <div className="location-info">
             <h3>📞 Contact</h3>
-            <p>+91 98765 43210<br />support@dktrade.com</p>
+            <p>+91 9313616159<br />support@dktrade.com</p>
           </div>
         </div>
       </section>

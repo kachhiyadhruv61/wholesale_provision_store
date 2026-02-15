@@ -4,13 +4,15 @@ import { CartContext } from "../context/CartContext";
 import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
 import { ProductContext } from "../context/ProductContext";
+import { NotificationContext } from "../context/NotificationContext";
 
 function Checkout() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
-  const { deductStockForOrder } = useContext(ProductContext);
+  const { deductStockForOrder, products } = useContext(ProductContext);
+  const { addNotification } = useContext(NotificationContext);
 
   // Redirect to login if user is not logged in
   useEffect(() => {
@@ -136,7 +138,40 @@ function Checkout() {
         orderDate: new Date().toISOString(),
       };
 
-      addOrder(order);
+      const createdOrder = addOrder(order);
+      const orderId = createdOrder?.id ?? "new";
+
+      addNotification({
+        type: "order",
+        title: "New order received",
+        message: `Order #${orderId} placed for ₹${(order.total || 0).toFixed(2)}.`,
+        meta: {
+          customer: formData.customerName,
+          items: cart.length,
+          total: order.total,
+        },
+      });
+
+      const lowStockThreshold = 50;
+      cart.forEach((item) => {
+        const product = products.find((p) => p.id === item.id);
+        if (!product) return;
+        const currentStock = Number(product.stock || 0);
+        const nextStock = Math.max(currentStock - Number(item.quantity || 0), 0);
+
+        if (currentStock >= lowStockThreshold && nextStock < lowStockThreshold) {
+          addNotification({
+            type: "stock",
+            title: "Low stock alert",
+            message: `${product.name} is low on stock (${nextStock} left).`,
+            meta: {
+              product: product.name,
+              stock: nextStock,
+            },
+          });
+        }
+      });
+
       deductStockForOrder(cart);
       clearCart();
 

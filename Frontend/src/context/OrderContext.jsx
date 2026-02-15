@@ -35,7 +35,8 @@ export function OrderProvider({ children }) {
       deliveryPincode: order.deliveryPincode || "",
       specialInstructions: order.specialInstructions || "",
     };
-    setOrders([newOrder, ...orders]);
+    setOrders((prev) => [newOrder, ...prev]);
+    return newOrder;
   };
 
   const updateOrderStatus = (orderId, newStatus) => {
