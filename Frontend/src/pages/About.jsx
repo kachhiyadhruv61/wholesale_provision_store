@@ -4,7 +4,9 @@ import { Link } from "react-router-dom";
 // Project-focused highlights for DK TRADERS
 const highlights = [
   { label: "Wholesale Products", value: "50+", hint: "with MOQ & bulk pricing" },
+
   { label: "Payment Methods", value: "Multiple", hint: "COD · UPI · Card · Bank " },
+
   { label: "Checkout", value: "3-Step", hint: "Delivery → Payment → Confirm" },
 ];
 
@@ -88,7 +90,7 @@ const whyChooseIcons = [
 
 const credibilityStats = [
   { icon: "🏬", label: "Retailers served", value: "100+" },
-  { icon: "📦", label: "Products in catalog", value: "500+" },
+  { icon: "📦", label: "Products in catalog", value: "50+" },
   { icon: "🚚", label: "Daily bulk dispatch", value: "Yes" },
   { icon: "⭐", label: "Trusted in", value: "Anand & nearby" },
 ];

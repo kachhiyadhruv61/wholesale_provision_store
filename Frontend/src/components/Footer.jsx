@@ -47,8 +47,7 @@ function Footer() {
           <ul className="footer-links">
             <li><a href="mailto:dktraders1027@gmail.com">Email Support</a></li>
             <li><a href="tel:+919313616159">+91 9313616159</a></li>
-            <li><a href="#">Live Chat</a></li>
-            <li><a href="#">FAQs</a></li>
+            <li><a href="/FAQs">FAQs</a></li>
           </ul>
         </div>
       </div>

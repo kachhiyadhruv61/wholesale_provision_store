@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
+import { NotificationContext } from "../context/NotificationContext";
 import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
   const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
   const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
+  const { addNotification } = useContext(NotificationContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -189,7 +191,21 @@ function AdminDashboard() {
   const handleStockUpdate = (id, currentStock) => {
     const newStock = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
     if (newStock !== null && !isNaN(newStock)) {
-      updateStock(id, Number(newStock));
+      const parsedStock = Number(newStock);
+      updateStock(id, parsedStock);
+
+      if (currentStock >= 50 && parsedStock < 50) {
+        const product = products.find((item) => item.id === id);
+        addNotification({
+          type: "stock",
+          title: "Low stock alert",
+          message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+          meta: {
+            product: product?.name,
+            stock: parsedStock,
+          },
+        });
+      }
       alert("Stock Updated Successfully!");
     }
   };
@@ -865,6 +881,7 @@ function AdminDashboard() {
     })),
     [selectedOrder]
   );
+
 
   return (
     <div className="admin-layout">
