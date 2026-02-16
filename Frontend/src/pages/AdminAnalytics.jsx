@@ -82,9 +82,11 @@ function AdminAnalytics() {
     // Count sold items by category (filtered)
     list.forEach((order) => {
       order.items.forEach((item) => {
+        const qty = Number(item.quantity || 1);
         const product = products.find((p) => p.id === item.id);
-        if (product && ordersByCategory[product.category] !== undefined) {
-          ordersByCategory[product.category] += 1;
+        const category = product?.category || item.category;
+        if (category && ordersByCategory[category] !== undefined) {
+          ordersByCategory[category] += qty;
         }
       });
     });
@@ -94,14 +96,21 @@ function AdminAnalytics() {
     const productRevenue = {};
     list.forEach((order) => {
       order.items.forEach((item) => {
-        productSales[item.name] = (productSales[item.name] || 0) + 1;
-        const revenue = item.price || 0;
-        productRevenue[item.name] = (productRevenue[item.name] || 0) + revenue;
+        const key = item.id ?? item.name;
+        const qty = Number(item.quantity || 1);
+        const unitPrice = Number(item.price || 0);
+        const revenue = unitPrice * qty;
+
+        productSales[key] = (productSales[key] || 0) + qty;
+        productRevenue[key] = (productRevenue[key] || 0) + revenue;
       });
     });
 
     const topProducts = Object.entries(productSales)
-      .map(([name, units]) => ({ name, units, revenue: productRevenue[name] || 0 }))
+      .map(([key, units]) => {
+        const name = products.find((p) => p.id === Number(key))?.name || key;
+        return { name, units, revenue: productRevenue[key] || 0 };
+      })
       .sort((a, b) => b.units - a.units)
       .slice(0, 5);
 
@@ -188,7 +197,7 @@ function AdminAnalytics() {
     () => analytics.recentOrders.map((order) => ({
       ...order,
       dateDisplay: new Date(order.date).toLocaleDateString(),
-      itemsCount: order.items.length,
+      itemsCount: order.items.reduce((sum, item) => sum + Number(item.quantity || 1), 0),
       totalValue: order.total || 0,
       status: order.status || "Confirmed",
       paymentStatus: order.paymentStatus || "Completed"
