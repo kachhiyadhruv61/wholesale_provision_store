@@ -79,7 +79,6 @@ function Contact() {
     const formData = new FormData(event.target);
     const name = (formData.get("name") || "").toString().trim();
     const email = (formData.get("email") || "").toString().trim();
-    const topic = (formData.get("topic") || "").toString().trim();
     const phone = (formData.get("phone") || "").toString().trim();
     const message = (formData.get("message") || "").toString().trim();
 
@@ -90,7 +89,6 @@ function Contact() {
       meta: {
         name,
         email,
-        topic,
         phone,
       },
     });
@@ -215,15 +213,6 @@ function Contact() {
             </label>
           </div>
           <div className="form-row">
-            <label>
-              Topic
-              <select name="topic" defaultValue="support">
-                <option value="support">Support</option>
-                <option value="partnership">Partnership</option>
-                <option value="feedback">Feedback</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
             <label>
               Phone (optional)
               <input name="phone" type="tel" placeholder="+91 90000 00000" />
