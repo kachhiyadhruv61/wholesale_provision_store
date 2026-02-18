@@ -18,11 +18,7 @@ function Login() {
     message: "",
     error: "",
   });
-
-// abcd
-
-        //  hello ji                                      
-
+                           
   const resetOtpState = () => {
     setOtpCode("");
     setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "" });

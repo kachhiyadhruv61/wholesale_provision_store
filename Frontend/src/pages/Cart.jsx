@@ -19,7 +19,17 @@ function Cart() {
   };
 
   return (
-    <div className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}>
+    <div 
+      className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}
+      style={{
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${process.env.PUBLIC_URL}/images/logos/8d83197e-83d6-44c7-a342-75a8513735de.png)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        minHeight: '100vh'
+      }}
+    >
       <h2>🛒 Your Shopping Cart</h2>
 
       <div className={`cart-content${cart.length === 0 ? " cart-content-empty" : ""}`}>

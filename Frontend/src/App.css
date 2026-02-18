@@ -2788,6 +2788,9 @@ h2 {
   margin-top: 40px;
   text-align: center;
   box-shadow: 0 8px 32px rgba(253, 203, 110, 0.3);
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .bulk-info-section h3 {
@@ -3204,14 +3207,11 @@ h2 {
 
 /* ====== Products Page ====== */
 .products-page {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   padding: 40px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-  min-height: 100vh;
-  border-radius: 20px;
+  min-height: calc(100vh - 120px);
+  position: relative;
 }
 
 @keyframes gradientShift {
@@ -3228,6 +3228,9 @@ h2 {
   text-align: center;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
   animation: fadeInDown 0.8s ease;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @keyframes fadeInDown {
@@ -3278,6 +3281,9 @@ h2 {
   margin-bottom: 40px;
   animation: fadeInUp 0.8s ease 0.3s backwards;
   border: 2px solid rgba(255, 255, 255, 0.3);
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @keyframes fadeInUp {
@@ -3515,6 +3521,9 @@ h2 {
 /* ====== Modern Product Cards Grid ====== */
 .products-grid-container {
   margin-top: 40px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Category Header */
@@ -5561,16 +5570,23 @@ h2 {
 
 /* ====== Cart Page Styling ====== */
 .cart-page {
-  max-width: 1200px;
-  margin: 40px auto;
-  padding: 20px;
+  width: 100%;
+  margin: 0;
+  padding: 40px 20px;
+  min-height: calc(100vh - 120px);
+  position: relative;
 }
 
 .cart-page h2 {
   text-align: center;
-  color: #2c3e50;
+  color: white;
   margin-bottom: 30px;
-  font-size: 28px;
+  font-size: 42px;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .cart-content {
@@ -5578,6 +5594,8 @@ h2 {
   grid-template-columns: 2fr 1fr;
   gap: 30px;
   align-items: start;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .cart-content.cart-content-empty {
@@ -5847,7 +5865,6 @@ h2 {
 @media (max-width: 600px) {
   .cart-page {
     padding: 15px;
-    margin: 20px auto;
   }
 
   .cart-page h2 {

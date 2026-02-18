@@ -16,6 +16,7 @@ export function OrderProvider({ children }) {
   // Save orders to localStorage whenever orders change
   useEffect(() => {
     localStorage.setItem("orders", JSON.stringify(orders));
+    
   }, [orders]);
 
   const addOrder = (order) => {

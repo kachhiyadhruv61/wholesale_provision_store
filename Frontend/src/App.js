@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
+import RouteLoader from "./components/RouteLoader";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -39,6 +40,7 @@ function AppShell() {
   return (
     <>
       <ScrollToTop />
+      <RouteLoader />
       {!hideChrome && <Header />}
       <Routes>
         <Route path="/" element={<Home />} />

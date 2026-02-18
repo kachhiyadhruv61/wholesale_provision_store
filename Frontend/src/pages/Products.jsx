@@ -63,7 +63,17 @@ function Products() {
   };
 
   return (
-    <div className="products-page">
+    <div 
+      className="products-page"
+      style={{
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${process.env.PUBLIC_URL}/images/logos/8d83197e-83d6-44c7-a342-75a8513735de.png)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        minHeight: '100vh'
+      }}
+    >
       <h2>Wholesale Products</h2>
 
       {/* Search Bar */}
