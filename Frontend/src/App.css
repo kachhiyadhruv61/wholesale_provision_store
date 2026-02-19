@@ -3210,7 +3210,7 @@ h2 {
   width: 100%;
   margin: 0;
   padding: 40px 20px;
-  min-height: calc(100vh - 120px);
+  min-height: 100vh;
   position: relative;
 }
 
@@ -5573,7 +5573,7 @@ h2 {
   width: 100%;
   margin: 0;
   padding: 40px 20px;
-  min-height: calc(100vh - 120px);
+  min-height: 100vh;
   position: relative;
 }
 
