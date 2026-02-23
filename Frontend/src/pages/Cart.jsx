@@ -125,7 +125,7 @@ function Cart() {
 
               <div className="summary-note">
                 <small>✓ Free delivery on orders ₹6000+</small>
-                <small>✓ Delivery charges apply below ₹6000</small>
+                <small>✓ ₹150 delivery charge below ₹6000</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>

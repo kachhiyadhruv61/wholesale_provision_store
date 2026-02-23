@@ -28,12 +28,26 @@ function Checkout() {
   
   const [formData, setFormData] = useState({
     customerName: user?.username || "",
-    deliveryAddress: "",
-    deliveryCity: "",
-    deliveryState: "",
-    deliveryPincode: "",
+    deliveryAddress: user?.address || "",
+    deliveryCity: user?.city || "",
+    deliveryState: user?.state || "",
+    deliveryPincode: user?.pincode || "",
     specialInstructions: "",
   });
+
+  // Auto-populate delivery details when user data is available
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        customerName: user.username || "",
+        deliveryAddress: user.address || "",
+        deliveryCity: user.city || "",
+        deliveryState: user.state || "",
+        deliveryPincode: user.pincode || "",
+        specialInstructions: "",
+      });
+    }
+  }, [user]);
 
   const [paymentData, setPaymentData] = useState({
     cardNumber: "",
@@ -86,13 +100,6 @@ function Checkout() {
   const handleContinueToPayment = (e) => {
     e.preventDefault();
     
-    // Validate minimum order value
-    const finalTotal = totalPrice + deliveryCharge;
-    if (finalTotal < 6000) {
-      alert("Minimum order value is ₹6000. Current total: ₹" + finalTotal.toFixed(2));
-      return;
-    }
-    
     if (validateDeliveryDetails()) {
       setPaymentStep("payment");
     }
@@ -100,13 +107,6 @@ function Checkout() {
 
   const handleProcessPayment = async (e) => {
     e.preventDefault();
-
-    // Validate minimum order value
-    const finalTotal = totalPrice + deliveryCharge;
-    if (finalTotal < 6000) {
-      alert("Minimum order value is ₹6000. Current total: ₹" + finalTotal.toFixed(2));
-      return;
-    }
 
     if (!validatePaymentDetails()) {
       return;
@@ -276,18 +276,6 @@ function Checkout() {
         {/* Delivery Details Step */}
         {paymentStep === "details" && (
           <div className="checkout-section delivery-details">
-            
-            {/* Minimum Order Warning */}
-            {finalTotal < 6000 && (
-              <div className="checkout-warning">
-                <div className="warning-icon">⚠️</div>
-                <div className="warning-content">
-                  <h4>Minimum Order Value Required</h4>
-                  <p>You need to add items worth ₹{(6000 - finalTotal).toFixed(2)} more to reach the minimum order value of ₹6000</p>
-                  <p className="current-total">Current Total: <strong>₹{finalTotal.toFixed(2)}</strong></p>
-                </div>
-              </div>
-            )}
             <h3>🚚 Delivery Details</h3>
             <form onSubmit={handleContinueToPayment}>
               
@@ -402,9 +390,8 @@ function Checkout() {
               <button 
                 type="submit" 
                 className="btn-continue"
-                disabled={finalTotal < 6000}
               >
-                {finalTotal < 6000 ? `Add ₹${(6000 - finalTotal).toFixed(2)} more to continue` : "Continue to Payment →"}
+                Continue to Payment →
               </button>
             </form>
           </div>

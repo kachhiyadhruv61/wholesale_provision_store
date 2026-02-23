@@ -7,7 +7,6 @@ function Login() {
   const { loginUser } = useContext(UserContext);
   const [credentials, setCredentials] = useState({
     username: "",
-    email: "",
     password: "", 
   });
   const [otpCode, setOtpCode] = useState("");
@@ -18,38 +17,57 @@ function Login() {
     message: "",
     error: "",
   });
+
+  // Mock database - fetch email based on username
+  const getUserEmail = (username) => {
+    const userDatabase = {
+      "admin": "admin@wholesale.com",
+      "pratik": "pratik@example.com",
+      "user1": "user1@example.com",
+      "demo": "demo@example.com",
+    };
+    return userDatabase[username.toLowerCase()] || `${username}@example.com`;
+  };
                            
   const resetOtpState = () => {
     setOtpCode("");
     setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "" });
   };
 
+  const isAdminUsername = credentials.username.trim().toLowerCase() === "admin";
+
   const handleChange = (e) => {
     const { name, value } = e.target; 
     setCredentials({ ...credentials, [name]: value });
 
-    if (name === "email" && (otpMeta.sent || otpMeta.verified)) {
+    if (name === "username") {
       resetOtpState();
     }
   };
 
   const handleSendOtp = () => {
-    if (!credentials.email) {
-      setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "Email is required for OTP." });
+    if (!credentials.username) {
+      setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "Username is required for OTP." });
       return;
     }
 
+    if (isAdminUsername) {
+      setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "OTP is not required for admin login." });
+      return;
+    }
+
+    const email = getUserEmail(credentials.username);
     const generatedOtp = `${Math.floor(100000 + Math.random() * 900000)}`;
     setOtpMeta({
       sent: true,
       verified: false,
       code: generatedOtp,
-      message: `OTP sent to ${credentials.email}.`,
+      message: `OTP sent to ${email}.`,
       error: "",
     });
     setOtpCode("");
     console.info("[Login OTP] Demo OTP:", generatedOtp);
-    alert(`Demo OTP: ${generatedOtp}`);
+    alert(`Demo OTP sent to ${email}: ${generatedOtp}`);
   };
 
   const handleVerifyOtp = () => {
@@ -68,13 +86,19 @@ function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    
-    // Automatically detect admin login
-    if (credentials.username === "admin" && credentials.password === "admin123") {
-      localStorage.setItem("adminLoggedIn", "true");
-      localStorage.setItem("adminUsername", "admin");
-      navigate("/admin-home");
-    } else if (credentials.username && credentials.email && credentials.password) {
+
+    if (isAdminUsername) {
+      if (credentials.password === "admin123") {
+        localStorage.setItem("adminLoggedIn", "true");
+        localStorage.setItem("adminUsername", "admin");
+        navigate("/admin-home");
+      } else {
+        alert("Invalid admin credentials");
+      }
+      return;
+    }
+
+    if (credentials.username && credentials.password) {
       if (!otpMeta.sent) {
         handleSendOtp();
         return;
@@ -85,8 +109,11 @@ function Login() {
         return;
       }
 
-      // Regular user login (after OTP verification)
-      loginUser(credentials.username, credentials.email);
+      // Fetch email from database based on username
+      const email = getUserEmail(credentials.username);
+      
+      // Regular user login with auto-fetched email (after OTP verification)
+      loginUser(credentials.username, email);
       navigate("/products");
     } else {
       alert("Please fill in all required fields");
@@ -118,26 +145,12 @@ function Login() {
               />
             </div>
 
-            <div className="form-group">
-              <label>
-                <span className="label-icon"></span>
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                placeholder="your@email.com (not required for admin)"
-                value={credentials.email}
-                onChange={handleChange}
-              />
-            </div>
-
-            {credentials.email && credentials.username !== "admin" && (
+            {credentials.username && !isAdminUsername && (
               <div className="form-group otp-group">
                 <div className="otp-header">
                   <label>
                     <span className="label-icon"></span>
-                    Email OTP
+                    Email OTP Verification
                   </label>
                   <button
                     type="button"
@@ -165,7 +178,7 @@ function Login() {
                     onClick={handleVerifyOtp}
                     disabled={!otpMeta.sent || otpMeta.verified}
                   >
-                    {otpMeta.verified ? "Verified" : "Verify"}
+                    {otpMeta.verified ? "✓ Verified" : "Verify"}
                   </button>
                 </div>
 
@@ -188,7 +201,7 @@ function Login() {
                 required
               />
               <small className="input-hint">
-                 Admin: username "admin" with password "admin123"
+                 
               </small>
             </div>
 
