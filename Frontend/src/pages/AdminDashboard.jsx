@@ -221,36 +221,6 @@ function AdminDashboard() {
 
   const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
 
-  const categoryBreakdown = useMemo(() => {
-    const total = products.length || 1;
-    const counts = products.reduce((acc, product) => {
-      const key = product.category || "Others";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(counts)
-      .map(([category, count]) => ({
-        category,
-        count,
-        percent: Math.round((count / total) * 100)
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
-  }, [products]);
-
-  const orderStatusBreakdown = useMemo(() => {
-    const total = orders.length || 1;
-    const statuses = ["Pending", "Processing", "Delivered", "Cancelled"];
-    return statuses.map(status => {
-      const count = orders.filter(order => order.status === status).length;
-      return {
-        status,
-        count,
-        percent: Math.round((count / total) * 100)
-      };
-    });
-  }, [orders]);
-
   const normalizePaymentStatus = (status) => {
     if (!status) return "Pending";
     if (status === "Completed") return "Paid";
@@ -293,29 +263,6 @@ function AdminDashboard() {
     const extraPayments = payments.filter(p => !orderIds.has(p.orderId?.toString()));
     return [...paymentsFromOrders, ...extraPayments];
   }, [paymentsFromOrders, payments]);
-
-  const paymentStatusBreakdown = useMemo(() => {
-    const total = displayPayments.length || 1;
-    const statuses = ["Paid", "Pending", "Failed"];
-    return statuses.map(status => {
-      const count = displayPayments.filter(payment => payment.status === status).length;
-      return {
-        status,
-        count,
-        percent: Math.round((count / total) * 100)
-      };
-    });
-  }, [displayPayments]);
-
-  const stockHealth = useMemo(() => {
-    const total = products.length || 1;
-    const low = lowStockProducts.length;
-    const healthy = total - low;
-    return [
-      { label: "Healthy Stock", count: healthy, percent: Math.round((healthy / total) * 100) },
-      { label: "Low Stock", count: low, percent: Math.round((low / total) * 100) }
-    ];
-  }, [products, lowStockProducts]);
 
   const getTotalInventoryValue = () => {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
@@ -1011,71 +958,6 @@ function AdminDashboard() {
                 </div>
               </>
             )}
-          </div>
-        </div>
-
-        <div className="admin-analytics-grid">
-          <div className="analytics-card">
-            <h3>Top Categories</h3>
-            <div className="bar-chart">
-              {categoryBreakdown.length === 0 && (
-                <p className="chart-empty">No product data yet.</p>
-              )}
-              {categoryBreakdown.map(item => (
-                <div className="bar-row" key={item.category}>
-                  <span className="bar-label">{item.category}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
-                  </div>
-                  <span className="bar-value">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <h3>Order Status</h3>
-            <div className="bar-chart">
-              {orderStatusBreakdown.map(item => (
-                <div className="bar-row" key={item.status}>
-                  <span className="bar-label">{item.status}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
-                  </div>
-                  <span className="bar-value">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <h3>Payment Status</h3>
-            <div className="bar-chart">
-              {paymentStatusBreakdown.map(item => (
-                <div className="bar-row" key={item.status}>
-                  <span className="bar-label">{item.status}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${item.percent}%` }} />
-                  </div>
-                  <span className="bar-value">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <h3>Stock Health</h3>
-            <div className="bar-chart">
-              {stockHealth.map(item => (
-                <div className="bar-row" key={item.label}>
-                  <span className="bar-label">{item.label}</span>
-                  <div className="bar-track">
-                    <div className={`bar-fill ${item.label === "Low Stock" ? "bar-danger" : ""}`} style={{ width: `${item.percent}%` }} />
-                  </div>
-                  <span className="bar-value">{item.count}</span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 

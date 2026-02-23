@@ -1,11 +1,15 @@
 import { Link } from "react-router-dom";
 import { useState, useContext } from "react";
 import { UserContext } from "../context/UserContext";
+import { CartContext } from "../context/CartContext";
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { user, logoutUser } = useContext(UserContext);
+  const { cart } = useContext(CartContext);
+
+  const cartItemCount = cart.length;
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -45,8 +49,9 @@ function Navbar() {
         <Link to="/products" onClick={() => setIsMenuOpen(false)}>
           Products
         </Link>
-        <Link to="/cart" onClick={() => setIsMenuOpen(false)}>
+        <Link to="/cart" onClick={() => setIsMenuOpen(false)} className="cart-link">
           Cart
+          {cartItemCount > 0 && <span className="cart-count-badge">{cartItemCount}</span>}
         </Link>
         <Link to="/contact" onClick={() => setIsMenuOpen(false)}>
           Contact

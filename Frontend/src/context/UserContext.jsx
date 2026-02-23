@@ -35,7 +35,10 @@ export function UserProvider({ children }) {
       password: "password123",
       joinDate: new Date().toISOString(),
       phone: "+91-9876543210",
-      address: "123 Business Street, City",
+      address: "123 Business Street",
+      city: "Anand",
+      state: "Gujarat",
+      pincode: "388001",
     };
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
