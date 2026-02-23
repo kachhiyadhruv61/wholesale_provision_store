@@ -126,6 +126,8 @@ function Checkout() {
         paymentMethod,
         paymentStatus: "Completed",
         customerId: user?.id,
+        customerUsername: user?.username,
+        customerEmail: user?.email,
         customerName: formData.customerName,
         deliveryAddress: formData.deliveryAddress,
         deliveryCity: formData.deliveryCity,
