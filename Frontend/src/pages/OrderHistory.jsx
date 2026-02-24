@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderContext } from "../context/OrderContext";
 import CommonTable from "../components/CommonTable";
@@ -45,6 +45,33 @@ function OrderHistory() {
     }
   };
 
+  const trackingSteps = ["Pending", "Confirmed", "Processing", "Out for Delivery", "Delivered"];
+
+  const normalizeStatus = (status) => {
+    const incoming = String(status || "Confirmed").toLowerCase();
+    if (incoming === "out for delivery") return "Out for Delivery";
+    if (incoming === "delivered") return "Delivered";
+    if (incoming === "processing") return "Processing";
+    if (incoming === "pending") return "Pending";
+    if (incoming === "cancelled") return "Cancelled";
+    return "Confirmed";
+  };
+
+  const getStatusProgress = (status) => {
+    const normalized = normalizeStatus(status);
+    if (normalized === "Cancelled") {
+      return {
+        currentStatus: normalized,
+        stepIndex: -1,
+      };
+    }
+
+    return {
+      currentStatus: normalized,
+      stepIndex: trackingSteps.findIndex((s) => s === normalized),
+    };
+  };
+
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
     { accessorKey: "quantity", header: "Quantity" },
@@ -74,6 +101,14 @@ function OrderHistory() {
     setSelectedOrder(order);
     setShowOrderModal(true);
   };
+
+  useEffect(() => {
+    if (!selectedOrder?.id) return;
+    const latestOrder = orders.find((order) => order.id === selectedOrder.id);
+    if (latestOrder && latestOrder !== selectedOrder) {
+      setSelectedOrder(latestOrder);
+    }
+  }, [orders, selectedOrder]);
 
   const ordersTableData = useMemo(
     () => orders.map((order) => ({
@@ -157,6 +192,9 @@ function OrderHistory() {
       )}
 
       {showOrderModal && selectedOrder && (
+        (() => {
+          const progress = getStatusProgress(selectedOrder.status);
+          return (
         <div className="modal-overlay" onClick={() => setShowOrderModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -170,6 +208,35 @@ function OrderHistory() {
             </div>
 
             <div className="modal-body">
+              <div className="order-detail-section">
+                <h3>Live Tracking</h3>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="label">Current Status:</span>
+                    <span className="value">{progress.currentStatus}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Last Updated:</span>
+                    <span className="value">
+                      {formatDate(selectedOrder.statusUpdatedAt || selectedOrder.date)}
+                    </span>
+                  </div>
+                </div>
+
+                {progress.currentStatus === "Cancelled" ? (
+                  <p>❌ This order has been cancelled.</p>
+                ) : (
+                  <div className="detail-grid">
+                    {trackingSteps.map((step, index) => (
+                      <div className="detail-item" key={step}>
+                        <span className="label">{index <= progress.stepIndex ? "✅" : "⏳"}</span>
+                        <span className="value">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="order-detail-section">
                 <h3>Order Information</h3>
                 <div className="detail-grid">
@@ -266,6 +333,8 @@ function OrderHistory() {
             </div>
           </div>
         </div>
+          );
+        })()
       )}
     </div>
   );

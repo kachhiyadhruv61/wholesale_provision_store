@@ -56,6 +56,12 @@ function Navbar() {
         <Link to="/contact" onClick={() => setIsMenuOpen(false)}>
           Contact
         </Link>
+
+        {user && (
+          <Link to="/order-history" onClick={() => setIsMenuOpen(false)}>
+            Order History & Tracking
+          </Link>
+        )}
         
         {user ? (
           <div className="profile-dropdown-container">
@@ -74,16 +80,6 @@ function Navbar() {
                   className="profile-dropdown-item"
                 >
                   My Account
-                </Link>
-                <Link 
-                  to="/order-history" 
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    setIsProfileDropdownOpen(false);
-                  }}
-                  className="profile-dropdown-item"
-                >
-                  My Orders
                 </Link>
                 <button 
                   className="profile-dropdown-item logout-item" 

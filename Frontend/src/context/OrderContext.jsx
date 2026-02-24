@@ -9,8 +9,27 @@ export function OrderProvider({ children }) {
   useEffect(() => {
     const savedOrders = localStorage.getItem("orders");
     if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
+      try {
+        setOrders(JSON.parse(savedOrders));
+      } catch {
+        setOrders([]);
+      }
     }
+  }, []);
+
+  // Sync orders live across tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key !== "orders") return;
+      try {
+        setOrders(event.newValue ? JSON.parse(event.newValue) : []);
+      } catch {
+        setOrders([]);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   // Save orders to localStorage whenever orders change
@@ -21,6 +40,7 @@ export function OrderProvider({ children }) {
 
   const addOrder = (order) => {
     const now = new Date().toISOString();
+    const initialStatus = order.status || "Confirmed";
     const newOrder = {
       id: Date.now(),
       date: now,
@@ -29,7 +49,14 @@ export function OrderProvider({ children }) {
       // Extended fields (optional, for richer display)
       paymentMethod: order.paymentMethod || "cod",
       paymentStatus: order.paymentStatus || "Pending",
-      status: order.status || "Confirmed",
+      status: initialStatus,
+      statusUpdatedAt: now,
+      statusHistory: [
+        {
+          status: initialStatus,
+          timestamp: now,
+        },
+      ],
       deliveryAddress: order.deliveryAddress || "",
       deliveryCity: order.deliveryCity || "",
       deliveryState: order.deliveryState || "",
@@ -41,8 +68,22 @@ export function OrderProvider({ children }) {
   };
 
   const updateOrderStatus = (orderId, newStatus) => {
+    const now = new Date().toISOString();
     const updatedOrders = orders.map(order =>
-      order.id === orderId ? { ...order, status: newStatus } : order
+      order.id === orderId
+        ? {
+            ...order,
+            status: newStatus,
+            statusUpdatedAt: now,
+            statusHistory: [
+              ...(order.statusHistory || []),
+              {
+                status: newStatus,
+                timestamp: now,
+              },
+            ],
+          }
+        : order
     );
     setOrders(updatedOrders);
   };
