@@ -46,6 +46,9 @@ export function OrderProvider({ children }) {
       date: now,
       items: order.items || [],
       total: order.total || 0,
+      customerId: order.customerId || null,
+      customerUsername: order.customerUsername || "",
+      customerEmail: order.customerEmail || "",
       // Extended fields (optional, for richer display)
       paymentMethod: order.paymentMethod || "cod",
       paymentStatus: order.paymentStatus || "Pending",

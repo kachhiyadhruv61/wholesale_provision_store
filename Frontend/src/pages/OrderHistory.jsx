@@ -1,10 +1,12 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderContext } from "../context/OrderContext";
+import { UserContext } from "../context/UserContext";
 import CommonTable from "../components/CommonTable";
 
 function OrderHistory() {
   const { orders } = useContext(OrderContext);
+  const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -110,8 +112,18 @@ function OrderHistory() {
     }
   }, [orders, selectedOrder]);
 
+  const visibleOrders = useMemo(() => {
+    if (!user) return [];
+    return orders.filter((order) => {
+      if (order.customerId && user.id && order.customerId === user.id) return true;
+      if (order.customerUsername && user.username && order.customerUsername === user.username) return true;
+      if (order.customerEmail && user.email && order.customerEmail === user.email) return true;
+      return false;
+    });
+  }, [orders, user]);
+
   const ordersTableData = useMemo(
-    () => orders.map((order) => ({
+    () => visibleOrders.map((order) => ({
       id: `#${order.id}`,
       date: formatDate(order.date),
       status: order.status || "Confirmed",
@@ -121,7 +133,7 @@ function OrderHistory() {
       actionsLabel: "Actions",
       rawOrder: order,
     })),
-    [orders]
+    [visibleOrders]
   );
 
   const ordersColumns = useMemo(
@@ -171,7 +183,7 @@ function OrderHistory() {
         </p>
       </div>
 
-      {orders.length === 0 ? (
+      {visibleOrders.length === 0 ? (
         <div className="orders-empty">
           <div className="empty-illustration">📦</div>
           <h3>No orders yet</h3>
