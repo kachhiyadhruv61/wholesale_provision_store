@@ -1,13 +1,12 @@
 import { useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { ProductContext } from "../context/ProductContext";
 import Toast from "../components/Toast";
 
 function Products() {
-  const navigate = useNavigate();
   const { addToCart } = useContext(CartContext);
-  const { products, getPriceForQuantity } = useContext(ProductContext);
+  const { products } = useContext(ProductContext);
 
   // Filter and search states
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,16 +33,37 @@ function Products() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleQuantityChange = (productId, quantity) => {
-    setQuantities({ ...quantities, [productId]: quantity });
+  const getProductMOQ = (product) => product.moq || 1;
+
+  const getCurrentQuantity = (product) => {
+    const moq = getProductMOQ(product);
+    return parseInt(quantities[product.id] || moq, 10);
+  };
+
+  const incrementQuantity = (product) => {
+    const currentQty = getCurrentQuantity(product);
+    setQuantities((prev) => ({
+      ...prev,
+      [product.id]: currentQty + 1,
+    }));
+  };
+
+  const decrementQuantity = (product) => {
+    const moq = getProductMOQ(product);
+    const currentQty = getCurrentQuantity(product);
+    setQuantities((prev) => ({
+      ...prev,
+      [product.id]: Math.max(moq, currentQty - 1),
+    }));
   };
 
   const handleAddToCart = (product) => {
-    const quantity = parseInt(quantities[product.id] || product.moq);
-    
-    if (quantity < product.moq) {
+    const moqQuantity = getProductMOQ(product);
+    const selectedQuantity = getCurrentQuantity(product);
+
+    if (selectedQuantity < moqQuantity) {
       setToast({
-        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`,
+        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${moqQuantity} ${product.unit}(s)`,
         type: "warning"
       });
       return;
@@ -51,13 +71,11 @@ function Products() {
 
     addToCart({
       ...product,
-      quantity: quantity,
-      price: getPriceForQuantity(product.id, quantity)
+      quantity: selectedQuantity,
     });
-    
-    setQuantities({ ...quantities, [product.id]: product.moq });
+
     setToast({
-      message: `✨ Added ${quantity} ${product.unit}(s) of ${product.name} to cart!`,
+      message: `✨ Added ${selectedQuantity} ${product.unit}(s) of ${product.name} to cart!`,
       type: "success"
     });
   };
@@ -124,65 +142,65 @@ function Products() {
             </div>
             
             <div className="products-grid">
-              {filteredProducts.map((p, index) => {
-                const liveQty = parseInt(quantities[p.id] || p.moq || 1);
-                const tierPrice = getPriceForQuantity(p.id, liveQty);
-                const originalPrice = p.price;
-                const hasDiscount = tierPrice < originalPrice;
-
+              {filteredProducts.map((p) => {
                 return (
-                  <div 
-                    key={p.id} 
-                    className="product-card"
-                    style={{ '--card-index': index }}
-                    onClick={() => navigate(`/product/${p.id}`)}
-                  >
-                    {/* Product Image */}
-                    <div className="product-image">
+                  <div key={p.id} className="product-card-home">
+                    <div className="product-image-wrapper">
                       <img
                         src={p.image || `https://placehold.co/200x200?text=${encodeURIComponent(p.name)}`}
                         alt={p.name}
+                        loading="lazy"
                         onError={(e) => {
                           e.target.src = `https://placehold.co/200x200?text=${encodeURIComponent(p.name)}`;
                         }}
                       />
+                      <span className="product-badge">{displayCategory(p.category)}</span>
                     </div>
 
-                    {/* Product Info */}
-                    <div className="product-info">
-                      <h3 className="product-name">{p.name}</h3>
-                      <p className="product-quantity">{p.moq} {p.unit}</p>
-
-                      {/* Price Section */}
-                      <div className="product-price-section">
-                        <div className="price-display">
-                          {hasDiscount && (
-                            <span className="original-price">₹{originalPrice}</span>
-                          )}
-                          <span className="current-price">₹{tierPrice}</span>
-                        </div>
-                        
+                    <div className="product-info-home">
+                      <h3>{p.name}</h3>
+                      <p className="product-description">{p.description}</p>
+                      <div className="product-pricing">
+                        <span className="price-label">Wholesale Price:</span>
+                        <span className="price">₹{p.wholesalePrice ?? p.price}</span>
+                      </div>
+                      <div className="product-moq">
+                        <span>MOQ: {p.moq} {p.unit}</span>
+                      </div>
+                      <div className="product-qty-controls">
                         <button
+                          className="qty-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            decrementQuantity(p);
+                          }}
+                        >
+                          −
+                        </button>
+                        <span className="qty-value">{getCurrentQuantity(p)}</span>
+                        <button
+                          className="qty-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            incrementQuantity(p);
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="product-actions">
+                        <button
+                          className="btn-add-to-cart"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddToCart(p);
                           }}
-                          className="add-btn"
                         >
-                          ADD
+                          🛒 Add to Cart
                         </button>
-                      </div>
-
-                      {/* Quantity Selector (Hidden by default, shows on hover) */}
-                      <div className="quantity-selector">
-                        <input
-                          type="number"
-                          min={p.moq}
-                          value={quantities[p.id] || p.moq}
-                          onChange={(e) => handleQuantityChange(p.id, e.target.value)}
-                          className="quantity-input-card"
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <Link to={`/product/${p.id}`} className="btn-view-details">
+                          View Details
+                        </Link>
                       </div>
                     </div>
                   </div>

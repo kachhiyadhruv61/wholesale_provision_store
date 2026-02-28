@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
+import { UserContext } from "../context/UserContext";
 import Toast from "../components/Toast";
 
 function Home() {
   const navigate = useNavigate();
   const { products } = useContext(ProductContext);
   const { addToCart } = useContext(CartContext);
+  const { user } = useContext(UserContext);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const sliderRef = useRef(null);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -64,9 +66,11 @@ function Home() {
               <Link className="btn btn-hero-secondary" to="/products">
                 🛍️ Browse Products
               </Link>
-              <Link className="btn btn-hero-primary" to="/register">
-                📝 Create Account
-              </Link>
+              {!user && (
+                <Link className="btn btn-hero-primary" to="/register">
+                  📝 Create Account
+                </Link>
+              )}
             </div>
           </div>
           
