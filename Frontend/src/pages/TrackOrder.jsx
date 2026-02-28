@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./TrackOrder.module.css";
 
 const TIMELINE_STEPS = [
-  "Pending",
-  "Confirmed",
-  "Processing",
-  "Shipped",
-  "Out for Delivery",
-  "Delivered",
+  { key: "Pending", title: "Order Placed" },
+  { key: "Confirmed", title: "Confirmed" },
+  { key: "Processing", title: "Packed" },
+  { key: "Shipped", title: "Shipped" },
+  { key: "Out for Delivery", title: "Out for Delivery" },
+  { key: "Delivered", title: "Delivered" },
 ];
 
 const VALID_TRACKING_ID = /^[A-Za-z0-9_-]{4,40}$/;
@@ -37,6 +37,40 @@ function formatDateTime(dateValue) {
   });
 }
 
+function getStepDates(data) {
+  const stepDates = {};
+  const history = Array.isArray(data?.history)
+    ? data.history
+    : Array.isArray(data?.statusHistory)
+      ? data.statusHistory
+      : [];
+
+  history.forEach((entry) => {
+    const normalized = normalizeStatus(entry?.status);
+    const dateValue = entry?.date || entry?.updatedAt || entry?.timestamp || entry?.createdAt || null;
+
+    if (dateValue && !stepDates[normalized]) {
+      stepDates[normalized] = dateValue;
+    }
+  });
+
+  if (!stepDates.Pending && (data?.orderDate || data?.date || data?.createdAt)) {
+    stepDates.Pending = data.orderDate || data.date || data.createdAt;
+  }
+
+  return stepDates;
+}
+
+function getStatusHeadline(status) {
+  if (status === "Delivered") return "Order delivered";
+  if (status === "Out for Delivery") return "Order is out for delivery";
+  if (status === "Shipped") return "Order has been shipped";
+  if (status === "Processing") return "Seller is preparing your order";
+  if (status === "Confirmed") return "Order has been confirmed";
+  if (status === "Cancelled") return "Order was cancelled";
+  return "Order has been placed";
+}
+
 function TrackOrder() {
   const [trackingId, setTrackingId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,16 +90,16 @@ function TrackOrder() {
 
   const timelineState = useMemo(() => {
     if (!trackingData) {
-      return { currentStepIndex: -1, isCancelled: false };
+      return { currentStepIndex: -1, isCancelled: false, headline: "" };
     }
 
     const status = normalizeStatus(trackingData.currentStatus);
     if (status === "Cancelled") {
-      return { currentStepIndex: -1, isCancelled: true };
+      return { currentStepIndex: -1, isCancelled: true, headline: getStatusHeadline(status) };
     }
 
-    const stepIndex = TIMELINE_STEPS.findIndex((step) => step === status);
-    return { currentStepIndex: stepIndex, isCancelled: false };
+    const stepIndex = TIMELINE_STEPS.findIndex((step) => step.key === status);
+    return { currentStepIndex: stepIndex, isCancelled: false, headline: getStatusHeadline(status) };
   }, [trackingData]);
 
   const handleTrackOrder = async (event) => {
@@ -107,6 +141,8 @@ function TrackOrder() {
           data.expectedDeliveryAt ||
           data.eta ||
           null,
+        statusUpdatedAt: data.statusUpdatedAt || data.updatedAt || data.lastUpdated || null,
+        stepDates: getStepDates(data),
       });
     } catch (fetchError) {
       setError(fetchError.message || "Something went wrong while tracking your order.");
@@ -148,27 +184,37 @@ function TrackOrder() {
 
         {trackingData ? (
           <div className={styles.result}>
+            <div className={styles.summaryCard}>
+              <div>
+                <p className={styles.summaryLabel}>Current Update</p>
+                <h2 className={styles.summaryTitle}>{timelineState.headline}</h2>
+                <p className={styles.summarySubtext}>
+                  Status: <strong>{trackingData.currentStatus}</strong>
+                </p>
+              </div>
+              <div className={styles.etaBlock}>
+                <span className={styles.metaLabel}>Expected Delivery</span>
+                <strong>{formatDateTime(trackingData.estimatedDelivery)}</strong>
+              </div>
+            </div>
+
             <div className={styles.resultGrid}>
               <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Tracking ID</span>
                 <strong>{trackingData.trackingId}</strong>
               </div>
               <div className={styles.metaItem}>
-                <span className={styles.metaLabel}>Current Status</span>
-                <strong>{trackingData.currentStatus}</strong>
-              </div>
-              <div className={styles.metaItem}>
                 <span className={styles.metaLabel}>Order Date</span>
                 <strong>{formatDateTime(trackingData.orderDate)}</strong>
               </div>
               <div className={styles.metaItem}>
-                <span className={styles.metaLabel}>Estimated Delivery</span>
-                <strong>{formatDateTime(trackingData.estimatedDelivery)}</strong>
+                <span className={styles.metaLabel}>Last Updated</span>
+                <strong>{formatDateTime(trackingData.statusUpdatedAt || trackingData.orderDate)}</strong>
               </div>
             </div>
 
             <div className={styles.timelineBlock}>
-              <h2>Order Timeline</h2>
+              <h2>Tracking Progress</h2>
               {timelineState.isCancelled ? (
                 <div className={styles.cancelledState}>This order has been cancelled.</div>
               ) : null}
@@ -177,16 +223,28 @@ function TrackOrder() {
                 {TIMELINE_STEPS.map((step, index) => {
                   const isCompleted = !timelineState.isCancelled && index <= timelineState.currentStepIndex;
                   const isCurrent = !timelineState.isCancelled && index === timelineState.currentStepIndex;
+                  const stepDate = trackingData.stepDates?.[step.key] || null;
 
                   return (
                     <li
-                      key={step}
+                      key={step.key}
                       className={`${styles.step} ${isCompleted ? styles.stepCompleted : ""} ${
                         isCurrent ? styles.stepCurrent : ""
                       }`}
                     >
-                      <span className={styles.stepDot} aria-hidden="true" />
-                      <span className={styles.stepLabel}>{step}</span>
+                      <span className={styles.stepDot} aria-hidden="true">
+                        {isCompleted ? "✓" : index + 1}
+                      </span>
+                      <div className={styles.stepContent}>
+                        <span className={styles.stepLabel}>{step.title}</span>
+                        <span className={styles.stepMeta}>
+                          {isCompleted
+                            ? formatDateTime(stepDate)
+                            : isCurrent
+                              ? "In progress"
+                              : "Pending"}
+                        </span>
+                      </div>
                     </li>
                   );
                 })}

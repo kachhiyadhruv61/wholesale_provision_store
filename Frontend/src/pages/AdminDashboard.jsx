@@ -44,6 +44,8 @@ function AdminDashboard() {
     category: "Grains",
     price: "",
     wholesalePrice: "",
+    purchaseCost: "",
+    sellCost: "",
     stock: "",
     moq: "",
     unit: "bag",
@@ -94,6 +96,8 @@ function AdminDashboard() {
       category: "Grains",
       price: "",
       wholesalePrice: "",
+      purchaseCost: "",
+      sellCost: "",
       stock: "",
       moq: "",
       unit: "bag",
@@ -106,7 +110,7 @@ function AdminDashboard() {
   };
 
   const handleAddProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -117,6 +121,8 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
@@ -136,7 +142,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -146,6 +152,8 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
@@ -165,12 +173,15 @@ function AdminDashboard() {
   };
 
   const handleEditClick = (product) => {
+    setActiveTab("products");
     setEditingProduct(product);
     setFormData({
       name: product.name,
       category: product.category,
       price: product.price,
       wholesalePrice: product.wholesalePrice,
+      purchaseCost: product.purchaseCost ?? product.wholesalePrice ?? product.price,
+      sellCost: product.sellCost ?? product.price,
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
@@ -544,10 +555,14 @@ function AdminDashboard() {
 
   const pricingTableData = useMemo(
     () => products.map(product => {
-      const margin = product.price - product.wholesalePrice;
-      const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+      const purchaseCost = Number(product.purchaseCost ?? product.wholesalePrice ?? 0);
+      const sellCost = Number(product.sellCost ?? product.price ?? 0);
+      const margin = sellCost - purchaseCost;
+      const marginPercent = sellCost > 0 ? ((margin / sellCost) * 100).toFixed(1) : "0.0";
       return {
         ...product,
+        purchaseCost,
+        sellCost,
         margin,
         marginPercent,
         actions: ""
@@ -573,6 +588,16 @@ function AdminDashboard() {
       accessorKey: "wholesalePrice",
       header: "Wholesale",
       Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ row }) => `₹${Number(row.original.purchaseCost ?? row.original.wholesalePrice ?? 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ row }) => `₹${Number(row.original.sellCost ?? row.original.price ?? 0).toLocaleString()}`
     },
     {
       accessorKey: "stock",
@@ -779,6 +804,16 @@ function AdminDashboard() {
       accessorKey: "wholesalePrice",
       header: "Wholesale Price",
       Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
+    },
+    {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
     },
     {
       accessorKey: "margin",
@@ -1027,6 +1062,28 @@ function AdminDashboard() {
                       value={formData.stock}
                       onChange={handleInputChange}
                       placeholder="150"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Purchase Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="purchaseCost"
+                      value={formData.purchaseCost}
+                      onChange={handleInputChange}
+                      placeholder="900"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Sell Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="sellCost"
+                      value={formData.sellCost}
+                      onChange={handleInputChange}
+                      placeholder="1200"
                     />
                   </div>
 

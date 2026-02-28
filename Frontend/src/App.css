@@ -9981,6 +9981,150 @@ h2 {
   color: #1f2937;
 }
 
+.live-tracking-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.live-tracking-summary .label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tracking-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.tracking-status-chip.status-delivered {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tracking-status-chip.status-out-for-delivery,
+.tracking-status-chip.status-shipped,
+.tracking-status-chip.status-processing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tracking-status-chip.status-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.tracking-cancelled {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.tracking-progress {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tracking-step {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.tracking-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 22px;
+  left: calc(100% + 2px);
+  width: 8px;
+  height: 2px;
+  background: #d1d5db;
+}
+
+.tracking-step-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2px solid #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5563;
+  background: #f9fafb;
+}
+
+.tracking-step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tracking-step-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.tracking-step.completed {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.tracking-step.completed .tracking-step-circle {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.tracking-step.completed .tracking-step-meta {
+  color: #1d4ed8;
+}
+
+.tracking-step.current {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.tracking-step.current .tracking-step-circle {
+  border-color: #f59e0b;
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.tracking-step.current .tracking-step-meta {
+  color: #b45309;
+}
+
 .special-instructions {
   margin-top: 12px;
   padding: 12px;
@@ -10232,6 +10376,28 @@ h2 {
 
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tracking-progress {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-step {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 10px;
+  }
+
+  .tracking-step:not(:last-child)::after {
+    top: 100%;
+    left: 21px;
+    width: 2px;
+    height: 8px;
+  }
+
+  .tracking-step-meta {
+    margin-left: auto;
   }
 }
 

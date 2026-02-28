@@ -98,10 +98,51 @@
   padding-top: 18px;
 }
 
+.summaryCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+}
+
+.summaryLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.summaryTitle {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.summarySubtext {
+  margin: 6px 0 0;
+  font-size: 0.92rem;
+  color: #334155;
+}
+
+.etaBlock {
+  min-width: 220px;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .resultGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  margin-top: 12px;
 }
 
 .metaItem {
@@ -148,50 +189,76 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .step {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  min-height: 38px;
+  min-height: 64px;
   color: #64748b;
-  padding: 6px 0;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .step:not(:last-child)::after {
   content: "";
   position: absolute;
-  left: 7px;
-  top: 30px;
-  width: 2px;
-  height: calc(100% - 8px);
+  left: calc(100% + 5px);
+  top: 22px;
+  width: 10px;
+  height: 2px;
   background: #cbd5e1;
 }
 
 .stepDot {
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 2px solid #94a3b8;
   background: #ffffff;
   z-index: 1;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .stepLabel {
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stepMeta {
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .stepCompleted {
   color: #0f172a;
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .stepCompleted .stepDot {
   border-color: #2563eb;
   background: #2563eb;
+  color: #ffffff;
 }
 
 .stepCurrent .stepDot {
@@ -216,6 +283,15 @@
     padding: 20px;
   }
 
+  .summaryCard {
+    flex-direction: column;
+  }
+
+  .etaBlock {
+    min-width: auto;
+    width: 100%;
+  }
+
   .inputRow {
     grid-template-columns: 1fr;
   }
@@ -226,5 +302,16 @@
 
   .resultGrid {
     grid-template-columns: 1fr;
+  }
+
+  .timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .step:not(:last-child)::after {
+    left: 11px;
+    top: 100%;
+    width: 2px;
+    height: 10px;
   }
 }
