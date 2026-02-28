@@ -44,6 +44,8 @@ function AdminDashboard() {
     category: "Grains",
     price: "",
     wholesalePrice: "",
+    purchaseCost: "",
+    sellCost: "",
     stock: "",
     moq: "",
     unit: "bag",
@@ -94,6 +96,8 @@ function AdminDashboard() {
       category: "Grains",
       price: "",
       wholesalePrice: "",
+      purchaseCost: "",
+      sellCost: "",
       stock: "",
       moq: "",
       unit: "bag",
@@ -106,7 +110,7 @@ function AdminDashboard() {
   };
 
   const handleAddProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -117,6 +121,8 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
@@ -136,7 +142,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -146,6 +152,8 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
@@ -165,12 +173,15 @@ function AdminDashboard() {
   };
 
   const handleEditClick = (product) => {
+    setActiveTab("products");
     setEditingProduct(product);
     setFormData({
       name: product.name,
       category: product.category,
       price: product.price,
       wholesalePrice: product.wholesalePrice,
+      purchaseCost: product.purchaseCost ?? product.wholesalePrice ?? product.price,
+      sellCost: product.sellCost ?? product.price,
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
@@ -188,26 +199,68 @@ function AdminDashboard() {
     }
   };
 
-  const handleStockUpdate = (id, currentStock) => {
-    const newStock = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
-    if (newStock !== null && !isNaN(newStock)) {
-      const parsedStock = Number(newStock);
-      updateStock(id, parsedStock);
+  const handleStockUpdate = (product) => {
+    const currentStock = Number(product.stock || 0);
+    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
+    if (stockInput === null) return;
 
-      if (currentStock >= 50 && parsedStock < 50) {
-        const product = products.find((item) => item.id === id);
-        addNotification({
-          type: "stock",
-          title: "Low stock alert",
-          message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
-          meta: {
-            product: product?.name,
-            stock: parsedStock,
-          },
-        });
-      }
-      alert("Stock Updated Successfully!");
+    if (stockInput === "" || isNaN(stockInput)) {
+      alert("Please enter a valid stock quantity.");
+      return;
     }
+
+    const parsedStock = Number(stockInput);
+    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+      alert("Stock cannot be negative.");
+      return;
+    }
+
+    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
+    let nextAvgPurchase = previousAvgPurchase;
+
+    if (parsedStock > currentStock) {
+      const addedQty = parsedStock - currentStock;
+      const purchaseInput = prompt(
+        `Enter purchase price for newly added stock (${addedQty} units):`,
+        String(previousAvgPurchase || "")
+      );
+
+      if (purchaseInput === null) return;
+      if (purchaseInput === "" || isNaN(purchaseInput)) {
+        alert("Please enter a valid purchase price.");
+        return;
+      }
+
+      const newPurchasePrice = Number(purchaseInput);
+      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
+        alert("Purchase price cannot be negative.");
+        return;
+      }
+
+      if (currentStock <= 0) {
+        nextAvgPurchase = newPurchasePrice;
+      } else {
+        const totalOldCost = previousAvgPurchase * currentStock;
+        const totalNewCost = newPurchasePrice * addedQty;
+        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
+      }
+    }
+
+    updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+
+    if (currentStock >= 50 && parsedStock < 50) {
+      addNotification({
+        type: "stock",
+        title: "Low stock alert",
+        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+        meta: {
+          product: product?.name,
+          stock: parsedStock,
+        },
+      });
+    }
+
+    alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
   };
 
   const handleLogout = () => {
@@ -220,6 +273,7 @@ function AdminDashboard() {
   };
 
   const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+
 
   const normalizePaymentStatus = (status) => {
     if (!status) return "Pending";
@@ -544,10 +598,14 @@ function AdminDashboard() {
 
   const pricingTableData = useMemo(
     () => products.map(product => {
-      const margin = product.price - product.wholesalePrice;
-      const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+      const purchaseCost = Number(product.purchaseCost ?? product.wholesalePrice ?? 0);
+      const sellCost = Number(product.sellCost ?? product.price ?? 0);
+      const margin = sellCost - purchaseCost;
+      const marginPercent = sellCost > 0 ? ((margin / sellCost) * 100).toFixed(1) : "0.0";
       return {
         ...product,
+        purchaseCost,
+        sellCost,
         margin,
         marginPercent,
         actions: ""
@@ -573,6 +631,16 @@ function AdminDashboard() {
       accessorKey: "wholesalePrice",
       header: "Wholesale",
       Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ row }) => `₹${Number(row.original.purchaseCost ?? row.original.wholesalePrice ?? 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ row }) => `₹${Number(row.original.sellCost ?? row.original.price ?? 0).toLocaleString()}`
     },
     {
       accessorKey: "stock",
@@ -781,6 +849,16 @@ function AdminDashboard() {
       Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
     },
     {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
       accessorKey: "margin",
       header: "Margin",
       Cell: ({ cell }) => <span className="margin">₹{cell.getValue()}</span>
@@ -803,6 +881,7 @@ function AdminDashboard() {
       )
     }
   ], [handleEditClick]);
+
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -871,9 +950,6 @@ function AdminDashboard() {
             onClick={() => setActiveTab("pricing")}
           >
             Pricing
-          </button>
-          <button onClick={() => navigate("/admin-analytics")}>
-            Analytics
           </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
@@ -1031,6 +1107,28 @@ function AdminDashboard() {
                   </div>
 
                   <div className="form-group">
+                    <label>Purchase Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="purchaseCost"
+                      value={formData.purchaseCost}
+                      onChange={handleInputChange}
+                      placeholder="900"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Sell Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="sellCost"
+                      value={formData.sellCost}
+                      onChange={handleInputChange}
+                      placeholder="1200"
+                    />
+                  </div>
+
+                  <div className="form-group">
                     <label>Minimum Order Qty</label>
                     <input
                       type="number"
@@ -1170,13 +1268,17 @@ function AdminDashboard() {
                       <span>MOQ:</span>
                       <strong>{product.moq}</strong>
                     </div>
+                    <div className="info-row">
+                      <span>Avg Purchase Price:</span>
+                      <strong>₹{Number(product.purchaseCost ?? product.wholesalePrice ?? 0).toLocaleString()}</strong>
+                    </div>
                     <div className="stock-value">
-                      Stock Value: ₹{(product.price * product.stock).toLocaleString()}
+                      Stock Value: ₹{(Number(product.purchaseCost ?? product.wholesalePrice ?? 0) * product.stock).toLocaleString()}
                     </div>
                   </div>
                   <button 
                     className="btn-stock-update"
-                    onClick={() => handleStockUpdate(product.id, product.stock)}
+                    onClick={() => handleStockUpdate(product)}
                   >
                     📝 Update Stock
                   </button>

@@ -1,0 +1,124 @@
+.page {
+  min-height: calc(100vh - 180px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px 16px;
+  background: #f8fafc;
+}
+
+.card {
+  width: min(700px, 100%);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #0f172a;
+}
+
+.subtitle {
+  margin: 8px 0 18px;
+  color: #475569;
+  font-size: 0.96rem;
+}
+
+.info {
+  margin: 0 0 10px;
+  color: #334155;
+}
+
+.error {
+  margin: 0 0 10px;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 8px 0 14px;
+}
+
+.item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 28px;
+  width: 2px;
+  height: calc(100% - 6px);
+  background: #cbd5e1;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: 4px;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.dotCompleted {
+  background: #16a34a;
+  border: 2px solid #16a34a;
+}
+
+.dotPending {
+  background: #e2e8f0;
+  border: 2px solid #94a3b8;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+}
+
+.status {
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+
+.completed {
+  color: #166534;
+}
+
+.pending {
+  color: #64748b;
+}
+
+.date {
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 18px;
+  }
+
+  .title {
+    font-size: 1.2rem;
+  }
+}

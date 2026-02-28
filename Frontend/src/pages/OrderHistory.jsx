@@ -47,12 +47,13 @@ function OrderHistory() {
     }
   };
 
-  const trackingSteps = ["Pending", "Confirmed", "Processing", "Out for Delivery", "Delivered"];
+  const trackingSteps = ["Pending", "Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered"];
 
   const normalizeStatus = (status) => {
     const incoming = String(status || "Confirmed").toLowerCase();
     if (incoming === "out for delivery") return "Out for Delivery";
     if (incoming === "delivered") return "Delivered";
+    if (incoming === "shipped") return "Shipped";
     if (incoming === "processing") return "Processing";
     if (incoming === "pending") return "Pending";
     if (incoming === "cancelled") return "Cancelled";
@@ -222,12 +223,14 @@ function OrderHistory() {
             <div className="modal-body">
               <div className="order-detail-section">
                 <h3>Live Tracking</h3>
-                <div className="detail-grid">
-                  <div className="detail-item">
+                <div className="live-tracking-summary">
+                  <div>
                     <span className="label">Current Status:</span>
-                    <span className="value">{progress.currentStatus}</span>
+                    <span className={`tracking-status-chip status-${String(progress.currentStatus).toLowerCase().replace(/\s+/g, "-")}`}>
+                      {progress.currentStatus}
+                    </span>
                   </div>
-                  <div className="detail-item">
+                  <div>
                     <span className="label">Last Updated:</span>
                     <span className="value">
                       {formatDate(selectedOrder.statusUpdatedAt || selectedOrder.date)}
@@ -236,13 +239,28 @@ function OrderHistory() {
                 </div>
 
                 {progress.currentStatus === "Cancelled" ? (
-                  <p>❌ This order has been cancelled.</p>
+                  <p className="tracking-cancelled">❌ This order has been cancelled.</p>
                 ) : (
-                  <div className="detail-grid">
+                  <div className="tracking-progress" role="list" aria-label="Order tracking progress">
                     {trackingSteps.map((step, index) => (
-                      <div className="detail-item" key={step}>
-                        <span className="label">{index <= progress.stepIndex ? "✅" : "⏳"}</span>
-                        <span className="value">{step}</span>
+                      <div
+                        className={`tracking-step ${index < progress.stepIndex ? "completed" : ""} ${
+                          index === progress.stepIndex ? "current" : ""
+                        }`}
+                        key={step}
+                        role="listitem"
+                      >
+                        <span className="tracking-step-circle" aria-hidden="true">
+                          {index < progress.stepIndex ? "✓" : index + 1}
+                        </span>
+                        <span className="tracking-step-label">{step}</span>
+                        <span className="tracking-step-meta">
+                          {index < progress.stepIndex
+                            ? "Completed"
+                            : index === progress.stepIndex
+                              ? "Current"
+                              : "Pending"}
+                        </span>
                       </div>
                     ))}
                   </div>
