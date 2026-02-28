@@ -22,6 +22,7 @@ import UserProfile from "./pages/UserProfile";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import FAQs from "./pages/FAQs";
+import TrackOrder from "./pages/TrackOrder";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { CartProvider } from "./context/CartContext";
 import { ProductProvider } from "./context/ProductContext";
@@ -56,6 +57,7 @@ function AppShell() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/order-success" element={<OrderSuccess />} />
         <Route path="/order-history" element={<OrderHistory />} />
+        <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/profile" element={<UserProfile />} />
         {/* Admin Routes - Dedicated admin login page */}
         <Route path="/admin" element={<AdminLoginPage />} />
