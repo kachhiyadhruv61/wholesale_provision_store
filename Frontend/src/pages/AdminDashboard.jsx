@@ -199,26 +199,68 @@ function AdminDashboard() {
     }
   };
 
-  const handleStockUpdate = (id, currentStock) => {
-    const newStock = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
-    if (newStock !== null && !isNaN(newStock)) {
-      const parsedStock = Number(newStock);
-      updateStock(id, parsedStock);
+  const handleStockUpdate = (product) => {
+    const currentStock = Number(product.stock || 0);
+    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
+    if (stockInput === null) return;
 
-      if (currentStock >= 50 && parsedStock < 50) {
-        const product = products.find((item) => item.id === id);
-        addNotification({
-          type: "stock",
-          title: "Low stock alert",
-          message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
-          meta: {
-            product: product?.name,
-            stock: parsedStock,
-          },
-        });
-      }
-      alert("Stock Updated Successfully!");
+    if (stockInput === "" || isNaN(stockInput)) {
+      alert("Please enter a valid stock quantity.");
+      return;
     }
+
+    const parsedStock = Number(stockInput);
+    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+      alert("Stock cannot be negative.");
+      return;
+    }
+
+    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
+    let nextAvgPurchase = previousAvgPurchase;
+
+    if (parsedStock > currentStock) {
+      const addedQty = parsedStock - currentStock;
+      const purchaseInput = prompt(
+        `Enter purchase price for newly added stock (${addedQty} units):`,
+        String(previousAvgPurchase || "")
+      );
+
+      if (purchaseInput === null) return;
+      if (purchaseInput === "" || isNaN(purchaseInput)) {
+        alert("Please enter a valid purchase price.");
+        return;
+      }
+
+      const newPurchasePrice = Number(purchaseInput);
+      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
+        alert("Purchase price cannot be negative.");
+        return;
+      }
+
+      if (currentStock <= 0) {
+        nextAvgPurchase = newPurchasePrice;
+      } else {
+        const totalOldCost = previousAvgPurchase * currentStock;
+        const totalNewCost = newPurchasePrice * addedQty;
+        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
+      }
+    }
+
+    updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+
+    if (currentStock >= 50 && parsedStock < 50) {
+      addNotification({
+        type: "stock",
+        title: "Low stock alert",
+        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+        meta: {
+          product: product?.name,
+          stock: parsedStock,
+        },
+      });
+    }
+
+    alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
   };
 
   const handleLogout = () => {
@@ -231,6 +273,7 @@ function AdminDashboard() {
   };
 
   const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+
 
   const normalizePaymentStatus = (status) => {
     if (!status) return "Pending";
@@ -839,6 +882,7 @@ function AdminDashboard() {
     }
   ], [handleEditClick]);
 
+
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
     { accessorKey: "quantity", header: "Quantity" },
@@ -906,9 +950,6 @@ function AdminDashboard() {
             onClick={() => setActiveTab("pricing")}
           >
             Pricing
-          </button>
-          <button onClick={() => navigate("/admin-analytics")}>
-            Analytics
           </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
@@ -1227,13 +1268,17 @@ function AdminDashboard() {
                       <span>MOQ:</span>
                       <strong>{product.moq}</strong>
                     </div>
+                    <div className="info-row">
+                      <span>Avg Purchase Price:</span>
+                      <strong>₹{Number(product.purchaseCost ?? product.wholesalePrice ?? 0).toLocaleString()}</strong>
+                    </div>
                     <div className="stock-value">
-                      Stock Value: ₹{(product.price * product.stock).toLocaleString()}
+                      Stock Value: ₹{(Number(product.purchaseCost ?? product.wholesalePrice ?? 0) * product.stock).toLocaleString()}
                     </div>
                   </div>
                   <button 
                     className="btn-stock-update"
-                    onClick={() => handleStockUpdate(product.id, product.stock)}
+                    onClick={() => handleStockUpdate(product)}
                   >
                     📝 Update Stock
                   </button>

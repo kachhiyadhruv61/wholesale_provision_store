@@ -1331,8 +1331,14 @@ export function ProductProvider({ children }) {
     setProducts(products.filter(p => p.id !== id));
   };
 
-  const updateStock = (id, newStock) => {
-    setProducts(products.map(p => p.id === id ? { ...p, stock: newStock } : p));
+  const updateStock = (id, newStock, extraUpdates = {}) => {
+    setProducts(
+      products.map((product) =>
+        product.id === id
+          ? normalizeProductCosts({ ...product, stock: newStock, ...extraUpdates })
+          : product
+      )
+    );
   };
 
   const deductStockForOrder = (orderItems) => {

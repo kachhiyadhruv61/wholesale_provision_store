@@ -1,5 +1,5 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -14,7 +14,6 @@ import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminHome from "./pages/AdminHome";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -77,14 +76,7 @@ function AppShell() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/admin-analytics"
-          element={
-            <ProtectedRoute>
-              <AdminAnalytics />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/admin-analytics" element={<Navigate to="/admin-home" replace />} />
       </Routes>
       {!hideChrome && <Footer />}
     </>
