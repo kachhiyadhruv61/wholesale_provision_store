@@ -1,20 +1,59 @@
-import React from "react";
+import React, { useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../context/UserContext";
+import { NotificationContext } from "../context/NotificationContext";
+
+const supportPhone = "+919313616159";
+const supportWhatsApp = "919313616159";
+const supportEmail = "support@dktrade.com";
+const partnerEmail = "partners@dktrade.com";
+const whatsappMessage = encodeURIComponent("Hi, I need wholesale support.");
+
+const quickActions = [
+  {
+    title: "Quick Call",
+    detail: "Speak to a real person for urgent queries.",
+    icon: "📞",
+    href: `tel:${supportPhone}`,
+    label: "Call now",
+  },
+  {
+    title: "WhatsApp Support",
+    detail: "Share order IDs and photos instantly.",
+    icon: "💬",
+    href: `https://wa.me/${supportWhatsApp}?text=${whatsappMessage}`,
+    label: "Chat on WhatsApp",
+  },
+  {
+    title: "Email Support",
+    detail: "For invoices, bulk quotes, or feedback.",
+    icon: "📩",
+    href: `mailto:${supportEmail}`,
+    label: "Send email",
+  },
+];
 
 const channels = [
   {
-    title: "Talk to support",
-    detail: "Need help with an active order? We reply fast during campus hours.",
-    action: "support@dktrade.com",
+    title: "Order & delivery",
+    detail: "Help with tracking, invoices, returns, and delivery timelines.",
+    action: supportEmail,
+    href: `mailto:${supportEmail}`,
+    icon: "📦",
   },
   {
-    title: "Partner with us",
-    detail: "Vendors and campus clubs can co-create curated collections.",
-    action: "partners@dktrade.com",
+    title: "Partnerships",
+    detail: "Vendors, distributors, and retail partners can reach us here.",
+    action: partnerEmail,
+    href: `mailto:${partnerEmail}`,
+    icon: "🤝",
   },
   {
-    title: "Call the desk",
-    detail: "Live phone support for urgent delivery questions and verifications.",
-    action: "+91 98765 43210",
+    title: "Urgent desk",
+    detail: "Immediate help for payment or verification issues.",
+    action: supportPhone,
+    href: `tel:${supportPhone}`,
+    icon: "☎️",
   },
 ];
 
@@ -25,9 +64,37 @@ const officeHours = [
 ];
 
 function Contact() {
+  const navigate = useNavigate();
+  const { user } = useContext(UserContext);
+  const { addNotification } = useContext(NotificationContext);
+
   const handleSubmit = (event) => {
     event.preventDefault();
-    // Prevent page reload; handoff could be wired to a backend later.
+
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    const formData = new FormData(event.target);
+    const name = (formData.get("name") || "").toString().trim();
+    const email = (formData.get("email") || "").toString().trim();
+    const phone = (formData.get("phone") || "").toString().trim();
+    const message = (formData.get("message") || "").toString().trim();
+
+    addNotification({
+      type: "contact",
+      title: "New contact message",
+      message: message || "No message provided.",
+      meta: {
+        name,
+        email,
+        phone,
+      },
+    });
+
+    event.target.reset();
+    alert("Thanks! Your message has been sent.");
   };
 
   return (
@@ -35,10 +102,26 @@ function Contact() {
       <section className="contact-hero">
         <div className="contact-hero__content">
           <p className="page-tag">Contact</p>
-          <h1>We’re here when you need us.</h1>
+          <h1>We're here when you need us.</h1>
           <p className="contact-hero__subtitle">
             Reach out for support, partnerships, or quick guidance. We keep channels open so you never wait for answers.
           </p>
+          <div className="contact-hero__actions">
+            <a className="btn btn-hero-primary" href={`tel:${supportPhone}`}>
+              📞 Call now
+            </a>
+            <a
+              className="btn btn-hero-secondary"
+              href={`https://wa.me/${supportWhatsApp}?text=${whatsappMessage}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              💬 WhatsApp
+            </a>
+            <a className="btn btn-hero-secondary" href={`mailto:${supportEmail}`}>
+              📩 Email
+            </a>
+          </div>
           <div className="contact-hours">
             {officeHours.map((item) => (
               <div className="hour-chip" key={item.label}>
@@ -50,7 +133,12 @@ function Contact() {
         </div>
         <div className="contact-hero__card">
           <h3>Response promise</h3>
-          <p>Avg. first reply under 15 minutes during campus hours.</p>
+          <p>Avg. first reply under 15 minutes during business hours.</p>
+          <ul className="contact-hero__list">
+            <li>Dedicated wholesale onboarding team</li>
+            <li>Bulk order and pricing assistance</li>
+            <li>Priority support for repeat buyers</li>
+          </ul>
           <div className="contact-metrics">
             <div>
               <p className="metric-number">4.9/5</p>
@@ -68,22 +156,50 @@ function Contact() {
         </div>
       </section>
 
-      <section className="contact-grid">
-        {channels.map((channel) => (
-          <div className="contact-card" key={channel.title}>
-            <p className="page-tag">{channel.title}</p>
-            <h3>{channel.title}</h3>
-            <p>{channel.detail}</p>
-            <p className="contact-action">{channel.action}</p>
-          </div>
-        ))}
+      <section className="contact-quick-actions-section">
+        <div className="contact-quick-actions">
+          {quickActions.map((action) => (
+            <a
+              className="contact-quick-card"
+              key={action.title}
+              href={action.href}
+              target={action.href.startsWith("https://") ? "_blank" : undefined}
+              rel={action.href.startsWith("https://") ? "noreferrer" : undefined}
+            >
+              <div className="contact-quick-icon">{action.icon}</div>
+              <div>
+                <h3>{action.title}</h3>
+                <p>{action.detail}</p>
+                <span className="contact-quick-link">{action.label} →</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="contact-grid-section">
+        <div className="contact-grid">
+          {channels.map((channel) => (
+            <div className="contact-card" key={channel.title}>
+              <p className="page-tag">{channel.title}</p>
+              <div className="contact-card__header">
+                <span className="contact-card__icon">{channel.icon}</span>
+                <h3>{channel.title}</h3>
+              </div>
+              <p>{channel.detail}</p>
+              <a className="contact-action" href={channel.href}>
+                {channel.action}
+              </a>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="contact-form-section">
         <div className="section-header">
           <p className="page-tag">Drop a note</p>
           <h2>Tell us what you need</h2>
-          <p className="section-subtitle">We’ll route your message to the right person and reply quickly.</p>
+          <p className="section-subtitle">We'll route your message to the right person and reply quickly.</p>
         </div>
         <form className="contact-form" onSubmit={handleSubmit}>
           <div className="form-row">
@@ -97,15 +213,6 @@ function Contact() {
             </label>
           </div>
           <div className="form-row">
-            <label>
-              Topic
-              <select name="topic" defaultValue="support">
-                <option value="support">Support</option>
-                <option value="partnership">Partnership</option>
-                <option value="feedback">Feedback</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
             <label>
               Phone (optional)
               <input name="phone" type="tel" placeholder="+91 90000 00000" />
@@ -148,7 +255,7 @@ function Contact() {
           </div>
           <div className="location-info">
             <h3>📞 Contact</h3>
-            <p>+91 98765 43210<br />support@dktrade.com</p>
+            <p>+91 9313616159<br />support@dktrade.com</p>
           </div>
         </div>
       </section>

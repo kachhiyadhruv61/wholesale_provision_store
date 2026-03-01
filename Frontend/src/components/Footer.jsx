@@ -8,13 +8,13 @@ function Footer() {
           <h4>DK TRADERS</h4>
           <p>Modern wholesale e-commerce platform for B2B retailers. Fast, secure, and easy ordering with multiple payment options.</p>
           <div className="social-media">
-            <a href="https://www.facebook.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+            <a href="https://www.facebook.com/profile.php?id=61587681500936" target="_blank" rel="noopener noreferrer" className="social-icon">
               <i className="fab fa-facebook-f"></i>
             </a>
             <a href="https://www.twitter.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
               <i className="fab fa-twitter"></i>
             </a>
-            <a href="https://www.instagram.com/dktrade" target="_blank" rel="noopener noreferrer" className="social-icon">
+            <a href="https://www.instagram.com/dktraders1027/" target="_blank" rel="noopener noreferrer" className="social-icon">
               <i className="fab fa-instagram"></i>
             </a>
           </div>
@@ -45,10 +45,9 @@ function Footer() {
         <div className="footer-section">
           <h4>Support</h4>
           <ul className="footer-links">
-            <li><a href="mailto:support@dktrade.com">Email Support</a></li>
-            <li><a href="tel:+919876543210">+91 98765 43210</a></li>
-            <li><a href="#">Live Chat</a></li>
-            <li><a href="#">FAQs</a></li>
+            <li><a href="mailto:dktraders1027@gmail.com">Email Support</a></li>
+            <li><a href="tel:+919313616159">+91 9313616159</a></li>
+            <li><a href="/FAQs">FAQs</a></li>
           </ul>
         </div>
       </div>

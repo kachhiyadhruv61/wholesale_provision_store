@@ -1,10 +1,15 @@
-import { useContext } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderContext } from "../context/OrderContext";
+import { UserContext } from "../context/UserContext";
+import CommonTable from "../components/CommonTable";
 
 function OrderHistory() {
   const { orders } = useContext(OrderContext);
+  const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -29,6 +34,144 @@ function OrderHistory() {
     }
   };
 
+  const paymentMethodText = (method) => {
+    switch ((method || "cod").toLowerCase()) {
+      case "upi":
+        return "UPI";
+      case "card":
+        return "Card";
+      case "bank":
+        return "Net Banking";
+      default:
+        return "Cash on Delivery";
+    }
+  };
+
+  const trackingSteps = ["Pending", "Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered"];
+
+  const normalizeStatus = (status) => {
+    const incoming = String(status || "Confirmed").toLowerCase();
+    if (incoming === "out for delivery") return "Out for Delivery";
+    if (incoming === "delivered") return "Delivered";
+    if (incoming === "shipped") return "Shipped";
+    if (incoming === "processing") return "Processing";
+    if (incoming === "pending") return "Pending";
+    if (incoming === "cancelled") return "Cancelled";
+    return "Confirmed";
+  };
+
+  const getStatusProgress = (status) => {
+    const normalized = normalizeStatus(status);
+    if (normalized === "Cancelled") {
+      return {
+        currentStatus: normalized,
+        stepIndex: -1,
+      };
+    }
+
+    return {
+      currentStatus: normalized,
+      stepIndex: trackingSteps.findIndex((s) => s === normalized),
+    };
+  };
+
+  const orderItemsColumns = useMemo(() => [
+    { accessorKey: "name", header: "Product" },
+    { accessorKey: "quantity", header: "Quantity" },
+    {
+      accessorKey: "price",
+      header: "Price",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "total",
+      header: "Total",
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`
+    }
+  ], []);
+
+  const orderItemsData = useMemo(
+    () => (selectedOrder?.items || []).map(item => ({
+      name: item.name || "Product",
+      quantity: item.quantity || 0,
+      price: item.price || 0,
+      total: (item.quantity || 0) * (item.price || 0)
+    })),
+    [selectedOrder]
+  );
+
+  const handleViewOrder = (order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
+  };
+
+  useEffect(() => {
+    if (!selectedOrder?.id) return;
+    const latestOrder = orders.find((order) => order.id === selectedOrder.id);
+    if (latestOrder && latestOrder !== selectedOrder) {
+      setSelectedOrder(latestOrder);
+    }
+  }, [orders, selectedOrder]);
+
+  const visibleOrders = useMemo(() => {
+    if (!user) return [];
+    return orders.filter((order) => {
+      if (order.customerId && user.id && order.customerId === user.id) return true;
+      if (order.customerUsername && user.username && order.customerUsername === user.username) return true;
+      if (order.customerEmail && user.email && order.customerEmail === user.email) return true;
+      return false;
+    });
+  }, [orders, user]);
+
+  const ordersTableData = useMemo(
+    () => visibleOrders.map((order) => ({
+      id: `#${order.id}`,
+      date: formatDate(order.date),
+      status: order.status || "Confirmed",
+      paymentMethod: methodLabel(order.paymentMethod),
+      itemCount: order.items?.length || 0,
+      total: Number(order.total || 0),
+      actionsLabel: "Actions",
+      rawOrder: order,
+    })),
+    [visibleOrders]
+  );
+
+  const ordersColumns = useMemo(
+    () => [
+      { accessorKey: "id", header: "Order ID" },
+      { accessorKey: "date", header: "Date" },
+      {
+        accessorKey: "status",
+        header: "Status",
+        Cell: ({ cell }) => {
+          const status = cell.getValue() || "Confirmed";
+          return <span className={`status-badge ${String(status).toLowerCase()}`}>{status}</span>;
+        },
+      },
+      { accessorKey: "paymentMethod", header: "Payment" },
+      { accessorKey: "itemCount", header: "Items" },
+      {
+        accessorKey: "total",
+        header: "Total",
+        Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+      },
+      {
+        accessorKey: "actionsLabel",
+        header: "Actions",
+        Cell: ({ row }) => (
+          <div className="order-actions">
+            <button className="btn-secondary" onClick={() => handleViewOrder(row.original.rawOrder)}>
+              View Details
+            </button>
+           
+          </div>
+        ),
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <div className="orders-page">
       <div className="orders-header">
@@ -41,7 +184,7 @@ function OrderHistory() {
         </p>
       </div>
 
-      {orders.length === 0 ? (
+      {visibleOrders.length === 0 ? (
         <div className="orders-empty">
           <div className="empty-illustration">📦</div>
           <h3>No orders yet</h3>
@@ -51,63 +194,177 @@ function OrderHistory() {
           </button>
         </div>
       ) : (
-        <div className="orders-grid">
-          {orders.map((order) => (
-            <div key={order.id} className="order-card">
-              <div className="order-card-header">
-                <div className="order-id">#{order.id}</div>
-                <div className="order-date">{formatDate(order.date)}</div>
-              </div>
+        <div className="orders-table">
+          <CommonTable
+            columns={ordersColumns}
+            data={ordersTableData}
+            fileName="my-orders"
+            showSelection={false}
+          />
+        </div>
+      )}
 
-              <div className="order-meta">
-                <span className={`status-badge ${String(order.status || "Confirmed").toLowerCase()}`}>
-                  {order.status || "Confirmed"}
-                </span>
-                <span className="method-badge">{methodLabel(order.paymentMethod)}</span>
-              </div>
+      {showOrderModal && selectedOrder && (
+        (() => {
+          const progress = getStatusProgress(selectedOrder.status);
+          return (
+        <div className="modal-overlay" onClick={() => setShowOrderModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Order Details - #{selectedOrder.id}</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowOrderModal(false)}
+              >
+                ×
+              </button>
+            </div>
 
-              <div className="order-items">
-                {order.items && order.items.length > 0 ? (
-                  order.items.map((item, index) => (
-                    <div key={index} className="order-item-row">
-                      <span className="item-name">{item.name}</span>
-                      <span className="item-price">₹{item.price}</span>
-                    </div>
-                  ))
+            <div className="modal-body">
+              <div className="order-detail-section">
+                <h3>Live Tracking</h3>
+                <div className="live-tracking-summary">
+                  <div>
+                    <span className="label">Current Status:</span>
+                    <span className={`tracking-status-chip status-${String(progress.currentStatus).toLowerCase().replace(/\s+/g, "-")}`}>
+                      {progress.currentStatus}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="label">Last Updated:</span>
+                    <span className="value">
+                      {formatDate(selectedOrder.statusUpdatedAt || selectedOrder.date)}
+                    </span>
+                  </div>
+                </div>
+
+                {progress.currentStatus === "Cancelled" ? (
+                  <p className="tracking-cancelled">❌ This order has been cancelled.</p>
                 ) : (
-                  <div className="order-item-row muted">No items to display</div>
+                  <div className="tracking-progress" role="list" aria-label="Order tracking progress">
+                    {trackingSteps.map((step, index) => (
+                      <div
+                        className={`tracking-step ${index < progress.stepIndex ? "completed" : ""} ${
+                          index === progress.stepIndex ? "current" : ""
+                        }`}
+                        key={step}
+                        role="listitem"
+                      >
+                        <span className="tracking-step-circle" aria-hidden="true">
+                          {index < progress.stepIndex ? "✓" : index + 1}
+                        </span>
+                        <span className="tracking-step-label">{step}</span>
+                        <span className="tracking-step-meta">
+                          {index < progress.stepIndex
+                            ? "Completed"
+                            : index === progress.stepIndex
+                              ? "Current"
+                              : "Pending"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {(order.deliveryAddress || order.deliveryCity) && (
-                <div className="order-delivery">
-                  <span className="delivery-icon">📍</span>
-                  <span className="delivery-text">
-                    {order.deliveryAddress}
-                    {order.deliveryCity ? `, ${order.deliveryCity}` : ""}
-                    {order.deliveryState ? `, ${order.deliveryState}` : ""}
-                    {order.deliveryPincode ? ` - ${order.deliveryPincode}` : ""}
-                  </span>
+              <div className="order-detail-section">
+                <h3>Order Information</h3>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="label">Order ID:</span>
+                    <span className="value">#{selectedOrder.id}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Date:</span>
+                    <span className="value">{formatDate(selectedOrder.date)}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Customer:</span>
+                    <span className="value">{selectedOrder.customerName || "Customer"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Status:</span>
+                    <span className="value">{selectedOrder.status || "Confirmed"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Payment Method:</span>
+                    <span className="value">{paymentMethodText(selectedOrder.paymentMethod)}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Payment Status:</span>
+                    <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              <div className="order-card-footer">
-                <div className="order-total">
-                  <span>Total</span>
-                  <span className="total-amount">₹{Number(order.total || 0).toFixed(2)}</span>
+              <div className="order-detail-section">
+                <h3>Delivery Information</h3>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="label">Address:</span>
+                    <span className="value">{selectedOrder.deliveryAddress || "N/A"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">City:</span>
+                    <span className="value">{selectedOrder.deliveryCity || "N/A"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">State:</span>
+                    <span className="value">{selectedOrder.deliveryState || "N/A"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Pincode:</span>
+                    <span className="value">{selectedOrder.deliveryPincode || "N/A"}</span>
+                  </div>
                 </div>
-                <div className="order-actions">
-                  <button className="btn-secondary" onClick={() => navigate("/products")}>
-                    Reorder
-                  </button>
-                  <button className="btn-primary" onClick={() => navigate("/checkout")}>
-                    Checkout Again
-                  </button>
+                {selectedOrder.specialInstructions && (
+                  <div className="special-instructions">
+                    <strong>Special Instructions:</strong>
+                    <p>{selectedOrder.specialInstructions}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="order-detail-section">
+                <h3>Order Items</h3>
+                <div className="items-table">
+                  <CommonTable
+                    columns={orderItemsColumns}
+                    data={orderItemsData}
+                    fileName={`my-order-${selectedOrder.id}-items`}
+                    showSelection={false}
+                  />
+                </div>
+              </div>
+
+              <div className="order-detail-section order-summary">
+                <div className="summary-row">
+                  <span>Subtotal:</span>
+                  <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Delivery Charges:</span>
+                  <span>₹0</span>
+                </div>
+                <div className="summary-row total">
+                  <span>Total Amount:</span>
+                  <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
-          ))}
+
+            <div className="modal-footer">
+              <button
+                className="btn-close"
+                onClick={() => setShowOrderModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
+          );
+        })()
       )}
     </div>
   );

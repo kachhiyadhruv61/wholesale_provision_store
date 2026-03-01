@@ -19,7 +19,17 @@ function Cart() {
   };
 
   return (
-    <div className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}>
+    <div 
+      className={`cart-page${cart.length === 0 ? " empty-cart" : ""}`}
+      style={{
+        background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${process.env.PUBLIC_URL}/images/logos/productbg.png)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        minHeight: '100vh'
+      }}
+    >
       <h2>🛒 Your Shopping Cart</h2>
 
       <div className={`cart-content${cart.length === 0 ? " cart-content-empty" : ""}`}>
@@ -114,7 +124,8 @@ function Cart() {
               </div>
 
               <div className="summary-note">
-                <small>✓ Free delivery on orders ₹1000+</small>
+                <small>✓ Free delivery on orders ₹6000+</small>
+                <small>✓ ₹150 delivery charge below ₹6000</small>
                 <small>✓ Secure checkout</small>
                 <small>✓ Multiple payment options</small>
               </div>

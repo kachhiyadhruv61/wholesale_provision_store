@@ -1,0 +1,53 @@
+/* Route Transition Loader - Just Icon */
+.route-loader {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  animation: fadeInLoader 0.2s ease-in;
+}
+
+@keyframes fadeInLoader {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.route-loader-icon {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 15px rgba(102, 126, 234, 0.4));
+  animation: smoothBounce 1.5s ease-in-out infinite;
+}
+
+@keyframes smoothBounce {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.15) rotate(90deg);
+  }
+  50% {
+    transform: scale(0.95) rotate(180deg);
+    opacity: 0.9;
+  }
+  75% {
+    transform: scale(1.15) rotate(360deg);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .route-loader-icon {
+    width: 100px;
+    height: 100px;
+  }
+}

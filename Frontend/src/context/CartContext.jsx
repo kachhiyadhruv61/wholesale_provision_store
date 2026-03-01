@@ -82,15 +82,15 @@ export function CartProvider({ children }) {
   };
 
   const clearCart = () => {
-  setCart([]);
-};
+    setCart([]);
+  };
 
   const totalPrice = cart.reduce(
     (total, item) => total + (item.price * (item.quantity || 1)),
     0
   );
 
-  const deliveryCharge = totalPrice > 0 && totalPrice < 1000 ? 40 : 0;
+  const deliveryCharge = totalPrice > 0 && totalPrice < 6000 ? 150 : 0;
 
   return (
     <CartContext.Provider

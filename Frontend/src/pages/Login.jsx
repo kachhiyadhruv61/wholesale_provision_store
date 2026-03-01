@@ -7,29 +7,113 @@ function Login() {
   const { loginUser } = useContext(UserContext);
   const [credentials, setCredentials] = useState({
     username: "",
-    email: "",
     password: "", 
   });
+  const [otpCode, setOtpCode] = useState("");
+  const [otpMeta, setOtpMeta] = useState({
+    sent: false,
+    verified: false,
+    code: "",
+    message: "",
+    error: "",
+  });
 
-// abcd
+  // Mock database - fetch email based on username
+  const getUserEmail = (username) => {
+    const userDatabase = {
+      "admin": "admin@wholesale.com",
+      "pratik": "pratik@example.com",
+      "user1": "user1@example.com",
+      "demo": "demo@example.com",
+    };
+    return userDatabase[username.toLowerCase()] || `${username}@example.com`;
+  };
+                           
+  const resetOtpState = () => {
+    setOtpCode("");
+    setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "" });
+  };
 
-        //  hello ji                                      
+  const isAdminUsername = credentials.username.trim().toLowerCase() === "admin";
 
   const handleChange = (e) => {
     const { name, value } = e.target; 
     setCredentials({ ...credentials, [name]: value });
+
+    if (name === "username") {
+      resetOtpState();
+    }
+  };
+
+  const handleSendOtp = () => {
+    if (!credentials.username) {
+      setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "Username is required for OTP." });
+      return;
+    }
+
+    if (isAdminUsername) {
+      setOtpMeta({ sent: false, verified: false, code: "", message: "", error: "OTP is not required for admin login." });
+      return;
+    }
+
+    const email = getUserEmail(credentials.username);
+    const generatedOtp = `${Math.floor(100000 + Math.random() * 900000)}`;
+    setOtpMeta({
+      sent: true,
+      verified: false,
+      code: generatedOtp,
+      message: `OTP sent to ${email}.`,
+      error: "",
+    });
+    setOtpCode("");
+    console.info("[Login OTP] Demo OTP:", generatedOtp);
+    alert(`Demo OTP sent to ${email}: ${generatedOtp}`);
+  };
+
+  const handleVerifyOtp = () => {
+    if (!otpMeta.sent) {
+      setOtpMeta({ ...otpMeta, error: "Please request OTP first." });
+      return;
+    }
+
+    if (otpCode.trim() === otpMeta.code) {
+      setOtpMeta({ ...otpMeta, verified: true, error: "", message: "Email verified." });
+      return;
+    }
+
+    setOtpMeta({ ...otpMeta, error: "Invalid OTP. Please try again." });
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    
-    // Automatically detect admin login
-    if (credentials.username === "admin" && credentials.password === "admin123") {
-      localStorage.setItem("adminLoggedIn", "true");
-      navigate("/admin-dashboard");
-    } else if (credentials.username && credentials.email) {
-      // Regular user login
-      loginUser(credentials.username, credentials.email);
+
+    if (isAdminUsername) {
+      if (credentials.password === "admin123") {
+        localStorage.setItem("adminLoggedIn", "true");
+        localStorage.setItem("adminUsername", "admin");
+        navigate("/admin-home");
+      } else {
+        alert("Invalid admin credentials");
+      }
+      return;
+    }
+
+    if (credentials.username && credentials.password) {
+      if (!otpMeta.sent) {
+        handleSendOtp();
+        return;
+      }
+
+      if (!otpMeta.verified) {
+        setOtpMeta({ ...otpMeta, error: "Please verify OTP to continue." });
+        return;
+      }
+
+      // Fetch email from database based on username
+      const email = getUserEmail(credentials.username);
+      
+      // Regular user login with auto-fetched email (after OTP verification)
+      loginUser(credentials.username, email);
       navigate("/products");
     } else {
       alert("Please fill in all required fields");
@@ -61,19 +145,47 @@ function Login() {
               />
             </div>
 
-            <div className="form-group">
-              <label>
-                <span className="label-icon"></span>
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                placeholder="your@email.com (not required for admin)"
-                value={credentials.email}
-                onChange={handleChange}
-              />
-            </div>
+            {credentials.username && !isAdminUsername && (
+              <div className="form-group otp-group">
+                <div className="otp-header">
+                  <label>
+                    <span className="label-icon"></span>
+                    Email OTP Verification
+                  </label>
+                  <button
+                    type="button"
+                    className="otp-action-btn"
+                    onClick={handleSendOtp}
+                  >
+                    {otpMeta.sent ? "Resend OTP" : "Send OTP"}
+                  </button>
+                </div>
+
+                <div className="otp-row">
+                  <input
+                    type="text"
+                    name="otp"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="Enter 6-digit OTP"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    disabled={!otpMeta.sent}
+                  />
+                  <button
+                    type="button"
+                    className="otp-verify-btn"
+                    onClick={handleVerifyOtp}
+                    disabled={!otpMeta.sent || otpMeta.verified}
+                  >
+                    {otpMeta.verified ? "✓ Verified" : "Verify"}
+                  </button>
+                </div>
+
+                {otpMeta.message && <p className="otp-status">{otpMeta.message}</p>}
+                {otpMeta.error && <p className="otp-error">{otpMeta.error}</p>}
+              </div>
+            )}
 
             <div className="form-group">
               <label>
@@ -89,7 +201,7 @@ function Login() {
                 required
               />
               <small className="input-hint">
-                 Admin: username "admin" with password "admin123"
+                 
               </small>
             </div>
 

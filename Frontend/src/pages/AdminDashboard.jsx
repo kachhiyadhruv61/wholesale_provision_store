@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
+import { NotificationContext } from "../context/NotificationContext";
 import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus } = useContext(OrderContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
   const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
+  const { addNotification } = useContext(NotificationContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -42,18 +44,50 @@ function AdminDashboard() {
     category: "Grains",
     price: "",
     wholesalePrice: "",
+    purchaseCost: "",
+    sellCost: "",
     stock: "",
     moq: "",
     unit: "bag",
-    description: ""
+    description: "",
+    image: ""
   });
+  const [imagePreview, setImagePreview] = useState(null);
 
-  const categories = ["Grains", "Sweeteners", "Oils", "Spices", "Snacks", "Others"];
+  const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
+  const categories = useMemo(() => {
+    const unique = new Set(products.map(product => product.category || "Others"));
+    unique.add("Grains");
+    unique.add("Others");
+    return Array.from(unique);
+  }, [products]);
   const units = ["bag", "box", "bottle", "kg", "litre"];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, image: reader.result }));
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData(prev => ({ ...prev, image: "" }));
+    setImagePreview(null);
   };
 
   const resetForm = () => {
@@ -62,17 +96,21 @@ function AdminDashboard() {
       category: "Grains",
       price: "",
       wholesalePrice: "",
+      purchaseCost: "",
+      sellCost: "",
       stock: "",
       moq: "",
       unit: "bag",
-      description: ""
+      description: "",
+      image: ""
     });
+    setImagePreview(null);
     setEditingProduct(null);
     setShowAddForm(false);
   };
 
   const handleAddProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -83,10 +121,13 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -101,7 +142,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateProduct = () => {
-    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.stock) {
+    if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
     }
@@ -111,10 +152,13 @@ function AdminDashboard() {
       category: formData.category,
       price: Number(formData.price),
       wholesalePrice: Number(formData.wholesalePrice),
+      purchaseCost: Number(formData.purchaseCost),
+      sellCost: Number(formData.sellCost),
       stock: Number(formData.stock),
       moq: Number(formData.moq) || 1,
       unit: formData.unit,
       description: formData.description,
+      image: formData.image || editingProduct.image || "",
       bulkPricing: [
         { quantity: 1, price: Number(formData.price) },
         { quantity: 5, price: Number(formData.price) * 0.95 },
@@ -129,17 +173,22 @@ function AdminDashboard() {
   };
 
   const handleEditClick = (product) => {
+    setActiveTab("products");
     setEditingProduct(product);
     setFormData({
       name: product.name,
       category: product.category,
       price: product.price,
       wholesalePrice: product.wholesalePrice,
+      purchaseCost: product.purchaseCost ?? product.wholesalePrice ?? product.price,
+      sellCost: product.sellCost ?? product.price,
       stock: product.stock,
       moq: product.moq,
       unit: product.unit,
-      description: product.description || ""
+      description: product.description || "",
+      image: product.image || ""
     });
+    setImagePreview(product.image || null);
     setShowAddForm(true);
   };
 
@@ -150,12 +199,68 @@ function AdminDashboard() {
     }
   };
 
-  const handleStockUpdate = (id, currentStock) => {
-    const newStock = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
-    if (newStock !== null && !isNaN(newStock)) {
-      updateStock(id, Number(newStock));
-      alert("Stock Updated Successfully!");
+  const handleStockUpdate = (product) => {
+    const currentStock = Number(product.stock || 0);
+    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
+    if (stockInput === null) return;
+
+    if (stockInput === "" || isNaN(stockInput)) {
+      alert("Please enter a valid stock quantity.");
+      return;
     }
+
+    const parsedStock = Number(stockInput);
+    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+      alert("Stock cannot be negative.");
+      return;
+    }
+
+    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
+    let nextAvgPurchase = previousAvgPurchase;
+
+    if (parsedStock > currentStock) {
+      const addedQty = parsedStock - currentStock;
+      const purchaseInput = prompt(
+        `Enter purchase price for newly added stock (${addedQty} units):`,
+        String(previousAvgPurchase || "")
+      );
+
+      if (purchaseInput === null) return;
+      if (purchaseInput === "" || isNaN(purchaseInput)) {
+        alert("Please enter a valid purchase price.");
+        return;
+      }
+
+      const newPurchasePrice = Number(purchaseInput);
+      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
+        alert("Purchase price cannot be negative.");
+        return;
+      }
+
+      if (currentStock <= 0) {
+        nextAvgPurchase = newPurchasePrice;
+      } else {
+        const totalOldCost = previousAvgPurchase * currentStock;
+        const totalNewCost = newPurchasePrice * addedQty;
+        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
+      }
+    }
+
+    updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+
+    if (currentStock >= 50 && parsedStock < 50) {
+      addNotification({
+        type: "stock",
+        title: "Low stock alert",
+        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+        meta: {
+          product: product?.name,
+          stock: parsedStock,
+        },
+      });
+    }
+
+    alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
   };
 
   const handleLogout = () => {
@@ -166,6 +271,52 @@ function AdminDashboard() {
   const getLowStockProducts = () => {
     return products.filter(p => p.stock < 50);
   };
+
+  const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+
+
+  const normalizePaymentStatus = (status) => {
+    if (!status) return "Pending";
+    if (status === "Completed") return "Paid";
+    return status;
+  };
+
+  const normalizePaymentMethod = (method) => {
+    if (!method) return "COD";
+    const normalized = method.toLowerCase();
+    if (normalized === "cod") return "COD";
+    if (normalized === "upi") return "UPI";
+    if (normalized === "card") return "Card";
+    if (normalized === "bank") return "Net Banking";
+    return method;
+  };
+
+  const paymentsFromOrders = useMemo(() => (
+    orders.map(order => ({
+      id: `PAY${order.id}`,
+      orderId: order.id,
+      orderNumericId: order.id,
+      transactionId: order.transactionId || "",
+      customerName: order.customerName || "Customer",
+      customerEmail: order.customerEmail || "N/A",
+      customerPhone: order.customerPhone || "N/A",
+      amount: Number(order.total || 0),
+      method: normalizePaymentMethod(order.paymentMethod),
+      date: order.orderDate || order.date,
+      status: normalizePaymentStatus(order.paymentStatus),
+      products: order.items?.map(item => item.name) || [],
+      totalAmount: Number(order.total || 0),
+      source: "order"
+    }))
+  ), [orders]);
+
+  const manualPayments = payments;
+
+  const displayPayments = useMemo(() => {
+    const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
+    const extraPayments = payments.filter(p => !orderIds.has(p.orderId?.toString()));
+    return [...paymentsFromOrders, ...extraPayments];
+  }, [paymentsFromOrders, payments]);
 
   const getTotalInventoryValue = () => {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
@@ -228,12 +379,12 @@ function AdminDashboard() {
 
   // Payment Management Functions
   const getPaymentStats = () => {
-    const totalPayments = payments.length;
-    const paidAmount = payments
+    const totalPayments = displayPayments.length;
+    const paidAmount = displayPayments
       .filter(p => p.status === "Paid")
       .reduce((sum, p) => sum + p.amount, 0);
-    const pendingPayments = payments.filter(p => p.status === "Pending").length;
-    const failedPayments = payments.filter(p => p.status === "Failed").length;
+    const pendingPayments = displayPayments.filter(p => p.status === "Pending").length;
+    const failedPayments = displayPayments.filter(p => p.status === "Failed").length;
 
     return { totalPayments, paidAmount, pendingPayments, failedPayments };
   };
@@ -262,7 +413,7 @@ function AdminDashboard() {
   const getCustomers = () => {
     const customerMap = new Map();
 
-    payments.forEach(payment => {
+    displayPayments.forEach(payment => {
       const rawKey = payment.customerEmail || payment.customerPhone || payment.customerName || payment.orderId || payment.id || "";
       const key = rawKey.toString().toLowerCase() || payment.id;
 
@@ -309,9 +460,13 @@ function AdminDashboard() {
     return { label: "New", className: "status-pending" };
   };
 
-  const handleUpdatePaymentStatus = (paymentId, newStatus) => {
+  const handleUpdatePaymentStatus = (payment, newStatus) => {
+    if (payment?.source === "order" && updateOrderPaymentStatus) {
+      updateOrderPaymentStatus(payment.orderNumericId, newStatus);
+      return;
+    }
     if (updatePaymentStatus) {
-      updatePaymentStatus(paymentId, newStatus);
+      updatePaymentStatus(payment.id, newStatus);
     }
   };
 
@@ -321,8 +476,8 @@ function AdminDashboard() {
   };
 
   const getFilteredPayments = () => {
-    if (paymentStatusFilter === "all") return payments;
-    return payments.filter(p => p.status === paymentStatusFilter);
+    if (paymentStatusFilter === "all") return displayPayments;
+    return displayPayments.filter(p => p.status === paymentStatusFilter);
   };
 
   const formatDateTime = (dateString) => {
@@ -443,10 +598,14 @@ function AdminDashboard() {
 
   const pricingTableData = useMemo(
     () => products.map(product => {
-      const margin = product.price - product.wholesalePrice;
-      const marginPercent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+      const purchaseCost = Number(product.purchaseCost ?? product.wholesalePrice ?? 0);
+      const sellCost = Number(product.sellCost ?? product.price ?? 0);
+      const margin = sellCost - purchaseCost;
+      const marginPercent = sellCost > 0 ? ((margin / sellCost) * 100).toFixed(1) : "0.0";
       return {
         ...product,
+        purchaseCost,
+        sellCost,
         margin,
         marginPercent,
         actions: ""
@@ -472,6 +631,16 @@ function AdminDashboard() {
       accessorKey: "wholesalePrice",
       header: "Wholesale",
       Cell: ({ cell }) => `₹${cell.getValue()}`
+    },
+    {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ row }) => `₹${Number(row.original.purchaseCost ?? row.original.wholesalePrice ?? 0).toLocaleString()}`
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ row }) => `₹${Number(row.original.sellCost ?? row.original.price ?? 0).toLocaleString()}`
     },
     {
       accessorKey: "stock",
@@ -680,6 +849,16 @@ function AdminDashboard() {
       Cell: ({ cell }) => <span className="price">₹{cell.getValue()}</span>
     },
     {
+      accessorKey: "purchaseCost",
+      header: "Purchase Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: "sellCost",
+      header: "Sell Cost",
+      Cell: ({ cell }) => <span className="price">₹{Number(cell.getValue() || 0).toLocaleString()}</span>
+    },
+    {
       accessorKey: "margin",
       header: "Margin",
       Cell: ({ cell }) => <span className="margin">₹{cell.getValue()}</span>
@@ -702,6 +881,7 @@ function AdminDashboard() {
       )
     }
   ], [handleEditClick]);
+
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -727,6 +907,7 @@ function AdminDashboard() {
     })),
     [selectedOrder]
   );
+
 
   return (
     <div className="admin-layout">
@@ -770,9 +951,6 @@ function AdminDashboard() {
           >
             Pricing
           </button>
-          <button onClick={() => navigate("/admin-analytics")}>
-            Analytics
-          </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
           </button>
@@ -790,6 +968,15 @@ function AdminDashboard() {
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
           </h1>
+          {lowStockProducts.length > 0 && (
+            <div className="admin-alert warning">
+              <strong>⚠️ Low Stock Alert:</strong> {lowStockProducts.length} products need restocking.
+              <span className="alert-hint">
+                {lowStockProducts.slice(0, 3).map(p => p.name).join(", ")}
+                {lowStockProducts.length > 3 && ` +${lowStockProducts.length - 3} more`}
+              </span>
+            </div>
+          )}
           <div className="admin-stats">
             {activeTab !== "orders" && (
               <>
@@ -881,7 +1068,7 @@ function AdminDashboard() {
                     <label>Category *</label>
                     <select name="category" value={formData.category} onChange={handleInputChange}>
                       {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                        <option key={cat} value={cat}>{displayCategory(cat)}</option>
                       ))}
                     </select>
                   </div>
@@ -920,6 +1107,28 @@ function AdminDashboard() {
                   </div>
 
                   <div className="form-group">
+                    <label>Purchase Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="purchaseCost"
+                      value={formData.purchaseCost}
+                      onChange={handleInputChange}
+                      placeholder="900"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Sell Cost (₹) *</label>
+                    <input
+                      type="number"
+                      name="sellCost"
+                      value={formData.sellCost}
+                      onChange={handleInputChange}
+                      placeholder="1200"
+                    />
+                  </div>
+
+                  <div className="form-group">
                     <label>Minimum Order Qty</label>
                     <input
                       type="number"
@@ -937,6 +1146,35 @@ function AdminDashboard() {
                         <option key={u} value={u}>{u}</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Product Image</label>
+                    <div className="image-upload-container">
+                      {imagePreview ? (
+                        <div className="image-preview-wrapper">
+                          <img src={imagePreview} alt="Product preview" className="image-preview" />
+                          <button type="button" className="btn-remove-image" onClick={removeImage}>
+                            ✕ Remove Image
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="image-upload-area">
+                          <input
+                            type="file"
+                            id="product-image"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="product-image" className="image-upload-label">
+                            <span className="upload-icon">📷</span>
+                            <span className="upload-text">Click to upload product image</span>
+                            <span className="upload-hint">PNG, JPG, JPEG up to 5MB</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="form-group full-width">
@@ -1030,13 +1268,17 @@ function AdminDashboard() {
                       <span>MOQ:</span>
                       <strong>{product.moq}</strong>
                     </div>
+                    <div className="info-row">
+                      <span>Avg Purchase Price:</span>
+                      <strong>₹{Number(product.purchaseCost ?? product.wholesalePrice ?? 0).toLocaleString()}</strong>
+                    </div>
                     <div className="stock-value">
-                      Stock Value: ₹{(product.price * product.stock).toLocaleString()}
+                      Stock Value: ₹{(Number(product.purchaseCost ?? product.wholesalePrice ?? 0) * product.stock).toLocaleString()}
                     </div>
                   </div>
                   <button 
                     className="btn-stock-update"
-                    onClick={() => handleStockUpdate(product.id, product.stock)}
+                    onClick={() => handleStockUpdate(product)}
                   >
                     📝 Update Stock
                   </button>
@@ -1347,31 +1589,31 @@ function AdminDashboard() {
                   className={paymentStatusFilter === "all" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("all")}
                 >
-                  All ({payments.length})
+                  All ({displayPayments.length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Paid" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Paid")}
                 >
-                  Paid ({payments.filter(p => p.status === "Paid").length})
+                  Paid ({displayPayments.filter(p => p.status === "Paid").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Pending")}
                 >
-                  Pending ({payments.filter(p => p.status === "Pending").length})
+                  Pending ({displayPayments.filter(p => p.status === "Pending").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Failed" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Failed")}
                 >
-                  Failed ({payments.filter(p => p.status === "Failed").length})
+                  Failed ({displayPayments.filter(p => p.status === "Failed").length})
                 </button>
                 <button 
                   className={paymentStatusFilter === "Refunded" ? "active" : ""} 
                   onClick={() => setPaymentStatusFilter("Refunded")}
                 >
-                  Refunded ({payments.filter(p => p.status === "Refunded").length})
+                  Refunded ({displayPayments.filter(p => p.status === "Refunded").length})
                 </button>
               </div>
             </div>

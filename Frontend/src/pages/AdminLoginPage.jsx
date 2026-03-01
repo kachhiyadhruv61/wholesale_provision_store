@@ -32,7 +32,7 @@ function AdminLoginPage() {
         localStorage.setItem("adminLoggedIn", "true");
         localStorage.setItem("adminUsername", credentials.username);
         setLoading(false);
-        navigate("/admin-analytics");
+        navigate("/admin-home");
       } else {
         setError("Invalid admin credentials. Please try again.");
         setLoading(false);
@@ -46,7 +46,7 @@ function AdminLoginPage() {
         <div className="login-form-wrapper">
           <div className="form-header">
             <h2>🔐 Admin Login</h2>
-            <p>Access the admin analytics dashboard</p>
+            <p>Access the admin dashboard</p>
           </div>
 
           {error && <div className="error-message">⚠️ {error}</div>}

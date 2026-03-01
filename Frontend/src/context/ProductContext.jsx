@@ -1,9 +1,22 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 
 export const ProductContext = createContext();
 
+const normalizeProductCosts = (product) => {
+  const sellingPrice = Number(product?.price || 0);
+  const wholesaleValue = Number(product?.wholesalePrice ?? sellingPrice);
+  const purchaseCost = Number(product?.purchaseCost ?? wholesaleValue);
+  const sellCost = Number(product?.sellCost ?? sellingPrice);
+
+  return {
+    ...product,
+    purchaseCost: Number.isFinite(purchaseCost) ? purchaseCost : 0,
+    sellCost: Number.isFinite(sellCost) ? sellCost : 0,
+  };
+};
+
 export function ProductProvider({ children }) {
-  const [products, setProducts] = useState([
+  const initialProducts = [
     { 
       id: 1, 
       name: "Dawat Rice", 
@@ -1282,22 +1295,76 @@ export function ProductProvider({ children }) {
         { quantity: 100, price: 32 }
       ]
     },
-  ]);
+  ];
+
+  const [products, setProducts] = useState(() => initialProducts.map(normalizeProductCosts));
+
+  useEffect(() => {
+    const savedProducts = localStorage.getItem("products");
+    if (savedProducts) {
+      try {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed.map(normalizeProductCosts));
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to parse saved products", error);
+      }
+    }
+    localStorage.setItem("products", JSON.stringify(initialProducts.map(normalizeProductCosts)));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("products", JSON.stringify(products));
+  }, [products]);
 
   const addProduct = (product) => {
-    setProducts([...products, product]);
+    setProducts([...products, normalizeProductCosts(product)]);
   };
 
   const updateProduct = (id, updatedProduct) => {
-    setProducts(products.map(p => p.id === id ? { ...p, ...updatedProduct } : p));
+    setProducts(products.map(p => p.id === id ? normalizeProductCosts({ ...p, ...updatedProduct }) : p));
   };
 
   const deleteProduct = (id) => {
     setProducts(products.filter(p => p.id !== id));
   };
 
-  const updateStock = (id, newStock) => {
-    setProducts(products.map(p => p.id === id ? { ...p, stock: newStock } : p));
+  const updateStock = (id, newStock, extraUpdates = {}) => {
+    setProducts(
+      products.map((product) =>
+        product.id === id
+          ? normalizeProductCosts({ ...product, stock: newStock, ...extraUpdates })
+          : product
+      )
+    );
+  };
+
+  const deductStockForOrder = (orderItems) => {
+    if (!Array.isArray(orderItems) || orderItems.length === 0) {
+      return;
+    }
+
+    const quantityById = orderItems.reduce((acc, item) => {
+      const key = item?.id;
+      if (key == null) return acc;
+      const qty = Number(item?.quantity || 0);
+      if (!Number.isFinite(qty) || qty <= 0) return acc;
+      acc[key] = (acc[key] || 0) + qty;
+      return acc;
+    }, {});
+
+    setProducts((prevProducts) =>
+      prevProducts.map((product) => {
+        const qty = quantityById[product.id];
+        if (!qty) return product;
+        const currentStock = Number(product.stock || 0);
+        const nextStock = Math.max(currentStock - qty, 0);
+        if (nextStock === currentStock) return product;
+        return { ...product, stock: nextStock };
+      })
+    );
   };
 
   const getPriceForQuantity = (productId, quantity) => {
@@ -1321,6 +1388,7 @@ export function ProductProvider({ children }) {
       updateProduct, 
       deleteProduct, 
       updateStock,
+      deductStockForOrder,
       getPriceForQuantity 
     }}>
       {children}

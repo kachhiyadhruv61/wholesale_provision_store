@@ -10,7 +10,7 @@ function UserProfile() {
   const [editMode, setEditMode] = useState(false);
   const [changePassMode, setChangePassMode] = useState(false);
   const [formData, setFormData] = useState(
-    user || { username: "", email: "", phone: "", address: "" }
+    user || { username: "", email: "", phone: "", address: "", city: "", state: "", pincode: "" }
   );
   const [passwordData, setPasswordData] = useState({
     oldPassword: "",
@@ -99,6 +99,9 @@ function UserProfile() {
               <div className="detail-row"><span className="label">Email</span><span className="value">{formData.email}</span></div>
               <div className="detail-row"><span className="label">Phone</span><span className="value">{formData.phone}</span></div>
               <div className="detail-row"><span className="label">Address</span><span className="value">{formData.address}</span></div>
+              <div className="detail-row"><span className="label">City</span><span className="value">{formData.city}</span></div>
+              <div className="detail-row"><span className="label">State</span><span className="value">{formData.state}</span></div>
+              <div className="detail-row"><span className="label">PIN Code</span><span className="value">{formData.pincode}</span></div>
               <button className="btn-primary" onClick={() => setEditMode(true)}>Edit Profile</button>
             </div>
           ) : (
@@ -118,6 +121,18 @@ function UserProfile() {
               <div className="form-group">
                 <label>Address</label>
                 <textarea name="address" value={formData.address} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>City</label>
+                <input type="text" name="city" value={formData.city} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>State</label>
+                <input type="text" name="state" value={formData.state} onChange={handleEditChange} />
+              </div>
+              <div className="form-group">
+                <label>PIN Code</label>
+                <input type="text" name="pincode" value={formData.pincode} onChange={handleEditChange} pattern="[0-9]{6}" />
               </div>
               <div className="form-actions">
                 <button className="btn-success" onClick={handleSaveProfile}>Save Changes</button>
