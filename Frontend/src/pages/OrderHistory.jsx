@@ -236,6 +236,12 @@ function OrderHistory() {
                       {formatDate(selectedOrder.statusUpdatedAt || selectedOrder.date)}
                     </span>
                   </div>
+                  <div>
+                    <span className="label">Expected Delivery:</span>
+                    <span className="value">
+                      {selectedOrder.estimatedDeliveryAt ? formatDate(selectedOrder.estimatedDeliveryAt) : "TBD"}
+                    </span>
+                  </div>
                 </div>
 
                 {progress.currentStatus === "Cancelled" ? (
@@ -315,6 +321,14 @@ function OrderHistory() {
                   <div className="detail-item">
                     <span className="label">Pincode:</span>
                     <span className="value">{selectedOrder.deliveryPincode || "N/A"}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">ETA Rule:</span>
+                    <span className="value">
+                      {selectedOrder.estimatedDeliveryHours
+                        ? `${selectedOrder.estimatedDeliveryHours} hours (${selectedOrder.deliveryDistanceKm <= 10 ? "≤ 10km" : "> 10km"})`
+                        : "N/A"}
+                    </span>
                   </div>
                 </div>
                 {selectedOrder.specialInstructions && (

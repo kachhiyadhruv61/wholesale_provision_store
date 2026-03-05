@@ -5,6 +5,8 @@ import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
 import { ProductContext } from "../context/ProductContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { DeliveryContext } from "../context/DeliveryContext";
+import { calculateDeliveryEta } from "../utils/deliveryEta";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ function Checkout() {
   const { addOrder } = useContext(OrderContext);
   const { deductStockForOrder, products } = useContext(ProductContext);
   const { addNotification } = useContext(NotificationContext);
+  const { deliveryLocations } = useContext(DeliveryContext);
 
   // Redirect to login if user is not logged in
   useEffect(() => {
@@ -24,7 +27,7 @@ function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStep, setPaymentStep] = useState("details");
-  const deliveryInfo = null;
+  const [deliveryInfo, setDeliveryInfo] = useState(null);
   
   const [formData, setFormData] = useState({
     customerName: user?.username || "",
@@ -69,6 +72,20 @@ function Checkout() {
     setPaymentData({ ...paymentData, [name]: value });
   };
 
+  const formatDateTime = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const validateDeliveryDetails = () => {
     if (!formData.customerName || !formData.deliveryAddress || !formData.deliveryCity || !formData.deliveryState || !formData.deliveryPincode) {
       alert("Please fill all delivery details");
@@ -97,10 +114,31 @@ function Checkout() {
     return true;
   };
 
+  const resolveDistanceFromForm = () => {
+    const city = String(formData.deliveryCity || "").trim().toLowerCase();
+    const state = String(formData.deliveryState || "").trim().toLowerCase();
+
+    const matchedLocation = deliveryLocations.find(
+      (location) =>
+        String(location.city || "").trim().toLowerCase() === city &&
+        String(location.state || "").trim().toLowerCase() === state
+    );
+
+    if (matchedLocation) {
+      return matchedLocation.distance;
+    }
+
+    return 12;
+  };
+
   const handleContinueToPayment = (e) => {
     e.preventDefault();
     
     if (validateDeliveryDetails()) {
+      const now = new Date();
+      const distanceKm = resolveDistanceFromForm();
+      const eta = calculateDeliveryEta({ distanceKm, orderDate: now });
+      setDeliveryInfo(eta);
       setPaymentStep("payment");
     }
   };
@@ -134,7 +172,11 @@ function Checkout() {
         deliveryState: formData.deliveryState,
         deliveryPincode: formData.deliveryPincode,
         deliveryLocation: null,
-        deliveryInfo: null,
+        deliveryInfo,
+        deliveryDistanceKm: deliveryInfo?.distanceKm ?? null,
+        estimatedDeliveryHours: deliveryInfo?.estimatedDeliveryHours ?? null,
+        estimatedDeliveryAt: deliveryInfo?.estimatedDeliveryAt ?? null,
+        nextDayDelivery: Boolean(deliveryInfo?.nextDayDelivery),
         specialInstructions: formData.specialInstructions,
         status: "Confirmed",
         orderDate: new Date().toISOString(),
@@ -267,6 +309,9 @@ function Checkout() {
               {deliveryInfo && (
                 <div className="delivery-estimate">
                   ⏱️ Estimated Delivery: {deliveryInfo.estimatedDeliveryText}
+                  <br />
+                  📅 Expected: {formatDateTime(deliveryInfo.estimatedDeliveryAt)}
+                  {deliveryInfo.nextDayDelivery ? " (Next day schedule)" : ""}
                 </div>
               )}
             </div>
@@ -633,7 +678,12 @@ function Checkout() {
               <p><strong>Delivery Charge:</strong> ₹{deliveryCharge.toFixed(2)}</p>
               <p><strong>Total Amount Paid:</strong> ₹{finalTotal.toFixed(2)}</p>
               <p><strong>Status:</strong> <span className="status-badge confirmed">Confirmed</span></p>
-              {deliveryInfo && <p><strong>Est. Delivery:</strong> {deliveryInfo.estimatedDeliveryText}</p>}
+              {deliveryInfo && (
+                <p>
+                  <strong>Est. Delivery:</strong> {deliveryInfo.estimatedDeliveryText} — {formatDateTime(deliveryInfo.estimatedDeliveryAt)}
+                  {deliveryInfo.nextDayDelivery ? " (Next day schedule)" : ""}
+                </p>
+              )}
             </div>
             <p className="redirecting">Redirecting to order confirmation...</p>
           </div>
