@@ -36,8 +36,14 @@ function UserProfile() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSaveProfile = () => {
-    updateUserProfile(formData);
+  const handleSaveProfile = async () => {
+    const result = await updateUserProfile(formData);
+    if (result?.success === false) {
+      setMessage(result.message || "Unable to update profile");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
     setMessage("Profile updated successfully!");
     setEditMode(false);
     setTimeout(() => setMessage(""), 3000);
@@ -48,12 +54,12 @@ function UserProfile() {
     setPasswordData({ ...passwordData, [name]: value });
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setMessage("New passwords do not match!");
       return;
     }
-    const result = changePassword(passwordData.oldPassword, passwordData.newPassword);
+    const result = await changePassword(passwordData.oldPassword, passwordData.newPassword);
     if (result.success) {
       setMessage("Password changed successfully!");
       setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });

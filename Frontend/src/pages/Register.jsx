@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { apiRequest } from "../utils/api";
 
 function Register() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ function Register() {
     });
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match!");
@@ -33,9 +34,41 @@ function Register() {
       alert("Please accept the terms and conditions");
       return;
     }
-    // For demo purposes, just navigate to login
-    alert("Registration successful! Please login to continue.");
-    navigate("/login");
+    try {
+      const registerPayload = {
+        username: formData.username,
+        fullname: formData.ownerName,
+        shopname: formData.shopName,
+        shopaddress: formData.shopAddress,
+        email: formData.email,
+        phonenumber: formData.phone.replace(/\D/g, "").slice(-10),
+        password: formData.password,
+        confirmpassword: formData.confirmPassword,
+      };
+
+      await apiRequest("/register", {
+        method: "POST",
+        body: JSON.stringify(registerPayload),
+      });
+
+      try {
+        await apiRequest("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+      } catch (authError) {
+        console.warn("Auth register sync skipped:", authError.message);
+      }
+
+      alert("Registration successful! Please login to continue.");
+      navigate("/login");
+    } catch (error) {
+      alert(error.message || "Registration failed");
+    }
   };
 
   return (

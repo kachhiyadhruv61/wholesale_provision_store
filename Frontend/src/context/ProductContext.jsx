@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from "react";
+import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
 
 export const ProductContext = createContext();
 
@@ -1300,48 +1301,143 @@ export function ProductProvider({ children }) {
   const [products, setProducts] = useState(() => initialProducts.map(normalizeProductCosts));
 
   useEffect(() => {
-    const savedProducts = localStorage.getItem("products");
-    if (savedProducts) {
+    const loadProducts = async () => {
       try {
-        const parsed = JSON.parse(savedProducts);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setProducts(parsed.map(normalizeProductCosts));
+        const payload = await apiRequest("/products");
+        const rows = getResponseList(payload);
+
+        if (rows.length > 0) {
+          const mapped = rows.map((row) => {
+            const record = normalizeMongoId(row);
+            const basePrice = Number(record.price || 0);
+            const wholesale = Number(record.wholesalePrice ?? basePrice);
+            return normalizeProductCosts({
+              ...record,
+              moq: Number(record.moq ?? record.MOQ ?? 1),
+              price: basePrice,
+              wholesalePrice: wholesale,
+              stock: Number(record.stock || 0),
+              category: record.category || "Grains",
+              unit: record.unit || "bag",
+              description: record.description || "",
+              bulkPricing:
+                Array.isArray(record.bulkPricing) && record.bulkPricing.length > 0
+                  ? record.bulkPricing
+                  : [
+                      { quantity: 1, price: basePrice },
+                      { quantity: 5, price: Math.max(basePrice * 0.95, 0) },
+                      { quantity: 10, price: Math.max(basePrice * 0.9, 0) },
+                      { quantity: 20, price: Math.max(wholesale, 0) },
+                    ],
+            });
+          });
+
+          setProducts(mapped);
           return;
         }
       } catch (error) {
-        console.error("Failed to parse saved products", error);
+        console.error("Failed to fetch products from API", error);
       }
-    }
-    localStorage.setItem("products", JSON.stringify(initialProducts.map(normalizeProductCosts)));
+
+      const savedProducts = localStorage.getItem("products");
+      if (savedProducts) {
+        try {
+          const parsed = JSON.parse(savedProducts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProducts(parsed.map(normalizeProductCosts));
+            return;
+          }
+        } catch (error) {
+          console.error("Failed to parse saved products", error);
+        }
+      }
+
+      localStorage.setItem("products", JSON.stringify(initialProducts.map(normalizeProductCosts)));
+    };
+
+    loadProducts();
   }, []);
 
   useEffect(() => {
     localStorage.setItem("products", JSON.stringify(products));
   }, [products]);
 
-  const addProduct = (product) => {
-    setProducts([...products, normalizeProductCosts(product)]);
+  const addProduct = async (product) => {
+    const normalizedProduct = normalizeProductCosts(product);
+    try {
+      const payload = await apiRequest("/products", {
+        method: "POST",
+        body: JSON.stringify({
+          ...normalizedProduct,
+          moq: Number(normalizedProduct.moq || 1),
+        }),
+      });
+
+      const createdId = payload?.insertedId || normalizedProduct.id;
+      const created = normalizeProductCosts({ ...normalizedProduct, id: createdId, _id: createdId });
+      setProducts((prev) => [...prev, created]);
+      return { success: true, data: created };
+    } catch (error) {
+      console.error("Failed to add product via API", error);
+      setProducts((prev) => [...prev, normalizedProduct]);
+      return { success: false, message: error.message };
+    }
   };
 
-  const updateProduct = (id, updatedProduct) => {
-    setProducts(products.map(p => p.id === id ? normalizeProductCosts({ ...p, ...updatedProduct }) : p));
+  const updateProduct = async (id, updatedProduct) => {
+    const targetId = id?.toString?.() || id;
+    const updatePayload = { ...updatedProduct, moq: Number(updatedProduct.moq || updatedProduct.MOQ || 1) };
+    try {
+      await apiRequest(`/products/${encodeURIComponent(targetId)}`, {
+        method: "PUT",
+        body: JSON.stringify(updatePayload),
+      });
+      setProducts((prev) =>
+        prev.map((p) => (p.id?.toString() === targetId ? normalizeProductCosts({ ...p, ...updatedProduct }) : p))
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to update product via API", error);
+      return { success: false, message: error.message };
+    }
   };
 
-  const deleteProduct = (id) => {
-    setProducts(products.filter(p => p.id !== id));
+  const deleteProduct = async (id) => {
+    const targetId = id?.toString?.() || id;
+    try {
+      await apiRequest(`/products/${encodeURIComponent(targetId)}`, { method: "DELETE" });
+      setProducts((prev) => prev.filter((p) => p.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete product via API", error);
+      return { success: false, message: error.message };
+    }
   };
 
-  const updateStock = (id, newStock, extraUpdates = {}) => {
-    setProducts(
-      products.map((product) =>
-        product.id === id
-          ? normalizeProductCosts({ ...product, stock: newStock, ...extraUpdates })
-          : product
-      )
-    );
+  const updateStock = async (id, newStock, extraUpdates = {}) => {
+    const targetId = id?.toString?.() || id;
+    const nextData = { stock: Number(newStock), ...extraUpdates };
+
+    try {
+      await apiRequest(`/products/${encodeURIComponent(targetId)}`, {
+        method: "PUT",
+        body: JSON.stringify(nextData),
+      });
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id?.toString() === targetId
+            ? normalizeProductCosts({ ...product, stock: Number(newStock), ...extraUpdates })
+            : product
+        )
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to update stock via API", error);
+      return { success: false, message: error.message };
+    }
   };
 
-  const deductStockForOrder = (orderItems) => {
+  const deductStockForOrder = async (orderItems) => {
     if (!Array.isArray(orderItems) || orderItems.length === 0) {
       return;
     }
@@ -1355,15 +1451,30 @@ export function ProductProvider({ children }) {
       return acc;
     }, {});
 
-    setProducts((prevProducts) =>
-      prevProducts.map((product) => {
+    const currentProducts = [...products];
+
+    const nextProducts = currentProducts.map((product) => {
         const qty = quantityById[product.id];
         if (!qty) return product;
         const currentStock = Number(product.stock || 0);
         const nextStock = Math.max(currentStock - qty, 0);
         if (nextStock === currentStock) return product;
         return { ...product, stock: nextStock };
-      })
+      });
+
+    setProducts(nextProducts);
+
+    await Promise.all(
+      nextProducts
+        .filter((product, index) => Number(product.stock || 0) !== Number(currentProducts[index]?.stock || 0))
+        .map((product) =>
+          apiRequest(`/products/${encodeURIComponent(product.id)}`, {
+            method: "PUT",
+            body: JSON.stringify({ stock: Number(product.stock || 0) }),
+          }).catch((error) => {
+            console.error("Failed syncing stock change", error);
+          })
+        )
     );
   };
 

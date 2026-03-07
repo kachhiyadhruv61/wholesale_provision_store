@@ -38,6 +38,15 @@ function AdminDashboard() {
     status: "Pending"
   });
 
+  // Stock Update Modal State
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockUpdateProduct, setStockUpdateProduct] = useState(null);
+  const [stockFormData, setStockFormData] = useState({
+    newStock: "",
+    purchasePrice: "",
+    updateType: "add" // 'add' or 'set'
+  });
+
   // Form states
   const [formData, setFormData] = useState({
     name: "",
@@ -199,68 +208,121 @@ function AdminDashboard() {
     }
   };
 
-  const handleStockUpdate = (product) => {
-    const currentStock = Number(product.stock || 0);
-    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
-    if (stockInput === null) return;
+  // Open stock update modal
+  const openStockModal = (product) => {
+    setStockUpdateProduct(product);
+    setStockFormData({
+      newStock: "",
+      purchasePrice: String(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? ""),
+      updateType: "add"
+    });
+    setShowStockModal(true);
+  };
 
-    if (stockInput === "" || isNaN(stockInput)) {
-      alert("Please enter a valid stock quantity.");
+  // Close stock update modal
+  const closeStockModal = () => {
+    setShowStockModal(false);
+    setStockUpdateProduct(null);
+    setStockFormData({ newStock: "", purchasePrice: "", updateType: "add" });
+  };
+
+  // Handle stock form submission
+  const handleStockFormSubmit = (e) => {
+    e.preventDefault();
+    
+    if (!stockUpdateProduct) return;
+    
+    const currentStock = Number(stockUpdateProduct.stock || 0);
+    const inputQty = Number(stockFormData.newStock);
+    const purchasePrice = Number(stockFormData.purchasePrice);
+    
+    if (isNaN(inputQty) || inputQty <= 0) {
+      alert("Please enter a valid quantity.");
       return;
     }
-
-    const parsedStock = Number(stockInput);
-    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+    
+    if (isNaN(purchasePrice) || purchasePrice < 0) {
+      alert("Please enter a valid purchase price.");
+      return;
+    }
+    
+    let finalStock;
+    let addedQty;
+    
+    if (stockFormData.updateType === "add") {
+      finalStock = currentStock + inputQty;
+      addedQty = inputQty;
+    } else {
+      finalStock = inputQty;
+      addedQty = inputQty > currentStock ? inputQty - currentStock : 0;
+    }
+    
+    if (finalStock < 0) {
       alert("Stock cannot be negative.");
       return;
     }
-
-    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
+    
+    const previousAvgPurchase = Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? stockUpdateProduct.price ?? 0);
     let nextAvgPurchase = previousAvgPurchase;
-
-    if (parsedStock > currentStock) {
-      const addedQty = parsedStock - currentStock;
-      const purchaseInput = prompt(
-        `Enter purchase price for newly added stock (${addedQty} units):`,
-        String(previousAvgPurchase || "")
-      );
-
-      if (purchaseInput === null) return;
-      if (purchaseInput === "" || isNaN(purchaseInput)) {
-        alert("Please enter a valid purchase price.");
-        return;
-      }
-
-      const newPurchasePrice = Number(purchaseInput);
-      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
-        alert("Purchase price cannot be negative.");
-        return;
-      }
-
+    
+    if (addedQty > 0) {
       if (currentStock <= 0) {
-        nextAvgPurchase = newPurchasePrice;
+        nextAvgPurchase = purchasePrice;
       } else {
         const totalOldCost = previousAvgPurchase * currentStock;
-        const totalNewCost = newPurchasePrice * addedQty;
-        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
+        const totalNewCost = purchasePrice * addedQty;
+        nextAvgPurchase = (totalOldCost + totalNewCost) / finalStock;
       }
     }
-
-    updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
-
-    if (currentStock >= 50 && parsedStock < 50) {
+    
+    updateStock(stockUpdateProduct.id, finalStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+    
+    if (currentStock >= 50 && finalStock < 50) {
       addNotification({
         type: "stock",
         title: "Low stock alert",
-        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+        message: `${stockUpdateProduct?.name || "Item"} is low on stock (${finalStock} left).`,
         meta: {
-          product: product?.name,
-          stock: parsedStock,
+          product: stockUpdateProduct?.name,
+          stock: finalStock,
         },
       });
     }
+    
+    closeStockModal();
+    alert(`Stock updated successfully!\nNew Stock: ${finalStock}\nAverage Purchase Price: ₹${nextAvgPurchase.toFixed(2)}`);
+  };
 
-    alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
+  // Calculate preview values for stock modal
+  const getStockPreview = () => {
+    if (!stockUpdateProduct || !stockFormData.newStock) return null;
+    
+    const currentStock = Number(stockUpdateProduct.stock || 0);
+    const inputQty = Number(stockFormData.newStock) || 0;
+    const purchasePrice = Number(stockFormData.purchasePrice) || 0;
+    
+    let finalStock = stockFormData.updateType === "add" ? currentStock + inputQty : inputQty;
+    let addedQty = stockFormData.updateType === "add" ? inputQty : (inputQty > currentStock ? inputQty - currentStock : 0);
+    
+    const previousAvgPurchase = Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0);
+    let newAvgPurchase = previousAvgPurchase;
+    
+    if (addedQty > 0 && finalStock > 0) {
+      if (currentStock <= 0) {
+        newAvgPurchase = purchasePrice;
+      } else {
+        const totalOldCost = previousAvgPurchase * currentStock;
+        const totalNewCost = purchasePrice * addedQty;
+        newAvgPurchase = (totalOldCost + totalNewCost) / finalStock;
+      }
+    }
+    
+    return {
+      finalStock,
+      addedQty,
+      newAvgPurchase: newAvgPurchase.toFixed(2),
+      totalValue: (newAvgPurchase * finalStock).toFixed(2)
+    };
   };
 
   const handleLogout = () => {
@@ -1278,7 +1340,7 @@ function AdminDashboard() {
                   </div>
                   <button 
                     className="btn-stock-update"
-                    onClick={() => handleStockUpdate(product)}
+                    onClick={() => openStockModal(product)}
                   >
                     📝 Update Stock
                   </button>
@@ -1745,6 +1807,154 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Stock Update Modal */}
+      {showStockModal && stockUpdateProduct && (
+        <div className="modal-overlay stock-modal-overlay" onClick={closeStockModal}>
+          <div className="modal-content stock-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="stock-modal-header">
+              <div className="stock-modal-title">
+                <span className="stock-icon">📦</span>
+                <div>
+                  <h2>Update Stock</h2>
+                  <p className="product-name-subtitle">{stockUpdateProduct.name}</p>
+                </div>
+              </div>
+              <button className="modal-close" onClick={closeStockModal}>×</button>
+            </div>
+
+            <div className="stock-modal-body">
+              {/* Current Stock Info Card */}
+              <div className="current-stock-card">
+                <div className="stock-stat">
+                  <span className="stat-label">Current Stock</span>
+                  <span className="stat-value primary">{stockUpdateProduct.stock} {stockUpdateProduct.unit}s</span>
+                </div>
+                <div className="stock-stat">
+                  <span className="stat-label">Avg Purchase Price</span>
+                  <span className="stat-value">₹{Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="stock-stat">
+                  <span className="stat-label">Current Value</span>
+                  <span className="stat-value accent">₹{(Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0) * stockUpdateProduct.stock).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <form 
+                onSubmit={handleStockFormSubmit} 
+                className="stock-update-form"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
+                    e.preventDefault();
+                    handleStockFormSubmit(e);
+                  }
+                }}
+              >
+                {/* Update Type Toggle */}
+                <div className="update-type-toggle">
+                  <button
+                    type="button"
+                    className={`toggle-btn ${stockFormData.updateType === 'add' ? 'active' : ''}`}
+                    onClick={() => setStockFormData(prev => ({ ...prev, updateType: 'add' }))}
+                  >
+                    <span className="toggle-icon">➕</span>
+                    Add to Stock
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${stockFormData.updateType === 'set' ? 'active' : ''}`}
+                    onClick={() => setStockFormData(prev => ({ ...prev, updateType: 'set' }))}
+                  >
+                    <span className="toggle-icon">🔄</span>
+                    Set Stock
+                  </button>
+                </div>
+
+                {/* Input Fields */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="newStock">
+                      {stockFormData.updateType === 'add' ? 'Quantity to Add' : 'New Stock Quantity'}
+                      <span className="required">*</span>
+                    </label>
+                    <div className="input-with-unit">
+                      <input
+                        type="number"
+                        id="newStock"
+                        value={stockFormData.newStock}
+                        onChange={(e) => setStockFormData(prev => ({ ...prev, newStock: e.target.value }))}
+                        placeholder={stockFormData.updateType === 'add' ? 'Enter quantity to add' : 'Enter new stock quantity'}
+                        min="0"
+                        step="1"
+                        required
+                        autoFocus
+                      />
+                      <span className="unit-label">{stockUpdateProduct.unit}s</span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="purchasePrice">
+                      Purchase Price (per {stockUpdateProduct.unit})
+                      <span className="required">*</span>
+                    </label>
+                    <div className="input-with-unit">
+                      <span className="currency-symbol">₹</span>
+                      <input
+                        type="number"
+                        id="purchasePrice"
+                        value={stockFormData.purchasePrice}
+                        onChange={(e) => setStockFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
+                        placeholder="Enter purchase price"
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                {getStockPreview() && (
+                  <div className="stock-preview-card">
+                    <h4>📊 Preview After Update</h4>
+                    <div className="preview-grid">
+                      <div className="preview-item">
+                        <span className="preview-label">New Stock</span>
+                        <span className="preview-value highlight">{getStockPreview().finalStock} {stockUpdateProduct.unit}s</span>
+                      </div>
+                      {getStockPreview().addedQty > 0 && (
+                        <div className="preview-item">
+                          <span className="preview-label">Units Added</span>
+                          <span className="preview-value success">+{getStockPreview().addedQty}</span>
+                        </div>
+                      )}
+                      <div className="preview-item">
+                        <span className="preview-label">New Avg Price</span>
+                        <span className="preview-value">₹{getStockPreview().newAvgPurchase}</span>
+                      </div>
+                      <div className="preview-item">
+                        <span className="preview-label">Total Value</span>
+                        <span className="preview-value accent">₹{Number(getStockPreview().totalValue).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="stock-modal-actions">
+                  <button type="button" className="btn-cancel" onClick={closeStockModal}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-update-stock">
+                    <span>✓</span> Update Stock
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

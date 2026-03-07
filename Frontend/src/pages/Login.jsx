@@ -20,6 +20,10 @@ function Login() {
 
   // Mock database - fetch email based on username
   const getUserEmail = (username) => {
+    if (username.includes("@")) {
+      return username;
+    }
+
     const userDatabase = {
       "admin": "admin@wholesale.com",
       "pratik": "pratik@example.com",
@@ -84,7 +88,7 @@ function Login() {
     setOtpMeta({ ...otpMeta, error: "Invalid OTP. Please try again." });
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     if (isAdminUsername) {
@@ -109,11 +113,12 @@ function Login() {
         return;
       }
 
-      // Fetch email from database based on username
-      const email = getUserEmail(credentials.username);
-      
-      // Regular user login with auto-fetched email (after OTP verification)
-      loginUser(credentials.username, email);
+      // Regular user login via backend auth API (after OTP verification)
+      const result = await loginUser(credentials.username, credentials.password);
+      if (!result?.success) {
+        alert(result?.message || "Login failed");
+        return;
+      }
       navigate("/products");
     } else {
       alert("Please fill in all required fields");

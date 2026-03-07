@@ -5,6 +5,8 @@ import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
 import { ProductContext } from "../context/ProductContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { PaymentContext } from "../context/PaymentContext";
+import { apiRequest } from "../utils/api";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -12,6 +14,7 @@ function Checkout() {
   const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
   const { deductStockForOrder, products } = useContext(ProductContext);
+  const { addPayment } = useContext(PaymentContext);
   const { addNotification } = useContext(NotificationContext);
 
   // Redirect to login if user is not logged in
@@ -114,7 +117,7 @@ function Checkout() {
 
     setIsProcessingPayment(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsProcessingPayment(false);
       setPaymentStep("success");
 
@@ -140,8 +143,35 @@ function Checkout() {
         orderDate: new Date().toISOString(),
       };
 
-      const createdOrder = addOrder(order);
+      const createdOrder = await addOrder(order);
       const orderId = createdOrder?.id ?? "new";
+
+      try {
+        await apiRequest("/deliveries", {
+          method: "POST",
+          body: JSON.stringify({
+            name: formData.customerName,
+            deliveryAddress: formData.deliveryAddress,
+            city: formData.deliveryCity,
+            pincode: formData.deliveryPincode,
+            specialInstruction: formData.specialInstructions,
+          }),
+        });
+      } catch (deliveryError) {
+        console.warn("Delivery API sync failed:", deliveryError.message);
+      }
+
+      await addPayment({
+        orderId: orderId.toString(),
+        customerName: formData.customerName,
+        customerEmail: user?.email || "",
+        customerPhone: user?.phone || "",
+        amount: order.total,
+        method: paymentMethod.toUpperCase(),
+        status: "Pending",
+        products: cart.map((item) => item.name),
+        totalAmount: order.total,
+      });
 
       addNotification({
         type: "order",
@@ -174,7 +204,7 @@ function Checkout() {
         }
       });
 
-      deductStockForOrder(cart);
+      await deductStockForOrder(cart);
       clearCart();
 
       setTimeout(() => {

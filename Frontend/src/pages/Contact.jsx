@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { apiRequest } from "../utils/api";
 
 const supportPhone = "+919313616159";
 const supportWhatsApp = "919313616159";
@@ -68,7 +69,7 @@ function Contact() {
   const { user } = useContext(UserContext);
   const { addNotification } = useContext(NotificationContext);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!user) {
@@ -82,19 +83,33 @@ function Contact() {
     const phone = (formData.get("phone") || "").toString().trim();
     const message = (formData.get("message") || "").toString().trim();
 
-    addNotification({
-      type: "contact",
-      title: "New contact message",
-      message: message || "No message provided.",
-      meta: {
-        name,
-        email,
-        phone,
-      },
-    });
+    try {
+      await apiRequest("/contacts", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          email,
+          phoneNumber: phone.replace(/\D/g, "").slice(-10) || "0000000000",
+          message,
+        }),
+      });
 
-    event.target.reset();
-    alert("Thanks! Your message has been sent.");
+      addNotification({
+        type: "contact",
+        title: "New contact message",
+        message: message || "No message provided.",
+        meta: {
+          name,
+          email,
+          phone,
+        },
+      });
+
+      event.target.reset();
+      alert("Thanks! Your message has been sent.");
+    } catch (error) {
+      alert(error.message || "Unable to send message");
+    }
   };
 
   return (
