@@ -10,7 +10,7 @@ const TIMELINE_STEPS = [
 
 function formatDate(value) {
   if (!value) return "Pending";
-  const date = new Date(value);
+  const date = new Date(value); 
   if (Number.isNaN(date.getTime())) return "Pending";
 
   return date.toLocaleString("en-IN", {
