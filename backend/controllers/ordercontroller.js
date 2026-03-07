@@ -18,14 +18,6 @@ const getOrders = async (req, res, next) => {
 const getOrderById = async (req, res, next) => {
   try {
     const db = getDB();
-
-    if (!ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Order ID"
-      });
-    }
-
     const order = await db.collection("orders").findOne({
       _id: new ObjectId(req.params.id)
     });
@@ -44,36 +36,27 @@ const getOrderById = async (req, res, next) => {
   }
 };
 
-// ✅ CREATE ORDER (WITH DELIVERY DETAILS)
+// ✅ CREATE ORDER
 const createOrder = async (req, res, next) => {
   try {
     const db = getDB();
 
     const orderData = {
+      ...req.body,
       orderId: req.body.orderId,
       userId: req.body.userId,
       date: req.body.date || new Date(),
-      totalAmount: req.body.totalAmount,
+      totalAmount: Number(req.body.totalAmount || req.body.total || 0),
       payment: req.body.payment,
       status: req.body.status,
-
-      // ✅ DELIVERY DETAILS ADDED
-      delivery: {
-        name: req.body.name,
-        deliveryAddress: req.body.deliveryAddress,
-        city: req.body.city,
-        pincode: req.body.pincode,
-        specialInstruction: req.body.specialInstruction
-      },
-
-      createdAt: new Date()
+      action: req.body.action
     };
 
     const result = await db.collection("orders").insertOne(orderData);
 
     res.status(201).json({
       success: true,
-      message: "Order created successfully",
+      message: "Order created",
       insertedId: result.insertedId
     });
 
@@ -82,17 +65,10 @@ const createOrder = async (req, res, next) => {
   }
 };
 
-// ✅ UPDATE ORDER (INCLUDING DELIVERY)
+// ✅ UPDATE ORDER
 const updateOrder = async (req, res, next) => {
   try {
     const db = getDB();
-
-    if (!ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Order ID"
-      });
-    }
 
     const result = await db.collection("orders").updateOne(
       { _id: new ObjectId(req.params.id) },
@@ -106,7 +82,7 @@ const updateOrder = async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, message: "Order updated successfully" });
+    res.json({ success: true, message: "Order updated" });
 
   } catch (error) {
     next(error);
@@ -117,13 +93,6 @@ const updateOrder = async (req, res, next) => {
 const deleteOrder = async (req, res, next) => {
   try {
     const db = getDB();
-
-    if (!ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Order ID"
-      });
-    }
 
     const result = await db.collection("orders").deleteOne({
       _id: new ObjectId(req.params.id)
@@ -136,7 +105,7 @@ const deleteOrder = async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, message: "Order deleted successfully" });
+    res.json({ success: true, message: "Order deleted" });
 
   } catch (error) {
     next(error);

@@ -160,7 +160,7 @@
    */
   router.delete(
     '/auth/users/:id',
-    param('id').isInt().withMessage('User ID must be integer'),
+    param('id').isMongoId().withMessage('User ID must be a valid MongoDB ID'),
     validate,
     loginController.deleteLogin
   );

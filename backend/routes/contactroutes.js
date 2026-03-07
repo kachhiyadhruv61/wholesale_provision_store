@@ -56,7 +56,7 @@ router.get('/contacts', contactController.getContacts);
  */
 router.get(
   '/contacts/:id',
-  param('id').isInt().withMessage('Contact ID must be integer'),
+  param('id').isMongoId().withMessage('Contact ID must be a valid MongoDB ID'),
   validate,
   contactController.getContactById
 );
@@ -151,7 +151,7 @@ router.post(
  */
 router.delete(
   '/contacts/:id',
-  param('id').isInt().withMessage('Contact ID must be integer'),
+  param('id').isMongoId().withMessage('Contact ID must be a valid MongoDB ID'),
   validate,
   contactController.deleteContact
 );

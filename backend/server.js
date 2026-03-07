@@ -3,9 +3,11 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const errorHandler = require('./middleware/errorMiddleware');
 const { connectDB } = require('./config/db');
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 // Import Routes
 const userRoutes = require('./routes/userRoutes');
@@ -13,7 +15,7 @@ const productRoutes = require('./routes/productroutes');
 const registerRoutes = require('./routes/registerroutes');
 const paymentRoutes = require('./routes/paymentroutes');
 const orderRoutes = require('./routes/orderroutes');
-
+const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const contactRoutes = require('./routes/contactroutes');
 // Use Routes
@@ -25,7 +27,7 @@ app.use('/', contactRoutes);
 app.use('/', loginRoutes);
 app.use('/', registerRoutes);
 app.use('/', paymentRoutes);
-
+app.use('/', deliveryRoutes);
 
 // Swagger Setup
 const options = {
@@ -34,11 +36,11 @@ const options = {
     info: {
       title: "User, Product, Order, Payment, Delivery API",   
       version: "1.0.0",
-      description: "Express API with User, Product, Order, Payment and Delivery details"
+      description: "Express API with User, Product "
     },
     servers: [
       {
-        url: "http://localhost:3000"
+        url: "http://localhost:5000"
       }
     ]
   },
@@ -55,8 +57,8 @@ app.use(errorHandler);
 const startServer = async () => {
   await connectDB();
 
-  app.listen(3000, () => {
-    console.log("Server running at http://localhost:3000");
+  app.listen(5000, () => {
+    console.log("Server running at http://localhost:5000");
   });
 };
 

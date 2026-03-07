@@ -42,11 +42,10 @@ const createProduct = async (req, res, next) => {
     const db = getDB();
 
     const productData = {
-      name: req.body.name,
-      price: req.body.price,              // Selling Price
-      purchasePrice: req.body.purchasePrice,  // ✅ NEW FIELD
-      MOQ: req.body.MOQ,
-      stock: req.body.stock
+      ...req.body,
+      moq: Number(req.body.moq ?? req.body.MOQ ?? 1),
+      price: Number(req.body.price || 0),
+      stock: Number(req.body.stock || 0),
     };
 
     const result = await db.collection("products").insertOne(productData);
@@ -67,13 +66,9 @@ const updateProduct = async (req, res, next) => {
   try {
     const db = getDB();
 
-    const updateData = {
-      ...req.body
-    };
-
     const result = await db.collection("products").updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updateData }
+      { $set: req.body }
     );
 
     if (result.matchedCount === 0) {

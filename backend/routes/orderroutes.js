@@ -8,7 +8,7 @@ const validate = require('../middleware/validationMiddleware');
  * @swagger
  * tags:
  *   name: Orders
- *   description: Order CRUD API with Delivery Details
+ *   description: Order CRUD API
  */
 
 /**
@@ -20,6 +20,12 @@ const validate = require('../middleware/validationMiddleware');
  *     responses:
  *       200:
  *         description: List of orders
+ *       400:
+ *         description: invalid request
+ *       401:
+ *         description: unauthorized access
+ *       404:
+ *         description: ORDER not found
  *       500:
  *         description: Internal server error
  */
@@ -29,28 +35,30 @@ router.get('/orders', orderController.getOrders);
  * @swagger
  * /orders/{id}:
  *   get:
- *     summary: Get order by MongoDB ObjectId
+ *     summary: Get order by ID
  *     tags: [Orders]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB ObjectId
+ *         description: Order ID
  *         schema:
- *           type: string
+ *           type: integer
  *     responses:
  *       200:
  *         description: Order found
  *       400:
- *         description: Invalid Order ID
+ *         description: invalid request
+ *       401:
+ *         description: unauthorized access
  *       404:
- *         description: Order not found
+ *         description: ORDER not found
  *       500:
  *         description: Internal server error
  */
 router.get(
   '/orders/:id',
-  param('id').isMongoId().withMessage('Invalid MongoDB ObjectId'),
+  param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
   validate,
   orderController.getOrderById
 );
@@ -59,7 +67,7 @@ router.get(
  * @swagger
  * /orders:
  *   post:
- *     summary: Create new order with delivery details
+ *     summary: Create new order
  *     tags: [Orders]
  *     requestBody:
  *       required: true
@@ -70,20 +78,21 @@ router.get(
  *             required:
  *               - orderId
  *               - userId
+ *               - date
  *               - totalAmount
  *               - payment
  *               - status
- *               - name
- *               - deliveryAddress
- *               - city
- *               - pincode
+ *               - action
  *             properties:
  *               orderId:
  *                 type: string
  *                 example: ORD003
  *               userId:
+ *                 type: integer
+ *                 example: 1
+ *               date:
  *                 type: string
- *                 example: USER001
+ *                 example: 2026-02-17
  *               totalAmount:
  *                 type: number
  *                 example: 5000
@@ -93,35 +102,34 @@ router.get(
  *               status:
  *                 type: string
  *                 example: Pending
- *               name:
+ *               action:
  *                 type: string
- *                 example: Rahul Patel
- *               deliveryAddress:
- *                 type: string
- *                 example: Shop No 12, Market Road
- *               city:
- *                 type: string
- *                 example: Ahmedabad
- *               pincode:
- *                 type: string
- *                 example: 380001
- *               specialInstruction:
- *                 type: string
- *                 example: Deliver before 5 PM
+ *                 example: Processing
  *     responses:
  *       201:
- *         description: Order created successfully
+ *         description: Order created
  *       400:
- *         description: Validation error
+ *         description: invalid request
+ *       401:
+ *         description: unauthorized access
+ *       404:
+ *         description: ORDER not found
  *       500:
  *         description: Internal server error
  */
 router.post(
   '/orders',
 
-  body('orderId').notEmpty().withMessage('Order ID is required'),
+  body('orderId')
+    .notEmpty().withMessage('Order ID is required'),
 
-  body('userId').notEmpty().withMessage('User ID is required'),
+  body('userId')
+    .notEmpty().withMessage('User ID is required')
+    .isString().withMessage('User ID must be a string'),
+
+  body('date')
+    .notEmpty().withMessage('Date is required')
+    .isISO8601().withMessage('Date must be valid format (YYYY-MM-DD)'),
 
   body('totalAmount')
     .notEmpty().withMessage('Total amount is required')
@@ -129,23 +137,16 @@ router.post(
 
   body('payment')
     .notEmpty().withMessage('Payment method is required')
-    .isIn(['UPI', 'Card', 'Cash'])
-    .withMessage('Payment must be UPI, Card or Cash'),
+    .isIn(['UPI', 'Card', 'Cash', 'COD', 'Bank', 'Net Banking'])
+    .withMessage('Payment must be UPI, Card, Cash, COD or Bank'),
 
   body('status')
     .notEmpty().withMessage('Status is required')
-    .isIn(['Pending', 'Completed', 'Cancelled'])
-    .withMessage('Status must be Pending, Completed or Cancelled'),
+    .isIn(['Pending', 'Confirmed', 'Processing', 'Delivered', 'Completed', 'Cancelled'])
+    .withMessage('Status must be Pending, Confirmed, Processing, Delivered, Completed or Cancelled'),
 
-  // ✅ DELIVERY VALIDATIONS
-  body('name').notEmpty().withMessage('Delivery name is required'),
-  body('deliveryAddress').notEmpty().withMessage('Delivery address is required'),
-  body('city').notEmpty().withMessage('City is required'),
-  body('pincode')
-    .notEmpty().withMessage('Pincode is required')
-    .isLength({ min: 6, max: 6 }).withMessage('Pincode must be 6 digits'),
-
-  body('specialInstruction').optional(),
+  body('action')
+    .notEmpty().withMessage('Action is required'),
 
   validate,
   orderController.createOrder
@@ -155,36 +156,37 @@ router.post(
  * @swagger
  * /orders/{id}:
  *   put:
- *     summary: Update order (including delivery)
+ *     summary: Update order
  *     tags: [Orders]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
- *           type: string
+ *           type: integer
  *     responses:
  *       200:
- *         description: Order updated successfully
+ *         description: Order updated
  *       400:
- *         description: Validation error
+ *         description: invalid request
+ *       401:
+ *         description: unauthorized access
  *       404:
- *         description: Order not found
+ *         description: ORDER not found
  *       500:
  *         description: Internal server error
  */
 router.put(
   '/orders/:id',
-  param('id').isMongoId().withMessage('Invalid MongoDB ObjectId'),
+  param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
 
-  body('totalAmount').optional().isFloat({ gt: 0 }),
-  body('payment').optional().isIn(['UPI', 'Card', 'Cash']),
-  body('status').optional().isIn(['Pending', 'Completed', 'Cancelled']),
-  body('delivery.name').optional(),
-  body('delivery.deliveryAddress').optional(),
-  body('delivery.city').optional(),
-  body('delivery.pincode').optional(),
-  body('delivery.specialInstruction').optional(),
+  body('orderId').optional().notEmpty(),
+  body('userId').optional().isInt().withMessage('User ID must be integer'),
+  body('date').optional().isISO8601().withMessage('Date must be valid format'),
+  body('totalAmount').optional().isFloat({ gt: 0 }).withMessage('Amount must be greater than 0'),
+  body('payment').optional().isIn(['UPI', 'Card', 'Cash', 'COD', 'Bank', 'Net Banking']),
+  body('status').optional().isIn(['Pending', 'Confirmed', 'Processing', 'Delivered', 'Completed', 'Cancelled']),
+  body('action').optional(),
 
   validate,
   orderController.updateOrder
@@ -200,21 +202,22 @@ router.put(
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
+ *         
  *     responses:
  *       200:
- *         description: Order deleted successfully
+ *         description: Order deleted
  *       400:
- *         description: Invalid ID
+ *         description: invalid request
+ *       401:
+ *         description: unauthorized access
  *       404:
- *         description: Order not found
+ *         description: ORDER not found
  *       500:
  *         description: Internal server error
  */
 router.delete(
   '/orders/:id',
-  param('id').isMongoId().withMessage('Invalid MongoDB ObjectId'),
+  param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
   validate,
   orderController.deleteOrder
 );

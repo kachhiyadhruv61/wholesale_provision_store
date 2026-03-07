@@ -58,7 +58,7 @@ router.get('/payments', paymentController.getPayments);
  */
 router.get(
   '/payments/:id',
-  param('id').isInt().withMessage('Payment ID must be integer'),
+  param('id').isMongoId().withMessage('Payment ID must be a valid MongoDB ID'),
   validate,
   paymentController.getPaymentById
 );
@@ -121,13 +121,13 @@ router.post(
 
   body('method')
     .notEmpty().withMessage('Payment method is required')
-    .isIn(['UPI', 'Card', 'Cash'])
-    .withMessage('Method must be UPI, Card or Cash'),
+    .isIn(['UPI', 'Card', 'Cash', 'COD', 'Bank', 'Net Banking'])
+    .withMessage('Method must be UPI, Card, Cash, COD or Bank'),
 
   body('status')
     .notEmpty().withMessage('Status is required')
-    .isIn(['Pending', 'Completed', 'Failed'])
-    .withMessage('Status must be Pending, Completed or Failed'),
+    .isIn(['Pending', 'Completed', 'Paid', 'Failed', 'Refunded'])
+    .withMessage('Status must be Pending, Completed, Paid, Failed or Refunded'),
 
   body('date')
     .notEmpty().withMessage('Date is required')
@@ -162,7 +162,7 @@ router.post(
  */
 router.put(
   '/payments/:id',
-  param('id').isInt().withMessage('Payment ID must be integer'),
+  param('id').isMongoId().withMessage('Payment ID must be a valid MongoDB ID'),
 
   body('orderId')
     .optional()
@@ -174,13 +174,13 @@ router.put(
 
   body('method')
     .optional()
-    .isIn(['UPI', 'Card', 'Cash'])
-    .withMessage('Method must be UPI, Card or Cash'),
+    .isIn(['UPI', 'Card', 'Cash', 'COD', 'Bank', 'Net Banking'])
+    .withMessage('Method must be UPI, Card, Cash, COD or Bank'),
 
   body('status')
     .optional()
-    .isIn(['Pending', 'Completed', 'Failed'])
-    .withMessage('Status must be Pending, Completed or Failed'),
+    .isIn(['Pending', 'Completed', 'Paid', 'Failed', 'Refunded'])
+    .withMessage('Status must be Pending, Completed, Paid, Failed or Refunded'),
 
   body('date')
     .optional()
@@ -215,7 +215,7 @@ router.put(
  */
 router.delete(
   '/payments/:id',
-  param('id').isInt().withMessage('Payment ID must be integer'),
+  param('id').isMongoId().withMessage('Payment ID must be a valid MongoDB ID'),
   validate,
   paymentController.deletePayment
 );

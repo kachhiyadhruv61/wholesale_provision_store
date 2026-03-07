@@ -42,11 +42,12 @@ const createPayment = async (req, res, next) => {
     const db = getDB();
 
     const paymentData = {
+      ...req.body,
       orderId: req.body.orderId,
-      amount: req.body.amount,
-      paymentMethod: req.body.paymentMethod,
-      status: req.body.status || 'pending',
-      createdAt: new Date()
+      amount: Number(req.body.amount || 0),
+      method: req.body.method,
+      status: req.body.status,
+      date: req.body.date || new Date()
     };
 
     const result = await db.collection("payments").insertOne(paymentData);
