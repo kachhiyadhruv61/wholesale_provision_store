@@ -30,6 +30,7 @@ import { PaymentProvider } from "./context/PaymentContext";
 import { UserProvider } from "./context/UserContext";
 import { DeliveryProvider } from "./context/DeliveryContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { ContactProvider } from "./context/ContactContext";
 import OrderHistory from "./pages/OrderHistory";
 
 // Handles routing while conditionally hiding global chrome on admin pages
@@ -93,9 +94,11 @@ function App() {
             <NotificationProvider>
               <UserProvider>
                 <DeliveryProvider>
-                  <BrowserRouter>
-                    <AppShell />
-                  </BrowserRouter>
+                  <ContactProvider>
+                    <BrowserRouter>
+                      <AppShell />
+                    </BrowserRouter>
+                  </ContactProvider>
                 </DeliveryProvider>
               </UserProvider>
             </NotificationProvider>

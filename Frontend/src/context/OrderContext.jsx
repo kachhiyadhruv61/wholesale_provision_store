@@ -189,8 +189,42 @@ export function OrderProvider({ children }) {
     );
   };
 
+  // Get single order by ID
+  const getOrderById = async (orderId) => {
+    const targetId = orderId?.toString?.() || orderId;
+    try {
+      const payload = await apiRequest(`/orders/${encodeURIComponent(targetId)}`);
+      return { success: true, data: mapOrderRecord(payload?.data || payload) };
+    } catch (error) {
+      console.error("Failed to get order by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Delete order
+  const deleteOrder = async (orderId) => {
+    const targetId = orderId?.toString?.() || orderId;
+    try {
+      await apiRequest(`/orders/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      setOrders((prev) => prev.filter((o) => o.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete order", error);
+      return { success: false, message: error.message };
+    }
+  };
+
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
+    <OrderContext.Provider value={{ 
+      orders, 
+      addOrder, 
+      updateOrderStatus, 
+      updateOrderPaymentStatus,
+      getOrderById,
+      deleteOrder
+    }}>
       {children}
     </OrderContext.Provider>
   );

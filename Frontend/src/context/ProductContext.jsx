@@ -1492,6 +1492,30 @@ export function ProductProvider({ children }) {
     return applicablePrice;
   };
 
+  // Get single product by ID
+  const getProductById = async (productId) => {
+    const targetId = productId?.toString?.() || productId;
+    try {
+      const payload = await apiRequest(`/products/${encodeURIComponent(targetId)}`);
+      const record = normalizeMongoId(payload?.data || payload);
+      const basePrice = Number(record.price || 0);
+      const wholesale = Number(record.wholesalePrice ?? basePrice);
+      const normalized = normalizeProductCosts({
+        ...record,
+        moq: Number(record.moq ?? record.MOQ ?? 1),
+        price: basePrice,
+        wholesalePrice: wholesale,
+        stock: Number(record.stock || 0),
+        category: record.category || "Grains",
+        unit: record.unit || "bag",
+      });
+      return { success: true, data: normalized };
+    } catch (error) {
+      console.error("Failed to get product by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
   return (
     <ProductContext.Provider value={{ 
       products, 
@@ -1500,7 +1524,8 @@ export function ProductProvider({ children }) {
       deleteProduct, 
       updateStock,
       deductStockForOrder,
-      getPriceForQuantity 
+      getPriceForQuantity,
+      getProductById
     }}>
       {children}
     </ProductContext.Provider>

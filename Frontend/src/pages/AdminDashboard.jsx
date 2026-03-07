@@ -1,16 +1,22 @@
-import { useState, useContext, useMemo } from "react";
+import { useState, useContext, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { ContactContext } from "../context/ContactContext";
+import { DeliveryContext } from "../context/DeliveryContext";
+import { UserContext } from "../context/UserContext";
 import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
-  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus, deleteOrder } = useContext(OrderContext);
+  const { payments, addPayment, updatePaymentStatus, deletePayment } = useContext(PaymentContext);
   const { addNotification } = useContext(NotificationContext);
+  const { contacts, loadContacts, deleteContact, markAsRead } = useContext(ContactContext);
+  const { deliveries, loadDeliveries, updateDeliveryStatus, deleteDelivery } = useContext(DeliveryContext);
+  const { users, loadUsers, deleteUser, registers, loadRegisters } = useContext(UserContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -24,6 +30,7 @@ function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
@@ -46,6 +53,24 @@ function AdminDashboard() {
     purchasePrice: "",
     updateType: "add" // 'add' or 'set'
   });
+
+  // Contact Modal State
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactFilter, setContactFilter] = useState("all");
+
+  // Delivery Modal State
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [deliveryFilter, setDeliveryFilter] = useState("all");
+
+  // Load data on component mount
+  useEffect(() => {
+    loadContacts();
+    loadDeliveries();
+    loadUsers();
+    loadRegisters();
+  }, []);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -1013,6 +1038,18 @@ function AdminDashboard() {
           >
             Pricing
           </button>
+          <button 
+            className={activeTab === "contacts" ? "active" : ""} 
+            onClick={() => { setActiveTab("contacts"); setContactFilter("all"); }}
+          >
+            📩 Contact Messages
+          </button>
+          <button 
+            className={activeTab === "deliveries" ? "active" : ""} 
+            onClick={() => { setActiveTab("deliveries"); setDeliveryFilter("all"); }}
+          >
+            🚚 Deliveries
+          </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
           </button>
@@ -1798,6 +1835,343 @@ function AdminDashboard() {
                       className="btn-close"
                       onClick={() => setShowPaymentModal(false)}
                     >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Contacts Tab */}
+        {activeTab === "contacts" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>📩 Contact Messages</h2>
+              <div className="status-filters">
+                <button 
+                  className={contactFilter === "all" ? "active" : ""} 
+                  onClick={() => setContactFilter("all")}
+                >
+                  All ({contacts.length})
+                </button>
+                <button 
+                  className={contactFilter === "Unread" ? "active" : ""} 
+                  onClick={() => setContactFilter("Unread")}
+                >
+                  Unread ({contacts.filter(c => c.status === "Unread").length})
+                </button>
+                <button 
+                  className={contactFilter === "Read" ? "active" : ""} 
+                  onClick={() => setContactFilter("Read")}
+                >
+                  Read ({contacts.filter(c => c.status === "Read").length})
+                </button>
+              </div>
+            </div>
+
+            {contacts.length === 0 ? (
+              <div className="empty-state">
+                <p>📭 No contact messages yet</p>
+              </div>
+            ) : (
+              <div className="contacts-grid">
+                {contacts
+                  .filter(c => contactFilter === "all" || c.status === contactFilter)
+                  .map(contact => (
+                  <div key={contact.id} className={`contact-card ${contact.status === "Unread" ? "unread" : ""}`}>
+                    <div className="contact-header">
+                      <div className="contact-info">
+                        <h4>{contact.name}</h4>
+                        <span className="contact-email">{contact.email}</span>
+                      </div>
+                      <span className={`status-badge ${contact.status?.toLowerCase()}`}>
+                        {contact.status === "Unread" ? "🔵" : "✅"} {contact.status}
+                      </span>
+                    </div>
+                    
+                    <div className="contact-subject">
+                      <strong>Subject:</strong> {contact.subject || "No Subject"}
+                    </div>
+                    
+                    <div className="contact-message">
+                      <p>{contact.message}</p>
+                    </div>
+                    
+                    <div className="contact-footer">
+                      <span className="contact-date">📅 {new Date(contact.date).toLocaleDateString()}</span>
+                      {contact.phone && <span className="contact-phone">📞 {contact.phone}</span>}
+                    </div>
+                    
+                    <div className="contact-actions">
+                      <button 
+                        className="btn-view"
+                        onClick={() => {
+                          setSelectedContact(contact);
+                          setShowContactModal(true);
+                          if (contact.status === "Unread") {
+                            markAsRead(contact.id);
+                          }
+                        }}
+                      >
+                        👁️ View
+                      </button>
+                      <button 
+                        className="btn-delete"
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this message?")) {
+                            deleteContact(contact.id);
+                          }
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Contact Detail Modal */}
+            {showContactModal && selectedContact && (
+              <div className="modal-overlay" onClick={() => setShowContactModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2>📩 Message from {selectedContact.name}</h2>
+                    <button className="modal-close" onClick={() => setShowContactModal(false)}>×</button>
+                  </div>
+                  <div className="modal-body">
+                    <div className="contact-detail-grid">
+                      <div className="detail-item">
+                        <span className="label">Name:</span>
+                        <span className="value">{selectedContact.name}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Email:</span>
+                        <span className="value">{selectedContact.email}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Phone:</span>
+                        <span className="value">{selectedContact.phone || "N/A"}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Date:</span>
+                        <span className="value">{new Date(selectedContact.date).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="message-section">
+                      <h4>Subject</h4>
+                      <p className="subject-text">{selectedContact.subject || "No Subject"}</p>
+                    </div>
+                    
+                    <div className="message-section">
+                      <h4>Message</h4>
+                      <p className="message-text">{selectedContact.message}</p>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <a 
+                      href={`mailto:${selectedContact.email}?subject=Re: ${selectedContact.subject || "Your Message"}`}
+                      className="btn-reply"
+                    >
+                      ✉️ Reply via Email
+                    </a>
+                    <button className="btn-close" onClick={() => setShowContactModal(false)}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Deliveries Tab */}
+        {activeTab === "deliveries" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>🚚 Delivery Management</h2>
+              <div className="status-filters">
+                <button 
+                  className={deliveryFilter === "all" ? "active" : ""} 
+                  onClick={() => setDeliveryFilter("all")}
+                >
+                  All ({deliveries.length})
+                </button>
+                <button 
+                  className={deliveryFilter === "Pending" ? "active" : ""} 
+                  onClick={() => setDeliveryFilter("Pending")}
+                >
+                  Pending ({deliveries.filter(d => d.status === "Pending").length})
+                </button>
+                <button 
+                  className={deliveryFilter === "In Transit" ? "active" : ""} 
+                  onClick={() => setDeliveryFilter("In Transit")}
+                >
+                  In Transit ({deliveries.filter(d => d.status === "In Transit").length})
+                </button>
+                <button 
+                  className={deliveryFilter === "Delivered" ? "active" : ""} 
+                  onClick={() => setDeliveryFilter("Delivered")}
+                >
+                  Delivered ({deliveries.filter(d => d.status === "Delivered").length})
+                </button>
+              </div>
+            </div>
+
+            {deliveries.length === 0 ? (
+              <div className="empty-state">
+                <p>📦 No deliveries found</p>
+              </div>
+            ) : (
+              <div className="deliveries-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tracking ID</th>
+                      <th>Order ID</th>
+                      <th>Customer</th>
+                      <th>Address</th>
+                      <th>Status</th>
+                      <th>Delivery Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveries
+                      .filter(d => deliveryFilter === "all" || d.status === deliveryFilter)
+                      .map(delivery => (
+                      <tr key={delivery.id}>
+                        <td><strong>{delivery.trackingId || `TRK-${delivery.id?.slice(-6)}`}</strong></td>
+                        <td>#{delivery.orderId}</td>
+                        <td>{delivery.customerName}</td>
+                        <td>
+                          <span className="address-cell">
+                            {delivery.address}, {delivery.city}
+                            {delivery.pincode && ` - ${delivery.pincode}`}
+                          </span>
+                        </td>
+                        <td>
+                          <select
+                            value={delivery.status}
+                            onChange={(e) => updateDeliveryStatus(delivery.id, e.target.value)}
+                            className={`status-select ${delivery.status?.toLowerCase().replace(' ', '-')}`}
+                          >
+                            <option value="Pending">📋 Pending</option>
+                            <option value="Picked Up">📦 Picked Up</option>
+                            <option value="In Transit">🚚 In Transit</option>
+                            <option value="Out for Delivery">🏃 Out for Delivery</option>
+                            <option value="Delivered">✅ Delivered</option>
+                            <option value="Failed">❌ Failed</option>
+                          </select>
+                        </td>
+                        <td>{delivery.deliveryDate || "Not scheduled"}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button 
+                              className="btn-view"
+                              onClick={() => {
+                                setSelectedDelivery(delivery);
+                                setShowDeliveryModal(true);
+                              }}
+                            >
+                              👁️
+                            </button>
+                            <button 
+                              className="btn-delete"
+                              onClick={() => {
+                                if (window.confirm("Delete this delivery record?")) {
+                                  deleteDelivery(delivery.id);
+                                }
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Delivery Detail Modal */}
+            {showDeliveryModal && selectedDelivery && (
+              <div className="modal-overlay" onClick={() => setShowDeliveryModal(false)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2>🚚 Delivery Details</h2>
+                    <button className="modal-close" onClick={() => setShowDeliveryModal(false)}>×</button>
+                  </div>
+                  <div className="modal-body">
+                    <div className="delivery-tracking-header">
+                      <span className="tracking-id">
+                        📦 {selectedDelivery.trackingId || `TRK-${selectedDelivery.id?.slice(-6)}`}
+                      </span>
+                      <span className={`delivery-status ${selectedDelivery.status?.toLowerCase().replace(' ', '-')}`}>
+                        {selectedDelivery.status}
+                      </span>
+                    </div>
+                    
+                    <div className="detail-grid">
+                      <div className="detail-item">
+                        <span className="label">Order ID:</span>
+                        <span className="value">#{selectedDelivery.orderId}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Customer:</span>
+                        <span className="value">{selectedDelivery.customerName}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Phone:</span>
+                        <span className="value">{selectedDelivery.phone || "N/A"}</span>
+                      </div>
+                      <div className="detail-item">
+                        <span className="label">Delivery Date:</span>
+                        <span className="value">{selectedDelivery.deliveryDate || "Not scheduled"}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="address-section">
+                      <h4>📍 Delivery Address</h4>
+                      <p>
+                        {selectedDelivery.address}<br/>
+                        {selectedDelivery.city}, {selectedDelivery.state}<br/>
+                        {selectedDelivery.pincode && `PIN: ${selectedDelivery.pincode}`}
+                      </p>
+                    </div>
+                    
+                    {selectedDelivery.notes && (
+                      <div className="notes-section">
+                        <h4>📝 Notes</h4>
+                        <p>{selectedDelivery.notes}</p>
+                      </div>
+                    )}
+                    
+                    <div className="status-update-section">
+                      <h4>Update Status</h4>
+                      <select
+                        value={selectedDelivery.status}
+                        onChange={(e) => {
+                          updateDeliveryStatus(selectedDelivery.id, e.target.value);
+                          setSelectedDelivery({...selectedDelivery, status: e.target.value});
+                        }}
+                        className="status-select-large"
+                      >
+                        <option value="Pending">📋 Pending</option>
+                        <option value="Picked Up">📦 Picked Up</option>
+                        <option value="In Transit">🚚 In Transit</option>
+                        <option value="Out for Delivery">🏃 Out for Delivery</option>
+                        <option value="Delivered">✅ Delivered</option>
+                        <option value="Failed">❌ Failed</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button className="btn-close" onClick={() => setShowDeliveryModal(false)}>
                       Close
                     </button>
                   </div>

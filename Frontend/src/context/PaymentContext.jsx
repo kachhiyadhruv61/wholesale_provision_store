@@ -115,8 +115,41 @@ export function PaymentProvider({ children }) {
     );
   };
 
+  // Get single payment by ID
+  const getPaymentById = async (paymentId) => {
+    const targetId = paymentId?.toString?.() || paymentId;
+    try {
+      const payload = await apiRequest(`/payments/${encodeURIComponent(targetId)}`);
+      return { success: true, data: mapPaymentRecord(payload?.data || payload) };
+    } catch (error) {
+      console.error("Failed to get payment by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Delete payment
+  const deletePayment = async (paymentId) => {
+    const targetId = paymentId?.toString?.() || paymentId;
+    try {
+      await apiRequest(`/payments/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      setPayments((prev) => prev.filter((p) => p.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete payment", error);
+      return { success: false, message: error.message };
+    }
+  };
+
   return (
-    <PaymentContext.Provider value={{ payments, addPayment, updatePaymentStatus }}>
+    <PaymentContext.Provider value={{ 
+      payments, 
+      addPayment, 
+      updatePaymentStatus,
+      getPaymentById,
+      deletePayment
+    }}>
       {children}
     </PaymentContext.Provider>
   );

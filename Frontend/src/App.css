@@ -12079,3 +12079,428 @@ h2 {
     width: 100%;
   }
 }
+
+/* ========================================
+   Contacts Tab Styles
+   ======================================== */
+
+.contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.contact-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.contact-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.contact-card.unread {
+  border-left: 4px solid #3b82f6;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+}
+
+.contact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.contact-info h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.contact-email {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.contact-subject {
+  padding: 10px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.contact-message {
+  padding: 12px;
+  background: #fafbfc;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.contact-message p {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.contact-footer {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.contact-actions button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contact-actions .btn-view {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+}
+
+.contact-actions .btn-view:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.contact-actions .btn-delete {
+  background: white;
+  border: 2px solid #fee2e2;
+  color: #dc2626;
+}
+
+.contact-actions .btn-delete:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.unread {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.read {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Contact Modal */
+.contact-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.message-section {
+  margin-bottom: 20px;
+}
+
+.message-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.subject-text {
+  padding: 12px 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.message-text {
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.btn-reply {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-reply:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* ========================================
+   Deliveries Tab Styles
+   ======================================== */
+
+.deliveries-table {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.deliveries-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.deliveries-table th,
+.deliveries-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.deliveries-table th {
+  background: #f9fafb;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.deliveries-table tr:hover {
+  background: #f9fafb;
+}
+
+.address-cell {
+  display: block;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.status-select.pending {
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.status-select.in-transit {
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+
+.status-select.delivered {
+  border-color: #34d399;
+  color: #047857;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-buttons button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.action-buttons .btn-view {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.action-buttons .btn-view:hover {
+  background: #bfdbfe;
+}
+
+.action-buttons .btn-delete {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.action-buttons .btn-delete:hover {
+  background: #fecaca;
+}
+
+/* Delivery Modal */
+.delivery-tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.tracking-id {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.delivery-status {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.delivery-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.delivery-status.in-transit {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.delivery-status.out-for-delivery {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.delivery-status.delivered {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.delivery-status.failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.address-section,
+.notes-section {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.address-section h4,
+.notes-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.address-section p,
+.notes-section p {
+  margin: 0;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.status-update-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #f3f4f6;
+}
+
+.status-update-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.status-select-large {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: white;
+}
+
+.status-select-large:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+}
+
+/* Responsive Contacts & Deliveries */
+@media (max-width: 768px) {
+  .contacts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .deliveries-table {
+    font-size: 14px;
+  }
+
+  .deliveries-table th,
+  .deliveries-table td {
+    padding: 10px 12px;
+  }
+
+  .address-cell {
+    max-width: 120px;
+  }
+}

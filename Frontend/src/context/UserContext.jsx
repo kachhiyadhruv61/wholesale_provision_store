@@ -5,6 +5,9 @@ export const UserContext = createContext();
 
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [registers, setRegisters] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const toUserProfile = (record) => {
     const item = normalizeMongoId(record || {});
@@ -37,6 +40,166 @@ export function UserProvider({ children }) {
       setUser(JSON.parse(savedUser));
     }
   }, []);
+
+  // ==================== Users API ====================
+  
+  // GET all users
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const payload = await apiRequest("/users");
+      const rows = getResponseList(payload);
+      setUsers(rows.map(toUserProfile));
+      return { success: true, data: rows };
+    } catch (error) {
+      console.error("Failed to fetch users", error);
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // GET user by ID
+  const getUserById = async (userId) => {
+    const targetId = userId?.toString?.() || userId;
+    try {
+      const payload = await apiRequest(`/users/${encodeURIComponent(targetId)}`);
+      return { success: true, data: toUserProfile(payload?.data || payload) };
+    } catch (error) {
+      console.error("Failed to get user by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // POST create user
+  const createUser = async (userData) => {
+    try {
+      const payload = await apiRequest("/users", {
+        method: "POST",
+        body: JSON.stringify(userData),
+      });
+      const createdId = payload?.insertedId || Date.now().toString();
+      const created = toUserProfile({ ...userData, id: createdId, _id: createdId });
+      setUsers((prev) => [created, ...prev]);
+      return { success: true, data: created };
+    } catch (error) {
+      console.error("Failed to create user", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // PUT update user
+  const updateUser = async (userId, updates) => {
+    const targetId = userId?.toString?.() || userId;
+    try {
+      await apiRequest(`/users/${encodeURIComponent(targetId)}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id?.toString() === targetId ? { ...u, ...updates } : u
+        )
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to update user", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // DELETE user
+  const deleteUser = async (userId) => {
+    const targetId = userId?.toString?.() || userId;
+    try {
+      await apiRequest(`/users/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      setUsers((prev) => prev.filter((u) => u.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete user", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // ==================== Register API ====================
+  
+  // GET all registers
+  const loadRegisters = async () => {
+    try {
+      const payload = await apiRequest("/register");
+      const rows = getResponseList(payload);
+      setRegisters(rows.map(toUserProfile));
+      return { success: true, data: rows };
+    } catch (error) {
+      console.error("Failed to fetch registers", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // GET register by ID
+  const getRegisterById = async (registerId) => {
+    const targetId = registerId?.toString?.() || registerId;
+    try {
+      const payload = await apiRequest(`/register/${encodeURIComponent(targetId)}`);
+      return { success: true, data: toUserProfile(payload?.data || payload) };
+    } catch (error) {
+      console.error("Failed to get register by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // PUT update register
+  const updateRegister = async (registerId, updates) => {
+    const targetId = registerId?.toString?.() || registerId;
+    try {
+      await apiRequest(`/register/${encodeURIComponent(targetId)}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
+      setRegisters((prev) =>
+        prev.map((r) =>
+          r.id?.toString() === targetId ? { ...r, ...updates } : r
+        )
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to update register", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // DELETE register
+  const deleteRegister = async (registerId) => {
+    const targetId = registerId?.toString?.() || registerId;
+    try {
+      await apiRequest(`/register/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      setRegisters((prev) => prev.filter((r) => r.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete register", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // ==================== Auth API ====================
+  
+  // DELETE auth user
+  const deleteAuthUser = async (authUserId) => {
+    const targetId = authUserId?.toString?.() || authUserId;
+    try {
+      await apiRequest(`/auth/users/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete auth user", error);
+      return { success: false, message: error.message };
+    }
+  };
 
   const updateUserProfile = async (updatedData) => {
     const newUser = { ...user, ...updatedData };
@@ -150,12 +313,29 @@ export function UserProvider({ children }) {
   return (
     <UserContext.Provider
       value={{
+        // Current user state
         user,
+        loading,
         updateUserProfile,
         changePassword,
         loginUser,
         logoutUser,
         resetPassword,
+        // Users API
+        users,
+        loadUsers,
+        getUserById,
+        createUser,
+        updateUser,
+        deleteUser,
+        // Register API
+        registers,
+        loadRegisters,
+        getRegisterById,
+        updateRegister,
+        deleteRegister,
+        // Auth API
+        deleteAuthUser,
       }}
     >
       {children}

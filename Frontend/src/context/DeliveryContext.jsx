@@ -1,8 +1,138 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
+import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
 
 export const DeliveryContext = createContext();
 
 export function DeliveryProvider({ children }) {
+  // Delivery records from API
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const mapDeliveryRecord = (record) => {
+    const item = normalizeMongoId(record);
+    return {
+      ...item,
+      id: item.id || item._id,
+      orderId: item.orderId || "",
+      customerName: item.customerName || "",
+      address: item.address || "",
+      city: item.city || "",
+      state: item.state || "",
+      pincode: item.pincode || "",
+      phone: item.phone || "",
+      status: item.status || "Pending",
+      deliveryDate: item.deliveryDate || item.date || "",
+      deliveryTime: item.deliveryTime || "",
+      trackingId: item.trackingId || "",
+      notes: item.notes || "",
+      createdAt: item.createdAt || new Date().toISOString(),
+    };
+  };
+
+  // Load deliveries from API
+  const loadDeliveries = async () => {
+    setLoading(true);
+    try {
+      const payload = await apiRequest("/deliveries");
+      const rows = getResponseList(payload);
+      setDeliveries(rows.map(mapDeliveryRecord));
+    } catch (error) {
+      console.error("Failed to fetch deliveries from API", error);
+      setDeliveries([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDeliveries();
+  }, []);
+
+  // Get single delivery by ID
+  const getDeliveryById = async (deliveryId) => {
+    const targetId = deliveryId?.toString?.() || deliveryId;
+    try {
+      const payload = await apiRequest(`/deliveries/${encodeURIComponent(targetId)}`);
+      return { success: true, data: mapDeliveryRecord(payload?.data || payload) };
+    } catch (error) {
+      console.error("Failed to get delivery by ID", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Add delivery
+  const addDelivery = async (delivery) => {
+    const newDelivery = {
+      orderId: delivery.orderId || "",
+      customerName: delivery.customerName || "",
+      address: delivery.address || "",
+      city: delivery.city || "",
+      state: delivery.state || "",
+      pincode: delivery.pincode || "",
+      phone: delivery.phone || "",
+      status: delivery.status || "Pending",
+      deliveryDate: delivery.deliveryDate || "",
+      deliveryTime: delivery.deliveryTime || "",
+      trackingId: delivery.trackingId || `TRK${Date.now()}`,
+      notes: delivery.notes || "",
+    };
+
+    try {
+      const payload = await apiRequest("/deliveries", {
+        method: "POST",
+        body: JSON.stringify(newDelivery),
+      });
+
+      const createdId = payload?.insertedId || Date.now().toString();
+      const created = mapDeliveryRecord({ ...newDelivery, id: createdId, _id: createdId });
+      setDeliveries((prev) => [created, ...prev]);
+      return { success: true, data: created };
+    } catch (error) {
+      console.error("Failed to add delivery", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Update delivery
+  const updateDelivery = async (deliveryId, updates) => {
+    const targetId = deliveryId?.toString?.() || deliveryId;
+    try {
+      await apiRequest(`/deliveries/${encodeURIComponent(targetId)}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
+      setDeliveries((prev) =>
+        prev.map((d) =>
+          d.id?.toString() === targetId ? { ...d, ...updates } : d
+        )
+      );
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to update delivery", error);
+      return { success: false, message: error.message };
+    }
+  };
+
+  // Update delivery status
+  const updateDeliveryStatus = async (deliveryId, newStatus) => {
+    return updateDelivery(deliveryId, { status: newStatus });
+  };
+
+  // Delete delivery
+  const deleteDelivery = async (deliveryId) => {
+    const targetId = deliveryId?.toString?.() || deliveryId;
+    try {
+      await apiRequest(`/deliveries/${encodeURIComponent(targetId)}`, {
+        method: "DELETE",
+      });
+      setDeliveries((prev) => prev.filter((d) => d.id?.toString() !== targetId));
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete delivery", error);
+      return { success: false, message: error.message };
+    }
+  };
+
   // Store locations with coordinates (latitude, longitude)
   const [deliveryLocations] = useState([
     {
@@ -147,6 +277,16 @@ export function DeliveryProvider({ children }) {
   return (
     <DeliveryContext.Provider
       value={{
+        // Delivery records from API
+        deliveries,
+        loading,
+        loadDeliveries,
+        getDeliveryById,
+        addDelivery,
+        updateDelivery,
+        updateDeliveryStatus,
+        deleteDelivery,
+        // Local delivery calculation
         deliveryLocations,
         calculateDeliveryCharge,
         getDeliveryChargeByLocation,
