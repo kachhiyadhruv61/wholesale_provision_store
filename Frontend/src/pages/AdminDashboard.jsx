@@ -42,7 +42,7 @@ function AdminDashboard() {
     customerPhone: "",
     amount: "",
     method: "UPI",
-    status: "Pending"
+    status: "Pending"   
   });
 
   // Stock Update Modal State
