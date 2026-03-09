@@ -35,7 +35,7 @@ function AdminDashboard() {
     customerPhone: "",
     amount: "",
     method: "UPI",
-    status: "Pending"
+    status: "Pending"   
   });
 
   // Form states
