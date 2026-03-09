@@ -3,24 +3,11 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const errorHandler = require('./middleware/errorMiddleware');
 const { connectDB } = require('./config/db');
+const cors = require('cors');
 
 const app = express();
-const PORT = Number(process.env.PORT || 5000);
-
-// Allow frontend dev server to call backend APIs across ports.
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || 'http://localhost:3000');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
 app.use(express.json());
+app.use(cors());
 
 // Import Routes
 const userRoutes = require('./routes/userRoutes');
@@ -28,7 +15,7 @@ const productRoutes = require('./routes/productroutes');
 const registerRoutes = require('./routes/registerroutes');
 const paymentRoutes = require('./routes/paymentroutes');
 const orderRoutes = require('./routes/orderroutes');
-
+const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const contactRoutes = require('./routes/contactroutes');
 // Use Routes
@@ -40,7 +27,7 @@ app.use('/', contactRoutes);
 app.use('/', loginRoutes);
 app.use('/', registerRoutes);
 app.use('/', paymentRoutes);
-
+app.use('/', deliveryRoutes);
 
 // Swagger Setup
 const options = {
@@ -49,11 +36,11 @@ const options = {
     info: {
       title: "User, Product, Order, Payment, Delivery API",   
       version: "1.0.0",
-      description: "Express API with User, Product, Order, Payment and Delivery details"
+      description: "Express API with User, Product "
     },
     servers: [
       {
-        url: `http://localhost:${PORT}`
+        url: "http://localhost:5000"
       }
     ]
   },
@@ -70,8 +57,8 @@ app.use(errorHandler);
 const startServer = async () => {
   await connectDB();
 
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  app.listen(5000, () => {
+    console.log("Server running at http://localhost:5000");
   });
 };
 
