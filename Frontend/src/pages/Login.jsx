@@ -20,10 +20,6 @@ function Login() {
 
   // Mock database - fetch email based on username
   const getUserEmail = (username) => {
-    if (username.includes("@")) {
-      return username;
-    }
-
     const userDatabase = {
       "admin": "admin@wholesale.com",
       "pratik": "pratik@example.com",
@@ -113,10 +109,9 @@ function Login() {
         return;
       }
 
-      // Regular user login via backend auth API (after OTP verification)
       const result = await loginUser(credentials.username, credentials.password);
-      if (!result?.success) {
-        alert(result?.message || "Login failed");
+      if (!result.success) {
+        setOtpMeta({ ...otpMeta, error: result.message || "Login failed." });
         return;
       }
       navigate("/products");

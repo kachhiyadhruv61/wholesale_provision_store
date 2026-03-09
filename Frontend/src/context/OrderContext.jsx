@@ -1,62 +1,117 @@
 import { createContext, useState, useEffect } from "react";
-import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
+import { apiClient } from "../utils/apiClient";
 
 export const OrderContext = createContext();
+
+const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
+
+const isMongoId = (value) => MONGO_ID_REGEX.test(String(value || ""));
+
+const normalizeOrder = (order = {}) => {
+  const mappedId = order.id || order._id || order.orderId || Date.now().toString();
+  return {
+    ...order,
+    id: String(mappedId),
+    _id: order._id || (isMongoId(mappedId) ? String(mappedId) : null),
+    date: order.date || order.orderDate || order.createdAt || new Date().toISOString(),
+    orderDate: order.orderDate || order.date || order.createdAt || new Date().toISOString(),
+    items: Array.isArray(order.items) ? order.items : [],
+    total: Number(order.total ?? order.totalAmount ?? 0),
+    paymentMethod: order.paymentMethod || order.payment || "cod",
+    paymentStatus: order.paymentStatus || "Pending",
+    status: order.status || "Pending",
+    customerId: order.customerId || order.userId || null,
+    customerUsername: order.customerUsername || "",
+    customerEmail: order.customerEmail || "",
+    customerName: order.customerName || order?.delivery?.name || "",
+    deliveryAddress: order.deliveryAddress || order?.delivery?.deliveryAddress || "",
+    deliveryCity: order.deliveryCity || order?.delivery?.city || "",
+    deliveryState: order.deliveryState || "",
+    deliveryPincode: order.deliveryPincode || order?.delivery?.pincode || "",
+    specialInstructions: order.specialInstructions || order?.delivery?.specialInstruction || "",
+    statusUpdatedAt: order.statusUpdatedAt || order.updatedAt || order.createdAt || null,
+    statusHistory: Array.isArray(order.statusHistory) ? order.statusHistory : [],
+  };
+};
+
+const toBackendPayment = (method = "cod") => {
+  const normalized = String(method || "cod").toLowerCase();
+  if (normalized === "upi") return "UPI";
+  if (normalized === "card") return "Card";
+  if (normalized === "cash" || normalized === "cod") return "Cash";
+  return "Cash";
+};
+
+const toBackendStatus = (status = "Pending") => {
+  const normalized = String(status || "Pending").toLowerCase();
+  if (normalized === "cancelled" || normalized === "canceled") return "Cancelled";
+  if (
+    normalized === "completed" ||
+    normalized === "confirmed" ||
+    normalized === "processing" ||
+    normalized === "shipped" ||
+    normalized === "delivered" ||
+    normalized === "out for delivery"
+  ) {
+    return "Completed";
+  }
+  return "Pending";
+};
 
 export function OrderProvider({ children }) {
   const [orders, setOrders] = useState([]);
 
-  const mapOrderRecord = (record) => {
-    const item = normalizeMongoId(record);
-    const createdAt = item.orderDate || item.date || item.createdAt || new Date().toISOString();
-    const total = Number(item.total || item.totalAmount || 0);
-    const paymentMethod = item.paymentMethod || item.payment || "cod";
-    const status = item.status || "Pending";
-
-    return {
-      ...item,
-      id: item.id,
-      date: createdAt,
-      orderDate: createdAt,
-      total,
-      totalAmount: total,
-      paymentMethod,
-      paymentStatus: item.paymentStatus || "Pending",
-      status,
-      statusUpdatedAt: item.statusUpdatedAt || createdAt,
-      statusHistory:
-        Array.isArray(item.statusHistory) && item.statusHistory.length > 0
-          ? item.statusHistory
-          : [{ status, timestamp: createdAt }],
-      items: Array.isArray(item.items) ? item.items : [],
-    };
-  };
-
   useEffect(() => {
+    let isMounted = true;
+
     const loadOrders = async () => {
-      try {
-        const payload = await apiRequest("/orders");
-        const rows = getResponseList(payload);
-        setOrders(rows.map(mapOrderRecord));
-        return;
-      } catch (error) {
-        console.error("Failed to fetch orders from API", error);
-      }
-
+      let localOrders = [];
       const savedOrders = localStorage.getItem("orders");
-      if (!savedOrders) {
-        setOrders([]);
-        return;
+      if (savedOrders) {
+        try {
+          localOrders = JSON.parse(savedOrders).map(normalizeOrder);
+        } catch {
+          localOrders = [];
+        }
+      }
+
+      if (isMounted) {
+        setOrders(localOrders);
       }
 
       try {
-        setOrders(JSON.parse(savedOrders));
+        const response = await apiClient.get("/orders");
+        const remoteOrders = Array.isArray(response?.data) ? response.data.map(normalizeOrder) : [];
+        const merged = [...localOrders];
+
+        remoteOrders.forEach((remoteOrder) => {
+          const index = merged.findIndex((entry) => entry.id === remoteOrder.id);
+          if (index === -1) {
+            merged.unshift(remoteOrder);
+            return;
+          }
+          const localOrder = merged[index];
+          merged[index] = normalizeOrder({
+            ...localOrder,
+            ...remoteOrder,
+            items: localOrder.items?.length ? localOrder.items : remoteOrder.items,
+          });
+        });
+
+        if (isMounted) {
+          setOrders(merged);
+        }
       } catch {
-        setOrders([]);
+        // Keep local fallback when API is unavailable.
       }
+
     };
 
     loadOrders();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Sync orders live across tabs/windows
@@ -64,7 +119,8 @@ export function OrderProvider({ children }) {
     const handleStorageChange = (event) => {
       if (event.key !== "orders") return;
       try {
-        setOrders(event.newValue ? JSON.parse(event.newValue) : []);
+        const parsed = event.newValue ? JSON.parse(event.newValue) : [];
+        setOrders(Array.isArray(parsed) ? parsed.map(normalizeOrder) : []);
       } catch {
         setOrders([]);
       }
@@ -74,18 +130,18 @@ export function OrderProvider({ children }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Save orders to localStorage whenever orders change
   useEffect(() => {
     localStorage.setItem("orders", JSON.stringify(orders));
-    
   }, [orders]);
 
   const addOrder = async (order) => {
     const now = new Date().toISOString();
-    const initialStatus = order.status || "Pending";
-    const newOrder = {
-      id: order.id || Date.now().toString(),
+    const initialStatus = order.status || "Confirmed";
+    const localId = Date.now().toString();
+    const newOrder = normalizeOrder({
+      id: localId,
       date: now,
+      orderDate: now,
       items: order.items || [],
       total: order.total || 0,
       customerId: order.customerId || null,
@@ -107,52 +163,45 @@ export function OrderProvider({ children }) {
       deliveryState: order.deliveryState || "",
       deliveryPincode: order.deliveryPincode || "",
       specialInstructions: order.specialInstructions || "",
-    };
+      estimatedDeliveryAt: order.estimatedDeliveryAt || null,
+    });
 
-    const orderPayload = {
-      ...newOrder,
-      orderId: `ORD-${Date.now()}`,
-      userId: (order.customerId || "guest").toString(),
-      date: now.slice(0, 10),
-      totalAmount: Number(newOrder.total || 0),
-      payment: (newOrder.paymentMethod || "cod").toString().toUpperCase(),
-      status: initialStatus,
-      action: "Processing",
-    };
+    setOrders((prev) => [newOrder, ...prev]);
 
     try {
-      const payload = await apiRequest("/orders", {
-        method: "POST",
-        body: JSON.stringify(orderPayload),
+      const response = await apiClient.post("/orders", {
+        orderId: `ORD-${localId}`,
+        userId: String(order.customerId || order.customerEmail || "guest"),
+        totalAmount: Number(order.total || 0),
+        payment: toBackendPayment(order.paymentMethod),
+        status: toBackendStatus(order.status || "Pending"),
+        name: order.customerName || order.customerUsername || "Customer",
+        deliveryAddress: order.deliveryAddress || "",
+        city: order.deliveryCity || "",
+        pincode: String(order.deliveryPincode || ""),
+        specialInstruction: order.specialInstructions || "",
       });
 
-      const createdId = payload?.insertedId || newOrder.id;
-      const created = mapOrderRecord({ ...newOrder, id: createdId, _id: createdId });
-      setOrders((prev) => [created, ...prev]);
-      return created;
-    } catch (error) {
-      console.error("Failed to create order via API", error);
-      setOrders((prev) => [newOrder, ...prev]);
-      return newOrder;
+      const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
+      if (insertedId) {
+        const syncedOrder = normalizeOrder({ ...newOrder, id: insertedId, _id: insertedId });
+        setOrders((prev) => prev.map((entry) => (entry.id === localId ? syncedOrder : entry)));
+        return syncedOrder;
+      }
+    } catch {
+      // Keep local order so checkout UX is not blocked if backend is down.
     }
+
+    return newOrder;
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
     const now = new Date().toISOString();
-    const targetId = orderId?.toString?.() || orderId;
+    const orderIdString = String(orderId);
 
-    try {
-      await apiRequest(`/orders/${encodeURIComponent(targetId)}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update order status via API", error);
-    }
-
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id?.toString() === targetId
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.id === orderIdString
           ? {
               ...order,
               status: newStatus,
@@ -168,63 +217,31 @@ export function OrderProvider({ children }) {
           : order
       )
     );
-  };
 
-  const updateOrderPaymentStatus = async (orderId, newPaymentStatus) => {
-    const targetId = orderId?.toString?.() || orderId;
-
-    try {
-      await apiRequest(`/orders/${encodeURIComponent(targetId)}`, {
-        method: "PUT",
-        body: JSON.stringify({ paymentStatus: newPaymentStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update order payment status via API", error);
+    if (!isMongoId(orderIdString)) {
+      return { success: true };
     }
 
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id?.toString() === targetId ? { ...order, paymentStatus: newPaymentStatus } : order
-      )
-    );
-  };
-
-  // Get single order by ID
-  const getOrderById = async (orderId) => {
-    const targetId = orderId?.toString?.() || orderId;
     try {
-      const payload = await apiRequest(`/orders/${encodeURIComponent(targetId)}`);
-      return { success: true, data: mapOrderRecord(payload?.data || payload) };
-    } catch (error) {
-      console.error("Failed to get order by ID", error);
-      return { success: false, message: error.message };
-    }
-  };
-
-  // Delete order
-  const deleteOrder = async (orderId) => {
-    const targetId = orderId?.toString?.() || orderId;
-    try {
-      await apiRequest(`/orders/${encodeURIComponent(targetId)}`, {
-        method: "DELETE",
+      await apiClient.put(`/orders/${encodeURIComponent(orderIdString)}`, {
+        status: toBackendStatus(newStatus),
       });
-      setOrders((prev) => prev.filter((o) => o.id?.toString() !== targetId));
       return { success: true };
     } catch (error) {
-      console.error("Failed to delete order", error);
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "Unable to update order status." };
     }
+  };
+
+  const updateOrderPaymentStatus = (orderId, newPaymentStatus) => {
+    const orderIdString = String(orderId);
+    const updatedOrders = orders.map((order) =>
+      order.id === orderIdString ? { ...order, paymentStatus: newPaymentStatus } : order
+    );
+    setOrders(updatedOrders);
   };
 
   return (
-    <OrderContext.Provider value={{ 
-      orders, 
-      addOrder, 
-      updateOrderStatus, 
-      updateOrderPaymentStatus,
-      getOrderById,
-      deleteOrder
-    }}>
+    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
       {children}
     </OrderContext.Provider>
   );

@@ -152,7 +152,7 @@ function Checkout() {
 
     setIsProcessingPayment(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsProcessingPayment(false);
       setPaymentStep("success");
 
@@ -182,7 +182,7 @@ function Checkout() {
         orderDate: new Date().toISOString(),
       };
 
-      const createdOrder = addOrder(order);
+      const createdOrder = await addOrder(order);
       const orderId = createdOrder?.id ?? "new";
 
       addNotification({

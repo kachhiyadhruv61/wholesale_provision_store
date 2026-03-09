@@ -1,65 +1,98 @@
 import { createContext, useState, useEffect } from "react";
-import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
+import { apiClient } from "../utils/apiClient";
 
 export const PaymentContext = createContext();
+
+const normalizePayment = (payment = {}) => ({
+  ...payment,
+  id: String(payment.id || payment._id || `PAY${Date.now()}`),
+  orderId: payment.orderId || "",
+  transactionId: payment.transactionId || "",
+  customerName: payment.customerName || "",
+  customerEmail: payment.customerEmail || "",
+  customerPhone: payment.customerPhone || "",
+  amount: Number(payment.amount || payment.totalAmount || 0),
+  method: payment.method || payment.paymentMethod || "COD",
+  status: payment.status || "Pending",
+  date: payment.date || payment.createdAt || new Date().toISOString(),
+  products: Array.isArray(payment.products) ? payment.products : [],
+  totalAmount: Number(payment.totalAmount || payment.amount || 0),
+});
+
+const toBackendMethod = (method = "COD") => {
+  const normalized = String(method || "COD").toLowerCase();
+  if (normalized === "upi") return "UPI";
+  if (normalized === "card") return "Card";
+  return "Cash";
+};
+
+const toBackendStatus = (status = "Pending") => {
+  const normalized = String(status || "Pending").toLowerCase();
+  if (normalized === "completed" || normalized === "paid") return "Completed";
+  if (normalized === "failed") return "Failed";
+  return "Pending";
+};
 
 export function PaymentProvider({ children }) {
   const [payments, setPayments] = useState([]);
 
-  const mapPaymentRecord = (record) => {
-    const item = normalizeMongoId(record);
-    const amount = Number(item.amount || item.totalAmount || 0);
-    const date = item.date || item.createdAt || new Date().toISOString();
-
-    return {
-      ...item,
-      id: item.id,
-      date,
-      status: item.status || "Pending",
-      amount,
-      totalAmount: Number(item.totalAmount || amount),
-      method: item.method || "COD",
-      products: Array.isArray(item.products) ? item.products : [],
-    };
-  };
-
   useEffect(() => {
-    const loadPayments = async () => {
-      try {
-        const payload = await apiRequest("/payments");
-        const rows = getResponseList(payload);
-        setPayments(rows.map(mapPaymentRecord));
-        return;
-      } catch (error) {
-        console.error("Failed to fetch payments from API", error);
-      }
+    let isMounted = true;
 
+    const loadPayments = async () => {
+      let localPayments = [];
       const savedPayments = localStorage.getItem("payments");
       if (savedPayments) {
         try {
-          setPayments(JSON.parse(savedPayments));
-          return;
-        } catch (error) {
-          console.error("Failed to parse saved payments", error);
+          const parsed = JSON.parse(savedPayments);
+          localPayments = Array.isArray(parsed) ? parsed.map(normalizePayment) : [];
+        } catch {
+          localPayments = [];
         }
       }
 
-      setPayments([]);
-      localStorage.setItem("payments", JSON.stringify([]));
+      if (isMounted) {
+        setPayments(localPayments);
+      }
+
+      try {
+        const response = await apiClient.get("/payments");
+        const remotePayments = Array.isArray(response?.data) ? response.data.map(normalizePayment) : [];
+        const merged = [...localPayments];
+
+        remotePayments.forEach((remotePayment) => {
+          const idx = merged.findIndex((entry) => entry.id === remotePayment.id);
+          if (idx === -1) {
+            merged.unshift(remotePayment);
+            return;
+          }
+          merged[idx] = normalizePayment({ ...merged[idx], ...remotePayment });
+        });
+
+        if (isMounted) {
+          setPayments(merged);
+        }
+      } catch {
+        // Keep local fallback when API is unavailable.
+      }
     };
 
     loadPayments();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Save payments to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("payments", JSON.stringify(payments));
   }, [payments]);
 
   const addPayment = async (payment) => {
     const now = new Date().toISOString();
-    const newPayment = {
-      id: payment.id || `PAY${Date.now()}`,
+    const localId = `PAY${Date.now()}`;
+    const newPayment = normalizePayment({
+      id: localId,
       date: now,
       status: payment.status || "Pending",
       orderId: payment.orderId || "",
@@ -71,85 +104,43 @@ export function PaymentProvider({ children }) {
       method: payment.method || "COD",
       products: payment.products || [],
       totalAmount: payment.totalAmount || payment.amount || 0
-    };
+    });
+
+    setPayments((prev) => [newPayment, ...prev]);
 
     try {
-      const payload = await apiRequest("/payments", {
-        method: "POST",
-        body: JSON.stringify({
-          ...newPayment,
-          amount: Number(newPayment.amount || 0),
-          status: newPayment.status,
-          method: newPayment.method,
-          date: now.slice(0, 10),
-        }),
+      const response = await apiClient.post("/payments", {
+        orderId: newPayment.orderId,
+        amount: Number(newPayment.amount || 0),
+        method: toBackendMethod(newPayment.method),
+        paymentMethod: toBackendMethod(newPayment.method),
+        status: toBackendStatus(newPayment.status),
+        date: now.slice(0, 10),
       });
 
-      const createdId = payload?.insertedId || newPayment.id;
-      const created = mapPaymentRecord({ ...newPayment, id: createdId, _id: createdId });
-      setPayments((prev) => [created, ...prev]);
-      return { success: true, data: created };
-    } catch (error) {
-      console.error("Failed to add payment via API", error);
-      setPayments((prev) => [newPayment, ...prev]);
-      return { success: false, message: error.message };
+      const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
+      if (insertedId) {
+        const syncedPayment = normalizePayment({ ...newPayment, id: insertedId, _id: insertedId });
+        setPayments((prev) => prev.map((entry) => (entry.id === localId ? syncedPayment : entry)));
+      }
+    } catch {
+      // Keep local payment if backend request fails.
     }
+
+    return newPayment;
   };
 
-  const updatePaymentStatus = async (paymentId, newStatus) => {
-    const targetId = paymentId?.toString?.() || paymentId;
-
-    try {
-      await apiRequest(`/payments/${encodeURIComponent(targetId)}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update payment status via API", error);
-    }
-
+  const updatePaymentStatus = (paymentId, newStatus) => {
+    const paymentIdString = String(paymentId);
     setPayments((prev) =>
       prev.map((payment) =>
-        payment.id?.toString() === targetId ? { ...payment, status: newStatus } : payment
+        String(payment.id) === paymentIdString ? { ...payment, status: newStatus } : payment
       )
     );
   };
 
-  // Get single payment by ID
-  const getPaymentById = async (paymentId) => {
-    const targetId = paymentId?.toString?.() || paymentId;
-    try {
-      const payload = await apiRequest(`/payments/${encodeURIComponent(targetId)}`);
-      return { success: true, data: mapPaymentRecord(payload?.data || payload) };
-    } catch (error) {
-      console.error("Failed to get payment by ID", error);
-      return { success: false, message: error.message };
-    }
-  };
-
-  // Delete payment
-  const deletePayment = async (paymentId) => {
-    const targetId = paymentId?.toString?.() || paymentId;
-    try {
-      await apiRequest(`/payments/${encodeURIComponent(targetId)}`, {
-        method: "DELETE",
-      });
-      setPayments((prev) => prev.filter((p) => p.id?.toString() !== targetId));
-      return { success: true };
-    } catch (error) {
-      console.error("Failed to delete payment", error);
-      return { success: false, message: error.message };
-    }
-  };
-
   return (
-    <PaymentContext.Provider value={{ 
-      payments, 
-      addPayment, 
-      updatePaymentStatus,
-      getPaymentById,
-      deletePayment
-    }}>
+    <PaymentContext.Provider value={{ payments, addPayment, updatePaymentStatus }}>
       {children}
     </PaymentContext.Provider>
   );

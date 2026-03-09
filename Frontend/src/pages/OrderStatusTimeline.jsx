@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import styles from "./OrderStatusTimeline.module.css";
+import { apiClient } from "../utils/apiClient";
 
 const TIMELINE_STEPS = [
   { key: "confirmed", label: "Confirmed" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
 ];
+
+const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
 
 function formatDate(value) {
   if (!value) return "Pending";
@@ -82,19 +85,29 @@ function OrderStatusTimeline() {
       setError("");
 
       try {
-        const response = await fetch(`/api/orders/status-history/${encodeURIComponent(orderId)}`);
+        let orderData;
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Order not found.");
-          }
-          throw new Error("Unable to load order status history right now.");
+        if (MONGO_ID_REGEX.test(orderId)) {
+          const response = await apiClient.get(`/orders/${encodeURIComponent(orderId)}`);
+          orderData = response?.data || response;
+        } else {
+          const response = await apiClient.get("/orders");
+          const allOrders = Array.isArray(response?.data) ? response.data : [];
+          orderData = allOrders.find((entry) => {
+            const candidateOrderId = String(entry?.orderId || "").trim().toLowerCase();
+            const candidateMongoId = String(entry?._id || entry?.id || "").trim().toLowerCase();
+            const lookup = String(orderId || "").trim().toLowerCase();
+            return candidateOrderId === lookup || candidateMongoId === lookup;
+          });
         }
 
-        const data = await response.json();
+        if (!orderData) {
+          throw new Error("Order not found.");
+        }
+
         if (!isMounted) return;
 
-        setStatusDates(normalizeHistory(data));
+        setStatusDates(normalizeHistory(orderData));
       } catch (fetchError) {
         if (!isMounted) return;
         setError(fetchError.message || "Something went wrong while fetching timeline.");

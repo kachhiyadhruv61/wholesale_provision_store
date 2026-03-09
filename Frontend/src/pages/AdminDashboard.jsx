@@ -1,22 +1,16 @@
-import { useState, useContext, useMemo, useEffect } from "react";
+import { useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
 import { NotificationContext } from "../context/NotificationContext";
-import { ContactContext } from "../context/ContactContext";
-import { DeliveryContext } from "../context/DeliveryContext";
-import { UserContext } from "../context/UserContext";
 import CommonTable from "../components/CommonTable";
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus, updateOrderPaymentStatus, deleteOrder } = useContext(OrderContext);
-  const { payments, addPayment, updatePaymentStatus, deletePayment } = useContext(PaymentContext);
+  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
+  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const { addNotification } = useContext(NotificationContext);
-  const { contacts, loadContacts, deleteContact, markAsRead } = useContext(ContactContext);
-  const { deliveries, loadDeliveries, updateDeliveryStatus, deleteDelivery } = useContext(DeliveryContext);
-  const { users, loadUsers, deleteUser, registers, loadRegisters } = useContext(UserContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("products");
@@ -30,7 +24,6 @@ function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
@@ -44,33 +37,6 @@ function AdminDashboard() {
     method: "UPI",
     status: "Pending"
   });
-
-  // Stock Update Modal State
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [stockUpdateProduct, setStockUpdateProduct] = useState(null);
-  const [stockFormData, setStockFormData] = useState({
-    newStock: "",
-    purchasePrice: "",
-    updateType: "add" // 'add' or 'set'
-  });
-
-  // Contact Modal State
-  const [selectedContact, setSelectedContact] = useState(null);
-  const [showContactModal, setShowContactModal] = useState(false);
-  const [contactFilter, setContactFilter] = useState("all");
-
-  // Delivery Modal State
-  const [selectedDelivery, setSelectedDelivery] = useState(null);
-  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
-  const [deliveryFilter, setDeliveryFilter] = useState("all");
-
-  // Load data on component mount
-  useEffect(() => {
-    loadContacts();
-    loadDeliveries();
-    loadUsers();
-    loadRegisters();
-  }, []);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -143,7 +109,7 @@ function AdminDashboard() {
     setShowAddForm(false);
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
@@ -170,12 +136,12 @@ function AdminDashboard() {
       ]
     };
 
-    addProduct(newProduct);
+    await addProduct(newProduct);
     alert("Product Added Successfully!");
     resetForm();
   };
 
-  const handleUpdateProduct = () => {
+  const handleUpdateProduct = async () => {
     if (!formData.name || !formData.price || !formData.wholesalePrice || !formData.purchaseCost || !formData.sellCost || !formData.stock) {
       alert("Please fill all required fields");
       return;
@@ -201,7 +167,11 @@ function AdminDashboard() {
       ]
     };
 
-    updateProduct(editingProduct.id, updatedProduct);
+    const result = await updateProduct(editingProduct.id, updatedProduct);
+    if (result?.success === false) {
+      alert(result.message || "Unable to update product.");
+      return;
+    }
     alert("Product Updated Successfully!");
     resetForm();
   };
@@ -226,128 +196,83 @@ function AdminDashboard() {
     setShowAddForm(true);
   };
 
-  const handleDeleteProduct = (id, name) => {
+  const handleDeleteProduct = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      deleteProduct(id);
+      const result = await deleteProduct(id);
+      if (result?.success === false) {
+        alert(result.message || "Unable to delete product.");
+        return;
+      }
       alert("Product Deleted Successfully!");
     }
   };
 
-  // Open stock update modal
-  const openStockModal = (product) => {
-    setStockUpdateProduct(product);
-    setStockFormData({
-      newStock: "",
-      purchasePrice: String(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? ""),
-      updateType: "add"
-    });
-    setShowStockModal(true);
-  };
+  const handleStockUpdate = async (product) => {
+    const currentStock = Number(product.stock || 0);
+    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
+    if (stockInput === null) return;
 
-  // Close stock update modal
-  const closeStockModal = () => {
-    setShowStockModal(false);
-    setStockUpdateProduct(null);
-    setStockFormData({ newStock: "", purchasePrice: "", updateType: "add" });
-  };
-
-  // Handle stock form submission
-  const handleStockFormSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!stockUpdateProduct) return;
-    
-    const currentStock = Number(stockUpdateProduct.stock || 0);
-    const inputQty = Number(stockFormData.newStock);
-    const purchasePrice = Number(stockFormData.purchasePrice);
-    
-    if (isNaN(inputQty) || inputQty <= 0) {
-      alert("Please enter a valid quantity.");
+    if (stockInput === "" || isNaN(stockInput)) {
+      alert("Please enter a valid stock quantity.");
       return;
     }
-    
-    if (isNaN(purchasePrice) || purchasePrice < 0) {
-      alert("Please enter a valid purchase price.");
-      return;
-    }
-    
-    let finalStock;
-    let addedQty;
-    
-    if (stockFormData.updateType === "add") {
-      finalStock = currentStock + inputQty;
-      addedQty = inputQty;
-    } else {
-      finalStock = inputQty;
-      addedQty = inputQty > currentStock ? inputQty - currentStock : 0;
-    }
-    
-    if (finalStock < 0) {
+
+    const parsedStock = Number(stockInput);
+    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
       alert("Stock cannot be negative.");
       return;
     }
-    
-    const previousAvgPurchase = Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? stockUpdateProduct.price ?? 0);
+
+    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
     let nextAvgPurchase = previousAvgPurchase;
-    
-    if (addedQty > 0) {
+
+    if (parsedStock > currentStock) {
+      const addedQty = parsedStock - currentStock;
+      const purchaseInput = prompt(
+        `Enter purchase price for newly added stock (${addedQty} units):`,
+        String(previousAvgPurchase || "")
+      );
+
+      if (purchaseInput === null) return;
+      if (purchaseInput === "" || isNaN(purchaseInput)) {
+        alert("Please enter a valid purchase price.");
+        return;
+      }
+
+      const newPurchasePrice = Number(purchaseInput);
+      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
+        alert("Purchase price cannot be negative.");
+        return;
+      }
+
       if (currentStock <= 0) {
-        nextAvgPurchase = purchasePrice;
+        nextAvgPurchase = newPurchasePrice;
       } else {
         const totalOldCost = previousAvgPurchase * currentStock;
-        const totalNewCost = purchasePrice * addedQty;
-        nextAvgPurchase = (totalOldCost + totalNewCost) / finalStock;
+        const totalNewCost = newPurchasePrice * addedQty;
+        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
       }
     }
-    
-    updateStock(stockUpdateProduct.id, finalStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
-    
-    if (currentStock >= 50 && finalStock < 50) {
+
+    const stockResult = await updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+    if (stockResult?.success === false) {
+      alert(stockResult.message || "Unable to update stock.");
+      return;
+    }
+
+    if (currentStock >= 50 && parsedStock < 50) {
       addNotification({
         type: "stock",
         title: "Low stock alert",
-        message: `${stockUpdateProduct?.name || "Item"} is low on stock (${finalStock} left).`,
+        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
         meta: {
-          product: stockUpdateProduct?.name,
-          stock: finalStock,
+          product: product?.name,
+          stock: parsedStock,
         },
       });
     }
-    
-    closeStockModal();
-    alert(`Stock updated successfully!\nNew Stock: ${finalStock}\nAverage Purchase Price: ₹${nextAvgPurchase.toFixed(2)}`);
-  };
 
-  // Calculate preview values for stock modal
-  const getStockPreview = () => {
-    if (!stockUpdateProduct || !stockFormData.newStock) return null;
-    
-    const currentStock = Number(stockUpdateProduct.stock || 0);
-    const inputQty = Number(stockFormData.newStock) || 0;
-    const purchasePrice = Number(stockFormData.purchasePrice) || 0;
-    
-    let finalStock = stockFormData.updateType === "add" ? currentStock + inputQty : inputQty;
-    let addedQty = stockFormData.updateType === "add" ? inputQty : (inputQty > currentStock ? inputQty - currentStock : 0);
-    
-    const previousAvgPurchase = Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0);
-    let newAvgPurchase = previousAvgPurchase;
-    
-    if (addedQty > 0 && finalStock > 0) {
-      if (currentStock <= 0) {
-        newAvgPurchase = purchasePrice;
-      } else {
-        const totalOldCost = previousAvgPurchase * currentStock;
-        const totalNewCost = purchasePrice * addedQty;
-        newAvgPurchase = (totalOldCost + totalNewCost) / finalStock;
-      }
-    }
-    
-    return {
-      finalStock,
-      addedQty,
-      newAvgPurchase: newAvgPurchase.toFixed(2),
-      totalValue: (newAvgPurchase * finalStock).toFixed(2)
-    };
+    alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
   };
 
   const handleLogout = () => {
@@ -429,9 +354,12 @@ function AdminDashboard() {
     return statusMap[status] || "Unknown";
   };
 
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
     if (updateOrderStatus) {
-      updateOrderStatus(orderId, newStatus);
+      const result = await updateOrderStatus(orderId, newStatus);
+      if (result?.success === false) {
+        alert(result.message || "Unable to update order status.");
+      }
     } else {
       // Fallback if updateOrderStatus not available
       const updatedOrders = orders.map(o =>
@@ -610,7 +538,7 @@ function AdminDashboard() {
     setShowAddPaymentForm(false);
   };
 
-  const handleAddPayment = (addPaymentFn) => {
+  const handleAddPayment = async (addPaymentFn) => {
     if (!paymentFormData.orderId || !paymentFormData.customerName || !paymentFormData.amount || !paymentFormData.method) {
       alert("Please fill all required fields");
       return;
@@ -630,7 +558,7 @@ function AdminDashboard() {
       totalAmount: Number(paymentFormData.amount)
     };
 
-    addPaymentFn(newPayment);
+    await addPaymentFn(newPayment);
     alert("Payment Added Successfully!");
     resetPaymentForm();
   };
@@ -900,7 +828,7 @@ function AdminDashboard() {
           <select
             className="btn-status-select"
             value={row.original.statusLabel || "Pending"}
-            onChange={(e) => handleUpdatePaymentStatus(row.original.id, e.target.value)}
+            onChange={(e) => handleUpdatePaymentStatus(row.original, e.target.value)}
             title="Update Status"
           >
             <option value="Paid">Paid</option>
@@ -1037,18 +965,6 @@ function AdminDashboard() {
             onClick={() => setActiveTab("pricing")}
           >
             Pricing
-          </button>
-          <button 
-            className={activeTab === "contacts" ? "active" : ""} 
-            onClick={() => { setActiveTab("contacts"); setContactFilter("all"); }}
-          >
-            📩 Contact Messages
-          </button>
-          <button 
-            className={activeTab === "deliveries" ? "active" : ""} 
-            onClick={() => { setActiveTab("deliveries"); setDeliveryFilter("all"); }}
-          >
-            🚚 Deliveries
           </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
@@ -1377,7 +1293,7 @@ function AdminDashboard() {
                   </div>
                   <button 
                     className="btn-stock-update"
-                    onClick={() => openStockModal(product)}
+                    onClick={() => handleStockUpdate(product)}
                   >
                     📝 Update Stock
                   </button>
@@ -1843,492 +1759,7 @@ function AdminDashboard() {
             )}
           </div>
         )}
-
-        {/* Contacts Tab */}
-        {activeTab === "contacts" && (
-          <div className="admin-section">
-            <div className="section-header">
-              <h2>📩 Contact Messages</h2>
-              <div className="status-filters">
-                <button 
-                  className={contactFilter === "all" ? "active" : ""} 
-                  onClick={() => setContactFilter("all")}
-                >
-                  All ({contacts.length})
-                </button>
-                <button 
-                  className={contactFilter === "Unread" ? "active" : ""} 
-                  onClick={() => setContactFilter("Unread")}
-                >
-                  Unread ({contacts.filter(c => c.status === "Unread").length})
-                </button>
-                <button 
-                  className={contactFilter === "Read" ? "active" : ""} 
-                  onClick={() => setContactFilter("Read")}
-                >
-                  Read ({contacts.filter(c => c.status === "Read").length})
-                </button>
-              </div>
-            </div>
-
-            {contacts.length === 0 ? (
-              <div className="empty-state">
-                <p>📭 No contact messages yet</p>
-              </div>
-            ) : (
-              <div className="contacts-grid">
-                {contacts
-                  .filter(c => contactFilter === "all" || c.status === contactFilter)
-                  .map(contact => (
-                  <div key={contact.id} className={`contact-card ${contact.status === "Unread" ? "unread" : ""}`}>
-                    <div className="contact-header">
-                      <div className="contact-info">
-                        <h4>{contact.name}</h4>
-                        <span className="contact-email">{contact.email}</span>
-                      </div>
-                      <span className={`status-badge ${contact.status?.toLowerCase()}`}>
-                        {contact.status === "Unread" ? "🔵" : "✅"} {contact.status}
-                      </span>
-                    </div>
-                    
-                    <div className="contact-subject">
-                      <strong>Subject:</strong> {contact.subject || "No Subject"}
-                    </div>
-                    
-                    <div className="contact-message">
-                      <p>{contact.message}</p>
-                    </div>
-                    
-                    <div className="contact-footer">
-                      <span className="contact-date">📅 {new Date(contact.date).toLocaleDateString()}</span>
-                      {contact.phone && <span className="contact-phone">📞 {contact.phone}</span>}
-                    </div>
-                    
-                    <div className="contact-actions">
-                      <button 
-                        className="btn-view"
-                        onClick={() => {
-                          setSelectedContact(contact);
-                          setShowContactModal(true);
-                          if (contact.status === "Unread") {
-                            markAsRead(contact.id);
-                          }
-                        }}
-                      >
-                        👁️ View
-                      </button>
-                      <button 
-                        className="btn-delete"
-                        onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this message?")) {
-                            deleteContact(contact.id);
-                          }
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Contact Detail Modal */}
-            {showContactModal && selectedContact && (
-              <div className="modal-overlay" onClick={() => setShowContactModal(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h2>📩 Message from {selectedContact.name}</h2>
-                    <button className="modal-close" onClick={() => setShowContactModal(false)}>×</button>
-                  </div>
-                  <div className="modal-body">
-                    <div className="contact-detail-grid">
-                      <div className="detail-item">
-                        <span className="label">Name:</span>
-                        <span className="value">{selectedContact.name}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Email:</span>
-                        <span className="value">{selectedContact.email}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Phone:</span>
-                        <span className="value">{selectedContact.phone || "N/A"}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Date:</span>
-                        <span className="value">{new Date(selectedContact.date).toLocaleString()}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="message-section">
-                      <h4>Subject</h4>
-                      <p className="subject-text">{selectedContact.subject || "No Subject"}</p>
-                    </div>
-                    
-                    <div className="message-section">
-                      <h4>Message</h4>
-                      <p className="message-text">{selectedContact.message}</p>
-                    </div>
-                  </div>
-                  <div className="modal-footer">
-                    <a 
-                      href={`mailto:${selectedContact.email}?subject=Re: ${selectedContact.subject || "Your Message"}`}
-                      className="btn-reply"
-                    >
-                      ✉️ Reply via Email
-                    </a>
-                    <button className="btn-close" onClick={() => setShowContactModal(false)}>
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Deliveries Tab */}
-        {activeTab === "deliveries" && (
-          <div className="admin-section">
-            <div className="section-header">
-              <h2>🚚 Delivery Management</h2>
-              <div className="status-filters">
-                <button 
-                  className={deliveryFilter === "all" ? "active" : ""} 
-                  onClick={() => setDeliveryFilter("all")}
-                >
-                  All ({deliveries.length})
-                </button>
-                <button 
-                  className={deliveryFilter === "Pending" ? "active" : ""} 
-                  onClick={() => setDeliveryFilter("Pending")}
-                >
-                  Pending ({deliveries.filter(d => d.status === "Pending").length})
-                </button>
-                <button 
-                  className={deliveryFilter === "In Transit" ? "active" : ""} 
-                  onClick={() => setDeliveryFilter("In Transit")}
-                >
-                  In Transit ({deliveries.filter(d => d.status === "In Transit").length})
-                </button>
-                <button 
-                  className={deliveryFilter === "Delivered" ? "active" : ""} 
-                  onClick={() => setDeliveryFilter("Delivered")}
-                >
-                  Delivered ({deliveries.filter(d => d.status === "Delivered").length})
-                </button>
-              </div>
-            </div>
-
-            {deliveries.length === 0 ? (
-              <div className="empty-state">
-                <p>📦 No deliveries found</p>
-              </div>
-            ) : (
-              <div className="deliveries-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tracking ID</th>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Address</th>
-                      <th>Status</th>
-                      <th>Delivery Date</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deliveries
-                      .filter(d => deliveryFilter === "all" || d.status === deliveryFilter)
-                      .map(delivery => (
-                      <tr key={delivery.id}>
-                        <td><strong>{delivery.trackingId || `TRK-${delivery.id?.slice(-6)}`}</strong></td>
-                        <td>#{delivery.orderId}</td>
-                        <td>{delivery.customerName}</td>
-                        <td>
-                          <span className="address-cell">
-                            {delivery.address}, {delivery.city}
-                            {delivery.pincode && ` - ${delivery.pincode}`}
-                          </span>
-                        </td>
-                        <td>
-                          <select
-                            value={delivery.status}
-                            onChange={(e) => updateDeliveryStatus(delivery.id, e.target.value)}
-                            className={`status-select ${delivery.status?.toLowerCase().replace(' ', '-')}`}
-                          >
-                            <option value="Pending">📋 Pending</option>
-                            <option value="Picked Up">📦 Picked Up</option>
-                            <option value="In Transit">🚚 In Transit</option>
-                            <option value="Out for Delivery">🏃 Out for Delivery</option>
-                            <option value="Delivered">✅ Delivered</option>
-                            <option value="Failed">❌ Failed</option>
-                          </select>
-                        </td>
-                        <td>{delivery.deliveryDate || "Not scheduled"}</td>
-                        <td>
-                          <div className="action-buttons">
-                            <button 
-                              className="btn-view"
-                              onClick={() => {
-                                setSelectedDelivery(delivery);
-                                setShowDeliveryModal(true);
-                              }}
-                            >
-                              👁️
-                            </button>
-                            <button 
-                              className="btn-delete"
-                              onClick={() => {
-                                if (window.confirm("Delete this delivery record?")) {
-                                  deleteDelivery(delivery.id);
-                                }
-                              }}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Delivery Detail Modal */}
-            {showDeliveryModal && selectedDelivery && (
-              <div className="modal-overlay" onClick={() => setShowDeliveryModal(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h2>🚚 Delivery Details</h2>
-                    <button className="modal-close" onClick={() => setShowDeliveryModal(false)}>×</button>
-                  </div>
-                  <div className="modal-body">
-                    <div className="delivery-tracking-header">
-                      <span className="tracking-id">
-                        📦 {selectedDelivery.trackingId || `TRK-${selectedDelivery.id?.slice(-6)}`}
-                      </span>
-                      <span className={`delivery-status ${selectedDelivery.status?.toLowerCase().replace(' ', '-')}`}>
-                        {selectedDelivery.status}
-                      </span>
-                    </div>
-                    
-                    <div className="detail-grid">
-                      <div className="detail-item">
-                        <span className="label">Order ID:</span>
-                        <span className="value">#{selectedDelivery.orderId}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Customer:</span>
-                        <span className="value">{selectedDelivery.customerName}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Phone:</span>
-                        <span className="value">{selectedDelivery.phone || "N/A"}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="label">Delivery Date:</span>
-                        <span className="value">{selectedDelivery.deliveryDate || "Not scheduled"}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="address-section">
-                      <h4>📍 Delivery Address</h4>
-                      <p>
-                        {selectedDelivery.address}<br/>
-                        {selectedDelivery.city}, {selectedDelivery.state}<br/>
-                        {selectedDelivery.pincode && `PIN: ${selectedDelivery.pincode}`}
-                      </p>
-                    </div>
-                    
-                    {selectedDelivery.notes && (
-                      <div className="notes-section">
-                        <h4>📝 Notes</h4>
-                        <p>{selectedDelivery.notes}</p>
-                      </div>
-                    )}
-                    
-                    <div className="status-update-section">
-                      <h4>Update Status</h4>
-                      <select
-                        value={selectedDelivery.status}
-                        onChange={(e) => {
-                          updateDeliveryStatus(selectedDelivery.id, e.target.value);
-                          setSelectedDelivery({...selectedDelivery, status: e.target.value});
-                        }}
-                        className="status-select-large"
-                      >
-                        <option value="Pending">📋 Pending</option>
-                        <option value="Picked Up">📦 Picked Up</option>
-                        <option value="In Transit">🚚 In Transit</option>
-                        <option value="Out for Delivery">🏃 Out for Delivery</option>
-                        <option value="Delivered">✅ Delivered</option>
-                        <option value="Failed">❌ Failed</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="modal-footer">
-                    <button className="btn-close" onClick={() => setShowDeliveryModal(false)}>
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Stock Update Modal */}
-      {showStockModal && stockUpdateProduct && (
-        <div className="modal-overlay stock-modal-overlay" onClick={closeStockModal}>
-          <div className="modal-content stock-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="stock-modal-header">
-              <div className="stock-modal-title">
-                <span className="stock-icon">📦</span>
-                <div>
-                  <h2>Update Stock</h2>
-                  <p className="product-name-subtitle">{stockUpdateProduct.name}</p>
-                </div>
-              </div>
-              <button className="modal-close" onClick={closeStockModal}>×</button>
-            </div>
-
-            <div className="stock-modal-body">
-              {/* Current Stock Info Card */}
-              <div className="current-stock-card">
-                <div className="stock-stat">
-                  <span className="stat-label">Current Stock</span>
-                  <span className="stat-value primary">{stockUpdateProduct.stock} {stockUpdateProduct.unit}s</span>
-                </div>
-                <div className="stock-stat">
-                  <span className="stat-label">Avg Purchase Price</span>
-                  <span className="stat-value">₹{Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0).toLocaleString()}</span>
-                </div>
-                <div className="stock-stat">
-                  <span className="stat-label">Current Value</span>
-                  <span className="stat-value accent">₹{(Number(stockUpdateProduct.purchaseCost ?? stockUpdateProduct.wholesalePrice ?? 0) * stockUpdateProduct.stock).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <form 
-                onSubmit={handleStockFormSubmit} 
-                className="stock-update-form"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
-                    e.preventDefault();
-                    handleStockFormSubmit(e);
-                  }
-                }}
-              >
-                {/* Update Type Toggle */}
-                <div className="update-type-toggle">
-                  <button
-                    type="button"
-                    className={`toggle-btn ${stockFormData.updateType === 'add' ? 'active' : ''}`}
-                    onClick={() => setStockFormData(prev => ({ ...prev, updateType: 'add' }))}
-                  >
-                    <span className="toggle-icon">➕</span>
-                    Add to Stock
-                  </button>
-                  <button
-                    type="button"
-                    className={`toggle-btn ${stockFormData.updateType === 'set' ? 'active' : ''}`}
-                    onClick={() => setStockFormData(prev => ({ ...prev, updateType: 'set' }))}
-                  >
-                    <span className="toggle-icon">🔄</span>
-                    Set Stock
-                  </button>
-                </div>
-
-                {/* Input Fields */}
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="newStock">
-                      {stockFormData.updateType === 'add' ? 'Quantity to Add' : 'New Stock Quantity'}
-                      <span className="required">*</span>
-                    </label>
-                    <div className="input-with-unit">
-                      <input
-                        type="number"
-                        id="newStock"
-                        value={stockFormData.newStock}
-                        onChange={(e) => setStockFormData(prev => ({ ...prev, newStock: e.target.value }))}
-                        placeholder={stockFormData.updateType === 'add' ? 'Enter quantity to add' : 'Enter new stock quantity'}
-                        min="0"
-                        step="1"
-                        required
-                        autoFocus
-                      />
-                      <span className="unit-label">{stockUpdateProduct.unit}s</span>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="purchasePrice">
-                      Purchase Price (per {stockUpdateProduct.unit})
-                      <span className="required">*</span>
-                    </label>
-                    <div className="input-with-unit">
-                      <span className="currency-symbol">₹</span>
-                      <input
-                        type="number"
-                        id="purchasePrice"
-                        value={stockFormData.purchasePrice}
-                        onChange={(e) => setStockFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
-                        placeholder="Enter purchase price"
-                        min="0"
-                        step="0.01"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Preview */}
-                {getStockPreview() && (
-                  <div className="stock-preview-card">
-                    <h4>📊 Preview After Update</h4>
-                    <div className="preview-grid">
-                      <div className="preview-item">
-                        <span className="preview-label">New Stock</span>
-                        <span className="preview-value highlight">{getStockPreview().finalStock} {stockUpdateProduct.unit}s</span>
-                      </div>
-                      {getStockPreview().addedQty > 0 && (
-                        <div className="preview-item">
-                          <span className="preview-label">Units Added</span>
-                          <span className="preview-value success">+{getStockPreview().addedQty}</span>
-                        </div>
-                      )}
-                      <div className="preview-item">
-                        <span className="preview-label">New Avg Price</span>
-                        <span className="preview-value">₹{getStockPreview().newAvgPurchase}</span>
-                      </div>
-                      <div className="preview-item">
-                        <span className="preview-label">Total Value</span>
-                        <span className="preview-value accent">₹{Number(getStockPreview().totalValue).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="stock-modal-actions">
-                  <button type="button" className="btn-cancel" onClick={closeStockModal}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-update-stock">
-                    <span>✓</span> Update Stock
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

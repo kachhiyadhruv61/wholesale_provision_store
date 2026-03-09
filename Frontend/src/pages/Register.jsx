@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { apiRequest } from "../utils/api";
+import { apiClient } from "../utils/apiClient";
 
 function Register() {
   const navigate = useNavigate();
@@ -34,40 +34,33 @@ function Register() {
       alert("Please accept the terms and conditions");
       return;
     }
+
     try {
-      const registerPayload = {
-        username: formData.username,
-        fullname: formData.ownerName,
-        shopname: formData.shopName,
-        shopaddress: formData.shopAddress,
-        email: formData.email,
+      await apiClient.post("/register", {
+        username: formData.username.trim(),
+        fullname: formData.ownerName.trim(),
+        shopname: formData.shopName.trim(),
+        shopaddress: formData.shopAddress.trim(),
+        email: formData.email.trim(),
         phonenumber: formData.phone.replace(/\D/g, "").slice(-10),
         password: formData.password,
         confirmpassword: formData.confirmPassword,
-      };
-
-      await apiRequest("/register", {
-        method: "POST",
-        body: JSON.stringify(registerPayload),
       });
 
-      try {
-        await apiRequest("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-          }),
+      await apiClient
+        .post("/auth/register", {
+          username: formData.username.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+        })
+        .catch(() => {
+          // Ignore duplicate auth records; /register creation is primary.
         });
-      } catch (authError) {
-        console.warn("Auth register sync skipped:", authError.message);
-      }
 
       alert("Registration successful! Please login to continue.");
       navigate("/login");
     } catch (error) {
-      alert(error.message || "Registration failed");
+      alert(error.message || "Unable to register right now.");
     }
   };
 

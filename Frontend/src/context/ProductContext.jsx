@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from "react";
-import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
+import { apiClient } from "../utils/apiClient";
 
 export const ProductContext = createContext();
 
@@ -15,6 +15,57 @@ const normalizeProductCosts = (product) => {
     sellCost: Number.isFinite(sellCost) ? sellCost : 0,
   };
 };
+
+const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
+
+const isMongoId = (value) => MONGO_ID_REGEX.test(String(value || ""));
+
+const normalizeProductShape = (product = {}) => {
+  const mappedId = product.id || product._id || Date.now().toString();
+  const price = Number(product.price || 0);
+  const wholesalePrice = Number(product.wholesalePrice ?? product.purchasePrice ?? product.purchaseCost ?? price);
+  const moq = Number(product.moq ?? product.MOQ ?? 1);
+
+  return {
+    ...product,
+    id: mappedId,
+    _id: product._id || (isMongoId(mappedId) ? String(mappedId) : null),
+    name: product.name || "",
+    category: product.category || "Others",
+    price,
+    wholesalePrice,
+    purchaseCost: Number(product.purchaseCost ?? product.purchasePrice ?? wholesalePrice),
+    sellCost: Number(product.sellCost ?? price),
+    stock: Number(product.stock || 0),
+    moq,
+    MOQ: Number(product.MOQ ?? moq),
+    unit: product.unit || "unit",
+    description: product.description || "",
+    image: product.image || "",
+    bulkPricing: Array.isArray(product.bulkPricing)
+      ? product.bulkPricing
+      : [
+          { quantity: 1, price },
+          { quantity: 5, price: Math.max(price * 0.95, 0) },
+          { quantity: 10, price: Math.max(price * 0.9, 0) },
+          { quantity: 20, price: wholesalePrice },
+        ],
+  };
+};
+
+const toBackendProductPayload = (product = {}) => ({
+  name: product.name,
+  price: Number(product.price || 0),
+  purchasePrice: Number((product.purchasePrice ?? product.purchaseCost ?? product.wholesalePrice ?? product.price) || 0),
+  MOQ: Number(product.MOQ ?? product.moq ?? 1),
+  stock: Number(product.stock || 0),
+  category: product.category,
+  description: product.description,
+  image: product.image,
+  unit: product.unit,
+  wholesalePrice: Number(product.wholesalePrice ?? product.purchaseCost ?? 0),
+  sellCost: Number(product.sellCost ?? product.price ?? 0),
+});
 
 export function ProductProvider({ children }) {
   const initialProducts = [
@@ -1298,64 +1349,54 @@ export function ProductProvider({ children }) {
     },
   ];
 
-  const [products, setProducts] = useState(() => initialProducts.map(normalizeProductCosts));
+  const [products, setProducts] = useState(() => initialProducts.map(normalizeProductShape).map(normalizeProductCosts));
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadProducts = async () => {
-      try {
-        const payload = await apiRequest("/products");
-        const rows = getResponseList(payload);
-
-        if (rows.length > 0) {
-          const mapped = rows.map((row) => {
-            const record = normalizeMongoId(row);
-            const basePrice = Number(record.price || 0);
-            const wholesale = Number(record.wholesalePrice ?? basePrice);
-            return normalizeProductCosts({
-              ...record,
-              moq: Number(record.moq ?? record.MOQ ?? 1),
-              price: basePrice,
-              wholesalePrice: wholesale,
-              stock: Number(record.stock || 0),
-              category: record.category || "Grains",
-              unit: record.unit || "bag",
-              description: record.description || "",
-              bulkPricing:
-                Array.isArray(record.bulkPricing) && record.bulkPricing.length > 0
-                  ? record.bulkPricing
-                  : [
-                      { quantity: 1, price: basePrice },
-                      { quantity: 5, price: Math.max(basePrice * 0.95, 0) },
-                      { quantity: 10, price: Math.max(basePrice * 0.9, 0) },
-                      { quantity: 20, price: Math.max(wholesale, 0) },
-                    ],
-            });
-          });
-
-          setProducts(mapped);
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to fetch products from API", error);
-      }
-
+      let localProducts = [];
       const savedProducts = localStorage.getItem("products");
       if (savedProducts) {
         try {
           const parsed = JSON.parse(savedProducts);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setProducts(parsed.map(normalizeProductCosts));
-            return;
+            localProducts = parsed.map(normalizeProductShape).map(normalizeProductCosts);
           }
         } catch (error) {
           console.error("Failed to parse saved products", error);
         }
       }
 
-      localStorage.setItem("products", JSON.stringify(initialProducts.map(normalizeProductCosts)));
+      if (localProducts.length === 0) {
+        localProducts = initialProducts.map(normalizeProductShape).map(normalizeProductCosts);
+      }
+
+      if (isMounted) {
+        setProducts(localProducts);
+      }
+
+      try {
+        const response = await apiClient.get("/products");
+        const remoteProducts = Array.isArray(response?.data)
+          ? response.data.map(normalizeProductShape).map(normalizeProductCosts)
+          : [];
+
+        if (remoteProducts.length > 0 && isMounted) {
+          setProducts(remoteProducts);
+        }
+      } catch {
+        // Keep local products if backend is unavailable.
+      }
+
+      localStorage.setItem("products", JSON.stringify(localProducts));
     };
 
     loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -1363,81 +1404,98 @@ export function ProductProvider({ children }) {
   }, [products]);
 
   const addProduct = async (product) => {
-    const normalizedProduct = normalizeProductCosts(product);
-    try {
-      const payload = await apiRequest("/products", {
-        method: "POST",
-        body: JSON.stringify({
-          ...normalizedProduct,
-          moq: Number(normalizedProduct.moq || 1),
-        }),
-      });
+    const localId = product?.id || Date.now().toString();
+    const localProduct = normalizeProductCosts(normalizeProductShape({ ...product, id: localId }));
+    setProducts((prev) => [...prev, localProduct]);
 
-      const createdId = payload?.insertedId || normalizedProduct.id;
-      const created = normalizeProductCosts({ ...normalizedProduct, id: createdId, _id: createdId });
-      setProducts((prev) => [...prev, created]);
-      return { success: true, data: created };
-    } catch (error) {
-      console.error("Failed to add product via API", error);
-      setProducts((prev) => [...prev, normalizedProduct]);
-      return { success: false, message: error.message };
+    try {
+      const response = await apiClient.post("/products", toBackendProductPayload(localProduct));
+      const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
+      if (insertedId) {
+        setProducts((prev) =>
+          prev.map((entry) =>
+            String(entry.id) === String(localId)
+              ? normalizeProductCosts(normalizeProductShape({ ...entry, id: insertedId, _id: insertedId }))
+              : entry
+          )
+        );
+      }
+    } catch {
+      // Keep local product for uninterrupted admin workflow.
     }
+
+    return localProduct;
   };
 
   const updateProduct = async (id, updatedProduct) => {
-    const targetId = id?.toString?.() || id;
-    const updatePayload = { ...updatedProduct, moq: Number(updatedProduct.moq || updatedProduct.MOQ || 1) };
+    const idString = String(id);
+    setProducts((prev) =>
+      prev.map((p) =>
+        String(p.id) === idString
+          ? normalizeProductCosts(normalizeProductShape({ ...p, ...updatedProduct }))
+          : p
+      )
+    );
+
+    if (!isMongoId(idString)) {
+      return { success: true };
+    }
+
     try {
-      await apiRequest(`/products/${encodeURIComponent(targetId)}`, {
-        method: "PUT",
-        body: JSON.stringify(updatePayload),
-      });
-      setProducts((prev) =>
-        prev.map((p) => (p.id?.toString() === targetId ? normalizeProductCosts({ ...p, ...updatedProduct }) : p))
-      );
+      await apiClient.put(`/products/${encodeURIComponent(idString)}`, toBackendProductPayload(updatedProduct));
       return { success: true };
     } catch (error) {
-      console.error("Failed to update product via API", error);
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "Unable to update product." };
     }
   };
 
   const deleteProduct = async (id) => {
-    const targetId = id?.toString?.() || id;
+    const idString = String(id);
+    setProducts((prev) => prev.filter((p) => String(p.id) !== idString));
+
+    if (!isMongoId(idString)) {
+      return { success: true };
+    }
+
     try {
-      await apiRequest(`/products/${encodeURIComponent(targetId)}`, { method: "DELETE" });
-      setProducts((prev) => prev.filter((p) => p.id?.toString() !== targetId));
+      await apiClient.delete(`/products/${encodeURIComponent(idString)}`);
       return { success: true };
     } catch (error) {
-      console.error("Failed to delete product via API", error);
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "Unable to delete product." };
     }
   };
 
   const updateStock = async (id, newStock, extraUpdates = {}) => {
-    const targetId = id?.toString?.() || id;
-    const nextData = { stock: Number(newStock), ...extraUpdates };
+    const idString = String(id);
+    const nextPayload = { stock: Number(newStock), ...extraUpdates };
+
+    setProducts((prev) =>
+      prev.map((product) =>
+        String(product.id) === idString
+          ? normalizeProductCosts(normalizeProductShape({ ...product, ...nextPayload }))
+          : product
+      )
+    );
+
+    if (!isMongoId(idString)) {
+      return { success: true };
+    }
 
     try {
-      await apiRequest(`/products/${encodeURIComponent(targetId)}`, {
-        method: "PUT",
-        body: JSON.stringify(nextData),
-      });
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id?.toString() === targetId
-            ? normalizeProductCosts({ ...product, stock: Number(newStock), ...extraUpdates })
-            : product
-        )
-      );
+      const payload = {
+        stock: Number(newStock),
+      };
+      if (extraUpdates?.purchaseCost != null) {
+        payload.purchasePrice = Number(extraUpdates.purchaseCost);
+      }
+      await apiClient.put(`/products/${encodeURIComponent(idString)}`, payload);
       return { success: true };
     } catch (error) {
-      console.error("Failed to update stock via API", error);
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "Unable to update stock." };
     }
   };
 
-  const deductStockForOrder = async (orderItems) => {
+  const deductStockForOrder = (orderItems) => {
     if (!Array.isArray(orderItems) || orderItems.length === 0) {
       return;
     }
@@ -1451,31 +1509,27 @@ export function ProductProvider({ children }) {
       return acc;
     }, {});
 
-    const currentProducts = [...products];
+    const stockUpdates = [];
 
-    const nextProducts = currentProducts.map((product) => {
+    setProducts((prevProducts) =>
+      prevProducts.map((product) => {
         const qty = quantityById[product.id];
         if (!qty) return product;
         const currentStock = Number(product.stock || 0);
         const nextStock = Math.max(currentStock - qty, 0);
         if (nextStock === currentStock) return product;
+        stockUpdates.push({ id: product.id, stock: nextStock });
         return { ...product, stock: nextStock };
-      });
-
-    setProducts(nextProducts);
-
-    await Promise.all(
-      nextProducts
-        .filter((product, index) => Number(product.stock || 0) !== Number(currentProducts[index]?.stock || 0))
-        .map((product) =>
-          apiRequest(`/products/${encodeURIComponent(product.id)}`, {
-            method: "PUT",
-            body: JSON.stringify({ stock: Number(product.stock || 0) }),
-          }).catch((error) => {
-            console.error("Failed syncing stock change", error);
-          })
-        )
+      })
     );
+
+    stockUpdates.forEach((entry) => {
+      if (isMongoId(entry.id)) {
+        apiClient.put(`/products/${encodeURIComponent(entry.id)}`, { stock: entry.stock }).catch(() => {
+          // Ignore stock sync errors here; local checkout should not fail.
+        });
+      }
+    });
   };
 
   const getPriceForQuantity = (productId, quantity) => {
@@ -1492,30 +1546,6 @@ export function ProductProvider({ children }) {
     return applicablePrice;
   };
 
-  // Get single product by ID
-  const getProductById = async (productId) => {
-    const targetId = productId?.toString?.() || productId;
-    try {
-      const payload = await apiRequest(`/products/${encodeURIComponent(targetId)}`);
-      const record = normalizeMongoId(payload?.data || payload);
-      const basePrice = Number(record.price || 0);
-      const wholesale = Number(record.wholesalePrice ?? basePrice);
-      const normalized = normalizeProductCosts({
-        ...record,
-        moq: Number(record.moq ?? record.MOQ ?? 1),
-        price: basePrice,
-        wholesalePrice: wholesale,
-        stock: Number(record.stock || 0),
-        category: record.category || "Grains",
-        unit: record.unit || "bag",
-      });
-      return { success: true, data: normalized };
-    } catch (error) {
-      console.error("Failed to get product by ID", error);
-      return { success: false, message: error.message };
-    }
-  };
-
   return (
     <ProductContext.Provider value={{ 
       products, 
@@ -1524,8 +1554,7 @@ export function ProductProvider({ children }) {
       deleteProduct, 
       updateStock,
       deductStockForOrder,
-      getPriceForQuantity,
-      getProductById
+      getPriceForQuantity 
     }}>
       {children}
     </ProductContext.Provider>

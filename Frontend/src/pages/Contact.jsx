@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import { NotificationContext } from "../context/NotificationContext";
-import { apiRequest } from "../utils/api";
+import { apiClient } from "../utils/apiClient";
 
 const supportPhone = "+919313616159";
 const supportWhatsApp = "919313616159";
@@ -81,17 +81,20 @@ function Contact() {
     const name = (formData.get("name") || "").toString().trim();
     const email = (formData.get("email") || "").toString().trim();
     const phone = (formData.get("phone") || "").toString().trim();
+    const phoneNumber = phone.replace(/\D/g, "").slice(-10);
     const message = (formData.get("message") || "").toString().trim();
 
+    if (phoneNumber.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     try {
-      await apiRequest("/contacts", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          email,
-          phoneNumber: phone.replace(/\D/g, "").slice(-10) || "0000000000",
-          message,
-        }),
+      await apiClient.post("/contacts", {
+        name,
+        email,
+        phoneNumber,
+        message,
       });
 
       addNotification({
@@ -108,7 +111,7 @@ function Contact() {
       event.target.reset();
       alert("Thanks! Your message has been sent.");
     } catch (error) {
-      alert(error.message || "Unable to send message");
+      alert(error.message || "Unable to send message right now. Please try again.");
     }
   };
 
@@ -229,8 +232,8 @@ function Contact() {
           </div>
           <div className="form-row">
             <label>
-              Phone (optional)
-              <input name="phone" type="tel" placeholder="+91 90000 00000" />
+              Phone
+              <input name="phone" type="tel" placeholder="10-digit phone number" required />
             </label>
           </div>
           <label>

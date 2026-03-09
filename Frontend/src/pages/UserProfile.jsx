@@ -38,12 +38,11 @@ function UserProfile() {
 
   const handleSaveProfile = async () => {
     const result = await updateUserProfile(formData);
-    if (result?.success === false) {
-      setMessage(result.message || "Unable to update profile");
+    if (!result?.success) {
+      setMessage(result?.message || "Unable to update profile.");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
-
     setMessage("Profile updated successfully!");
     setEditMode(false);
     setTimeout(() => setMessage(""), 3000);
