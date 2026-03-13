@@ -142,10 +142,10 @@ function TrackOrder() {
       let orderData;
 
       if (MONGO_ID_REGEX.test(cleanTrackingId)) {
-        const response = await apiClient.get(`/orders/${encodeURIComponent(cleanTrackingId)}`);
+        const response = await apiClient.get(`/api/orders/${encodeURIComponent(cleanTrackingId)}`);
         orderData = response?.data || response;
       } else {
-        const response = await apiClient.get("/orders");
+        const response = await apiClient.get("/api/orders");
         const allOrders = Array.isArray(response?.data) ? response.data : [];
         orderData = allOrders.find((entry) => {
           const orderId = String(entry?.orderId || "").trim().toLowerCase();

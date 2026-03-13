@@ -18,6 +18,7 @@ const orderRoutes = require('./routes/orderroutes');
 const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const contactRoutes = require('./routes/contactroutes');
+const plannedRoutes = require('./routes/plannedroutes');
 // Use Routes
 app.use('/', userRoutes);
 
@@ -28,6 +29,18 @@ app.use('/', loginRoutes);
 app.use('/', registerRoutes);
 app.use('/', paymentRoutes);
 app.use('/', deliveryRoutes);
+app.use('/', plannedRoutes);
+
+// Planned API namespace
+app.use('/api', userRoutes);
+app.use('/api', productRoutes);
+app.use('/api', orderRoutes);
+app.use('/api', contactRoutes);
+app.use('/api', loginRoutes);
+app.use('/api', registerRoutes);
+app.use('/api', paymentRoutes);
+app.use('/api', deliveryRoutes);
+app.use('/api', plannedRoutes);
 
 // Swagger Setup
 const options = {

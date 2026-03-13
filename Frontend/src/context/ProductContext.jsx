@@ -20,6 +20,54 @@ const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
 
 const isMongoId = (value) => MONGO_ID_REGEX.test(String(value || ""));
 
+const normalizeKey = (value) => String(value || "").trim().toLowerCase();
+
+const mergeProductLists = (baseProducts = [], remoteProducts = []) => {
+  const merged = new Map();
+
+  baseProducts.forEach((product) => {
+    const idKey = normalizeKey(product._id || product.id);
+    const nameKey = normalizeKey(product.name);
+    if (idKey) merged.set(`id:${idKey}`, product);
+    if (nameKey) merged.set(`name:${nameKey}`, product);
+  });
+
+  remoteProducts.forEach((product) => {
+    const idKey = normalizeKey(product._id || product.id);
+    const nameKey = normalizeKey(product.name);
+
+    if (idKey && merged.has(`id:${idKey}`)) {
+      const existing = merged.get(`id:${idKey}`);
+      const next = { ...existing, ...product };
+      merged.set(`id:${idKey}`, next);
+      if (nameKey) merged.set(`name:${nameKey}`, next);
+      return;
+    }
+
+    if (nameKey && merged.has(`name:${nameKey}`)) {
+      const existing = merged.get(`name:${nameKey}`);
+      const next = { ...existing, ...product };
+      if (idKey) merged.set(`id:${idKey}`, next);
+      merged.set(`name:${nameKey}`, next);
+      return;
+    }
+
+    if (idKey) merged.set(`id:${idKey}`, product);
+    if (nameKey) merged.set(`name:${nameKey}`, product);
+  });
+
+  const unique = [];
+  const seen = new Set();
+  merged.forEach((product) => {
+    const key = normalizeKey(product._id || product.id || product.name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(product);
+  });
+
+  return unique;
+};
+
 const normalizeProductShape = (product = {}) => {
   const mappedId = product.id || product._id || Date.now().toString();
   const price = Number(product.price || 0);
@@ -1355,21 +1403,19 @@ export function ProductProvider({ children }) {
     let isMounted = true;
 
     const loadProducts = async () => {
-      let localProducts = [];
+      const defaultProducts = initialProducts.map(normalizeProductShape).map(normalizeProductCosts);
+      let localProducts = [...defaultProducts];
       const savedProducts = localStorage.getItem("products");
       if (savedProducts) {
         try {
           const parsed = JSON.parse(savedProducts);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            localProducts = parsed.map(normalizeProductShape).map(normalizeProductCosts);
+            const parsedProducts = parsed.map(normalizeProductShape).map(normalizeProductCosts);
+            localProducts = mergeProductLists(defaultProducts, parsedProducts);
           }
         } catch (error) {
           console.error("Failed to parse saved products", error);
         }
-      }
-
-      if (localProducts.length === 0) {
-        localProducts = initialProducts.map(normalizeProductShape).map(normalizeProductCosts);
       }
 
       if (isMounted) {
@@ -1377,13 +1423,15 @@ export function ProductProvider({ children }) {
       }
 
       try {
-        const response = await apiClient.get("/products");
+        const response = await apiClient.get("/api/products");
         const remoteProducts = Array.isArray(response?.data)
           ? response.data.map(normalizeProductShape).map(normalizeProductCosts)
           : [];
 
         if (remoteProducts.length > 0 && isMounted) {
-          setProducts(remoteProducts);
+          const mergedProducts = mergeProductLists(localProducts, remoteProducts);
+          setProducts(mergedProducts);
+          localProducts = mergedProducts;
         }
       } catch {
         // Keep local products if backend is unavailable.
@@ -1409,7 +1457,7 @@ export function ProductProvider({ children }) {
     setProducts((prev) => [...prev, localProduct]);
 
     try {
-      const response = await apiClient.post("/products", toBackendProductPayload(localProduct));
+      const response = await apiClient.post("/api/products", toBackendProductPayload(localProduct));
       const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
       if (insertedId) {
         setProducts((prev) =>
@@ -1442,7 +1490,7 @@ export function ProductProvider({ children }) {
     }
 
     try {
-      await apiClient.put(`/products/${encodeURIComponent(idString)}`, toBackendProductPayload(updatedProduct));
+      await apiClient.put(`/api/products/${encodeURIComponent(idString)}`, toBackendProductPayload(updatedProduct));
       return { success: true };
     } catch (error) {
       return { success: false, message: error.message || "Unable to update product." };
@@ -1458,7 +1506,7 @@ export function ProductProvider({ children }) {
     }
 
     try {
-      await apiClient.delete(`/products/${encodeURIComponent(idString)}`);
+      await apiClient.delete(`/api/products/${encodeURIComponent(idString)}`);
       return { success: true };
     } catch (error) {
       return { success: false, message: error.message || "Unable to delete product." };
@@ -1488,17 +1536,61 @@ export function ProductProvider({ children }) {
       if (extraUpdates?.purchaseCost != null) {
         payload.purchasePrice = Number(extraUpdates.purchaseCost);
       }
-      await apiClient.put(`/products/${encodeURIComponent(idString)}`, payload);
+      await apiClient.put(`/api/products/${encodeURIComponent(idString)}`, payload);
       return { success: true };
     } catch (error) {
       return { success: false, message: error.message || "Unable to update stock." };
     }
   };
 
-  const deductStockForOrder = (orderItems) => {
+  const validateStockForOrder = (orderItems) => {
+    if (!Array.isArray(orderItems) || orderItems.length === 0) {
+      return { ok: true, shortages: [] };
+    }
+
+    const shortages = [];
+    orderItems.forEach((item) => {
+      const itemId = String(item?.id ?? item?._id ?? "");
+      const product = products.find(
+        (entry) => String(entry.id) === itemId || String(entry._id || "") === itemId
+      );
+
+      if (!product) {
+        shortages.push({
+          id: itemId,
+          name: item?.name || "Product",
+          requested: Number(item?.quantity || 0),
+          available: 0,
+          reason: "not_found",
+        });
+        return;
+      }
+
+      const requested = Number(item?.quantity || 0);
+      const available = Number(product.stock || 0);
+      if (requested > available) {
+        shortages.push({
+          id: product.id,
+          name: product.name,
+          requested,
+          available,
+          reason: "insufficient_stock",
+        });
+      }
+    });
+
+    return {
+      ok: shortages.length === 0,
+      shortages,
+    };
+  };
+
+  const deductStockForOrder = (orderItems, options = {}) => {
     if (!Array.isArray(orderItems) || orderItems.length === 0) {
       return;
     }
+
+    const { syncBackend = true } = options;
 
     const quantityById = orderItems.reduce((acc, item) => {
       const key = item?.id;
@@ -1523,9 +1615,13 @@ export function ProductProvider({ children }) {
       })
     );
 
+    if (!syncBackend) {
+      return;
+    }
+
     stockUpdates.forEach((entry) => {
       if (isMongoId(entry.id)) {
-        apiClient.put(`/products/${encodeURIComponent(entry.id)}`, { stock: entry.stock }).catch(() => {
+        apiClient.put(`/api/products/${encodeURIComponent(entry.id)}`, { stock: entry.stock }).catch(() => {
           // Ignore stock sync errors here; local checkout should not fail.
         });
       }
@@ -1553,6 +1649,7 @@ export function ProductProvider({ children }) {
       updateProduct, 
       deleteProduct, 
       updateStock,
+      validateStockForOrder,
       deductStockForOrder,
       getPriceForQuantity 
     }}>

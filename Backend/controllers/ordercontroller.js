@@ -41,6 +41,51 @@ const createOrder = async (req, res, next) => {
   try {
     const db = getDB();
 
+    const rawItems = Array.isArray(req.body.items) ? req.body.items : [];
+
+    const quantityByProductId = rawItems.reduce((acc, item) => {
+      const productId = String(item?.id || item?.productId || item?._id || "").trim();
+      const qty = Number(item?.quantity || 0);
+      if (!ObjectId.isValid(productId) || !Number.isFinite(qty) || qty <= 0) {
+        return acc;
+      }
+      acc[productId] = (acc[productId] || 0) + qty;
+      return acc;
+    }, {});
+
+    const stockReservations = [];
+    const reservedEntries = Object.entries(quantityByProductId);
+
+    for (const [productId, qty] of reservedEntries) {
+      const reserveResult = await db.collection("products").updateOne(
+        { _id: new ObjectId(productId), stock: { $gte: qty } },
+        { $inc: { stock: -qty }, $set: { updatedAt: new Date() } }
+      );
+
+      if (reserveResult.modifiedCount === 0) {
+        for (const reservation of stockReservations) {
+          await db.collection("products").updateOne(
+            { _id: new ObjectId(reservation.productId) },
+            { $inc: { stock: reservation.qty }, $set: { updatedAt: new Date() } }
+          );
+        }
+
+        const product = await db.collection("products").findOne({ _id: new ObjectId(productId) });
+        const available = Number(product?.stock || 0);
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for ${product?.name || "product"}. Available: ${available}, Requested: ${qty}`,
+          data: {
+            productId,
+            available,
+            requested: qty,
+          },
+        });
+      }
+
+      stockReservations.push({ productId, qty });
+    }
+
     const orderData = {
       ...req.body,
       orderId: req.body.orderId,
@@ -52,12 +97,24 @@ const createOrder = async (req, res, next) => {
       action: req.body.action
     };
 
-    const result = await db.collection("orders").insertOne(orderData);
+    let result;
+    try {
+      result = await db.collection("orders").insertOne(orderData);
+    } catch (insertError) {
+      for (const reservation of stockReservations) {
+        await db.collection("products").updateOne(
+          { _id: new ObjectId(reservation.productId) },
+          { $inc: { stock: reservation.qty }, $set: { updatedAt: new Date() } }
+        );
+      }
+      throw insertError;
+    }
 
     res.status(201).json({
       success: true,
       message: "Order created",
-      insertedId: result.insertedId
+      insertedId: result.insertedId,
+      data: { ...orderData, _id: result.insertedId }
     });
 
   } catch (error) {

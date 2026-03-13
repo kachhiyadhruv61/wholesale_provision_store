@@ -43,9 +43,11 @@ function Navbar() {
         <Link to="/" onClick={() => setIsMenuOpen(false)}>
           Home
         </Link>
-        <Link to="/about" onClick={() => setIsMenuOpen(false)}>
-          About
-        </Link>
+        {!user && (
+          <Link to="/about" onClick={() => setIsMenuOpen(false)}>
+            About
+          </Link>
+        )}
         <Link to="/products" onClick={() => setIsMenuOpen(false)}>
           Products
         </Link>

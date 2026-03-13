@@ -26,7 +26,7 @@ export function ContactProvider({ children }) {
   const loadContacts = async () => {
     setLoading(true);
     try {
-      const payload = await apiRequest("/contacts");
+      const payload = await apiRequest("/api/contacts");
       const rows = getResponseList(payload);
       setContacts(rows.map(mapContactRecord));
     } catch (error) {
@@ -45,7 +45,7 @@ export function ContactProvider({ children }) {
   const getContactById = async (contactId) => {
     const targetId = contactId?.toString?.() || contactId;
     try {
-      const payload = await apiRequest(`/contacts/${encodeURIComponent(targetId)}`);
+      const payload = await apiRequest(`/api/contacts/${encodeURIComponent(targetId)}`);
       return { success: true, data: mapContactRecord(payload?.data || payload) };
     } catch (error) {
       console.error("Failed to get contact by ID", error);
@@ -66,7 +66,7 @@ export function ContactProvider({ children }) {
     };
 
     try {
-      const payload = await apiRequest("/contacts", {
+      const payload = await apiRequest("/api/contacts", {
         method: "POST",
         body: JSON.stringify(newContact),
       });
@@ -85,7 +85,7 @@ export function ContactProvider({ children }) {
   const deleteContact = async (contactId) => {
     const targetId = contactId?.toString?.() || contactId;
     try {
-      await apiRequest(`/contacts/${encodeURIComponent(targetId)}`, {
+      await apiRequest(`/api/contacts/${encodeURIComponent(targetId)}`, {
         method: "DELETE",
       });
       setContacts((prev) => prev.filter((c) => c.id?.toString() !== targetId));

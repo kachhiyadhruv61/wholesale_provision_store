@@ -134,6 +134,32 @@
     loginController.loginUser
   );
 
+  router.post(
+    '/auth/change-password',
+    body('oldPassword')
+      .notEmpty().withMessage('Old password is required'),
+
+    body('newPassword')
+      .notEmpty().withMessage('New password is required')
+      .isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+
+    validate,
+    loginController.changePassword
+  );
+
+  router.post(
+    '/auth/reset-password',
+    body('identifier')
+      .notEmpty().withMessage('Username or email is required'),
+
+    body('newPassword')
+      .notEmpty().withMessage('New password is required')
+      .isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+
+    validate,
+    loginController.resetPassword
+  );
+
   /**
    * @swagger
    * /auth/users/{id}:

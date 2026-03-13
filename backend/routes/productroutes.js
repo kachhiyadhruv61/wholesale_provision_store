@@ -221,4 +221,22 @@ router.delete(
   productController.deleteProduct
 );
 
+// ✅ INCREMENT STOCK — PATCH /products/:id/stock/increment
+router.patch(
+  '/products/:id/stock/increment',
+  param('id').isMongoId().withMessage('Product ID must be a valid MongoDB ID'),
+  body('quantity').optional().isFloat({ gt: 0 }).withMessage('quantity must be greater than 0'),
+  validate,
+  productController.incrementStock
+);
+
+// ✅ DECREMENT STOCK — PATCH /products/:id/stock/decrement
+router.patch(
+  '/products/:id/stock/decrement',
+  param('id').isMongoId().withMessage('Product ID must be a valid MongoDB ID'),
+  body('quantity').optional().isFloat({ gt: 0 }).withMessage('quantity must be greater than 0'),
+  validate,
+  productController.decrementStock
+);
+
 module.exports = router;

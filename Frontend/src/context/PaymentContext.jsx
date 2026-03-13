@@ -56,7 +56,7 @@ export function PaymentProvider({ children }) {
       }
 
       try {
-        const response = await apiClient.get("/payments");
+        const response = await apiClient.get("/api/payments");
         const remotePayments = Array.isArray(response?.data) ? response.data.map(normalizePayment) : [];
         const merged = [...localPayments];
 
@@ -109,7 +109,7 @@ export function PaymentProvider({ children }) {
     setPayments((prev) => [newPayment, ...prev]);
 
     try {
-      const response = await apiClient.post("/payments", {
+      const response = await apiClient.post("/api/payments", {
         orderId: newPayment.orderId,
         amount: Number(newPayment.amount || 0),
         method: toBackendMethod(newPayment.method),

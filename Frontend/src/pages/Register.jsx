@@ -36,7 +36,7 @@ function Register() {
     }
 
     try {
-      await apiClient.post("/register", {
+      await apiClient.post("/api/register", {
         username: formData.username.trim(),
         fullname: formData.ownerName.trim(),
         shopname: formData.shopName.trim(),
@@ -46,16 +46,6 @@ function Register() {
         password: formData.password,
         confirmpassword: formData.confirmPassword,
       });
-
-      await apiClient
-        .post("/auth/register", {
-          username: formData.username.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
-        })
-        .catch(() => {
-          // Ignore duplicate auth records; /register creation is primary.
-        });
 
       alert("Registration successful! Please login to continue.");
       navigate("/login");

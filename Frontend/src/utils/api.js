@@ -7,7 +7,7 @@ const buildUrl = (path) => {
 };
 
 export const apiRequest = async (path, options = {}) => {
-  const url = buildUrl(path);
+  const url = buildUrl(path.startsWith('/api') ? path : `/api${path}`);
   const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",

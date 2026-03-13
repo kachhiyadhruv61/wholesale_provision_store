@@ -90,7 +90,7 @@ function Contact() {
     }
 
     try {
-      await apiClient.post("/contacts", {
+      await apiClient.post("/api/contacts", {
         name,
         email,
         phoneNumber,

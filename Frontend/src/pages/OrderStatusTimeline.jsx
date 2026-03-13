@@ -88,10 +88,10 @@ function OrderStatusTimeline() {
         let orderData;
 
         if (MONGO_ID_REGEX.test(orderId)) {
-          const response = await apiClient.get(`/orders/${encodeURIComponent(orderId)}`);
+          const response = await apiClient.get(`/api/orders/${encodeURIComponent(orderId)}`);
           orderData = response?.data || response;
         } else {
-          const response = await apiClient.get("/orders");
+          const response = await apiClient.get("/api/orders");
           const allOrders = Array.isArray(response?.data) ? response.data : [];
           orderData = allOrders.find((entry) => {
             const candidateOrderId = String(entry?.orderId || "").trim().toLowerCase();

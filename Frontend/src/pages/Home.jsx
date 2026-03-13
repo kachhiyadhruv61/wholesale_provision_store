@@ -20,7 +20,18 @@ function Home() {
 
   const handleAddToCart = (product) => {
     const moqQuantity = product.moq || 1;
-    addToCart({ ...product, quantity: moqQuantity });
+    const result = addToCart({ ...product, quantity: moqQuantity });
+
+    if (!result?.success) {
+      setToast({
+        show: true,
+        message: `Insufficient stock for ${result.productName}: requested ${result.requested}, available ${result.available}`,
+        type: "warning"
+      });
+      setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
+      return;
+    }
+
     setToast({
       show: true,
       message: `${product.name} (${moqQuantity} ${product.unit}) added to cart!`,

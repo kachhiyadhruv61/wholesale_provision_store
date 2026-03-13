@@ -1,10 +1,26 @@
-import { useState, useContext, useMemo } from "react";
+import { useState, useContext, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
 import { NotificationContext } from "../context/NotificationContext";
 import CommonTable from "../components/CommonTable";
+import { apiClient } from "../utils/apiClient";
+
+const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase();
+
+const getPreferredCustomerName = (candidate = {}) => {
+  const options = [
+    candidate.customerName,
+    candidate.fullname,
+    candidate.ownerName,
+    candidate.username,
+    candidate.name,
+  ];
+
+  const matched = options.find((value) => String(value || "").trim() && String(value).trim().toLowerCase() !== "customer");
+  return matched ? String(matched).trim() : "Customer";
+};
 
 function AdminDashboard() {
   const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
@@ -12,6 +28,7 @@ function AdminDashboard() {
   const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
   const { addNotification } = useContext(NotificationContext);
   const navigate = useNavigate();
+  const [registeredUsers, setRegisteredUsers] = useState([]);
 
   const [activeTab, setActiveTab] = useState("products");
   const [editingProduct, setEditingProduct] = useState(null);
@@ -28,6 +45,12 @@ function AdminDashboard() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [showAddPaymentForm, setShowAddPaymentForm] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [selectedStockProduct, setSelectedStockProduct] = useState(null);
+  const [stockFormData, setStockFormData] = useState({
+    stock: "",
+    purchasePrice: ""
+  });
   const [paymentFormData, setPaymentFormData] = useState({
     orderId: "",
     customerName: "",
@@ -62,6 +85,96 @@ function AdminDashboard() {
     return Array.from(unique);
   }, [products]);
   const units = ["bag", "box", "bottle", "kg", "litre"];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRegisteredUsers = async () => {
+      try {
+        const response = await apiClient.get("/api/register");
+        const remoteUsers = Array.isArray(response?.data) ? response.data : [];
+        if (isMounted) {
+          setRegisteredUsers(remoteUsers);
+        }
+      } catch {
+        if (isMounted) {
+          setRegisteredUsers([]);
+        }
+      }
+    };
+
+    loadRegisteredUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const registeredUserLookup = useMemo(() => {
+    const lookup = new Map();
+
+    registeredUsers.forEach((entry) => {
+      const normalizedUser = {
+        ...entry,
+        customerName: getPreferredCustomerName(entry),
+        customerEmail: entry.email || "",
+        customerPhone: entry.phonenumber || entry.phone || "",
+      };
+
+      [entry._id, entry.id, entry.email, entry.username].forEach((value) => {
+        const key = normalizeLookupKey(value);
+        if (key) {
+          lookup.set(key, normalizedUser);
+        }
+      });
+    });
+
+    return lookup;
+  }, [registeredUsers]);
+
+  const resolveCustomerDetails = (record = {}, fallbackRecord = null) => {
+    const candidates = [record, fallbackRecord].filter(Boolean);
+    const lookupMatch = candidates
+      .flatMap((entry) => [entry.customerId, entry.userId, entry.customerEmail, entry.email, entry.customerUsername, entry.username])
+      .map((value) => registeredUserLookup.get(normalizeLookupKey(value)))
+      .find(Boolean);
+
+    const merged = {
+      ...(lookupMatch || {}),
+      ...(fallbackRecord || {}),
+      ...(record || {}),
+    };
+
+    return {
+      customerName: getPreferredCustomerName(merged),
+      customerEmail: merged.customerEmail || merged.email || lookupMatch?.customerEmail || "N/A",
+      customerPhone: merged.customerPhone || merged.phonenumber || merged.phone || lookupMatch?.customerPhone || "N/A",
+      customerId: merged.customerId || merged.userId || lookupMatch?._id || lookupMatch?.id || null,
+      customerUsername: merged.customerUsername || merged.username || lookupMatch?.username || "",
+    };
+  };
+
+  const enrichedOrders = useMemo(
+    () => orders.map((order) => ({
+      ...order,
+      ...resolveCustomerDetails(order),
+    })),
+    [orders, registeredUserLookup]
+  );
+
+  const orderLookup = useMemo(() => {
+    const lookup = new Map();
+    enrichedOrders.forEach((order) => {
+      lookup.set(String(order.id), order);
+      if (order._id) {
+        lookup.set(String(order._id), order);
+      }
+      if (order.orderId) {
+        lookup.set(String(order.orderId), order);
+      }
+    });
+    return lookup;
+  }, [enrichedOrders]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -207,54 +320,70 @@ function AdminDashboard() {
     }
   };
 
-  const handleStockUpdate = async (product) => {
-    const currentStock = Number(product.stock || 0);
-    const stockInput = prompt(`Update stock for this product (Current: ${currentStock}):`, currentStock);
-    if (stockInput === null) return;
+  const openStockModal = (product) => {
+    const currentStock = Number(product?.stock || 0);
+    const currentPurchase = Number(product?.purchaseCost ?? product?.wholesalePrice ?? product?.price ?? 0);
 
-    if (stockInput === "" || isNaN(stockInput)) {
+    setSelectedStockProduct(product);
+    setStockFormData({
+      stock: String(currentStock),
+      purchasePrice: String(currentPurchase || "")
+    });
+    setShowStockModal(true);
+  };
+
+  const closeStockModal = () => {
+    setShowStockModal(false);
+    setSelectedStockProduct(null);
+    setStockFormData({ stock: "", purchasePrice: "" });
+  };
+
+  const handleStockFormChange = (e) => {
+    const { name, value } = e.target;
+    setStockFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleStockUpdate = async () => {
+    if (!selectedStockProduct) return;
+
+    const currentStock = Number(selectedStockProduct.stock || 0);
+    const previousAvgPurchase = Number(
+      selectedStockProduct.purchaseCost ?? selectedStockProduct.wholesalePrice ?? selectedStockProduct.price ?? 0
+    );
+
+    if (stockFormData.stock === "" || isNaN(stockFormData.stock)) {
       alert("Please enter a valid stock quantity.");
       return;
     }
 
-    const parsedStock = Number(stockInput);
+    if (stockFormData.purchasePrice === "" || isNaN(stockFormData.purchasePrice)) {
+      alert("Please enter a valid purchase price.");
+      return;
+    }
+
+    const parsedStock = Number(stockFormData.stock);
+    const newPurchasePrice = Number(stockFormData.purchasePrice);
+
     if (!Number.isFinite(parsedStock) || parsedStock < 0) {
       alert("Stock cannot be negative.");
       return;
     }
 
-    const previousAvgPurchase = Number(product.purchaseCost ?? product.wholesalePrice ?? product.price ?? 0);
-    let nextAvgPurchase = previousAvgPurchase;
-
-    if (parsedStock > currentStock) {
-      const addedQty = parsedStock - currentStock;
-      const purchaseInput = prompt(
-        `Enter purchase price for newly added stock (${addedQty} units):`,
-        String(previousAvgPurchase || "")
-      );
-
-      if (purchaseInput === null) return;
-      if (purchaseInput === "" || isNaN(purchaseInput)) {
-        alert("Please enter a valid purchase price.");
-        return;
-      }
-
-      const newPurchasePrice = Number(purchaseInput);
-      if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
-        alert("Purchase price cannot be negative.");
-        return;
-      }
-
-      if (currentStock <= 0) {
-        nextAvgPurchase = newPurchasePrice;
-      } else {
-        const totalOldCost = previousAvgPurchase * currentStock;
-        const totalNewCost = newPurchasePrice * addedQty;
-        nextAvgPurchase = (totalOldCost + totalNewCost) / parsedStock;
-      }
+    if (!Number.isFinite(newPurchasePrice) || newPurchasePrice < 0) {
+      alert("Purchase price cannot be negative.");
+      return;
     }
 
-    const stockResult = await updateStock(product.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
+    const addedQty = Math.max(parsedStock - currentStock, 0);
+    const nextAvgPurchase = addedQty > 0
+      ? (
+        currentStock <= 0
+          ? newPurchasePrice
+          : ((previousAvgPurchase * currentStock) + (newPurchasePrice * addedQty)) / parsedStock
+      )
+      : previousAvgPurchase;
+
+    const stockResult = await updateStock(selectedStockProduct.id, parsedStock, { purchaseCost: Number(nextAvgPurchase.toFixed(2)) });
     if (stockResult?.success === false) {
       alert(stockResult.message || "Unable to update stock.");
       return;
@@ -264,14 +393,15 @@ function AdminDashboard() {
       addNotification({
         type: "stock",
         title: "Low stock alert",
-        message: `${product?.name || "Item"} is low on stock (${parsedStock} left).`,
+        message: `${selectedStockProduct?.name || "Item"} is low on stock (${parsedStock} left).`,
         meta: {
-          product: product?.name,
+          product: selectedStockProduct?.name,
           stock: parsedStock,
         },
       });
     }
 
+    closeStockModal();
     alert(`Stock updated successfully!\nAverage purchase price: ₹${nextAvgPurchase.toFixed(2)}`);
   };
 
@@ -285,6 +415,21 @@ function AdminDashboard() {
   };
 
   const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+
+  const previewStock = Number(stockFormData.stock || 0);
+  const previewPurchasePrice = Number(stockFormData.purchasePrice || 0);
+  const previewCurrentStock = Number(selectedStockProduct?.stock || 0);
+  const previewCurrentAvg = Number(
+    selectedStockProduct?.purchaseCost ?? selectedStockProduct?.wholesalePrice ?? selectedStockProduct?.price ?? 0
+  );
+  const previewAddedQty = Math.max(previewStock - previewCurrentStock, 0);
+  const previewWeightedAvg = previewAddedQty > 0
+    ? (
+      previewCurrentStock <= 0
+        ? previewPurchasePrice
+        : ((previewCurrentAvg * previewCurrentStock) + (previewPurchasePrice * previewAddedQty)) / previewStock
+    )
+    : previewCurrentAvg;
 
 
   const normalizePaymentStatus = (status) => {
@@ -304,7 +449,7 @@ function AdminDashboard() {
   };
 
   const paymentsFromOrders = useMemo(() => (
-    orders.map(order => ({
+    enrichedOrders.map(order => ({
       id: `PAY${order.id}`,
       orderId: order.id,
       orderNumericId: order.id,
@@ -320,15 +465,23 @@ function AdminDashboard() {
       totalAmount: Number(order.total || 0),
       source: "order"
     }))
-  ), [orders]);
+  ), [enrichedOrders]);
 
   const manualPayments = payments;
 
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
-    const extraPayments = payments.filter(p => !orderIds.has(p.orderId?.toString()));
+    const extraPayments = payments
+      .filter(p => !orderIds.has(p.orderId?.toString()))
+      .map((payment) => {
+        const relatedOrder = orderLookup.get(String(payment.orderId || ""));
+        return {
+          ...payment,
+          ...resolveCustomerDetails(payment, relatedOrder),
+        };
+      });
     return [...paymentsFromOrders, ...extraPayments];
-  }, [paymentsFromOrders, payments]);
+  }, [paymentsFromOrders, payments, orderLookup, registeredUserLookup]);
 
   const getTotalInventoryValue = () => {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
@@ -336,10 +489,10 @@ function AdminDashboard() {
 
   // Order Management Functions
   const getOrderStats = () => {
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter(o => o.status === "Pending").length;
-    const deliveredOrders = orders.filter(o => o.status === "Delivered").length;
-    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const totalOrders = enrichedOrders.length;
+    const pendingOrders = enrichedOrders.filter(o => o.status === "Pending").length;
+    const deliveredOrders = enrichedOrders.filter(o => o.status === "Delivered").length;
+    const totalRevenue = enrichedOrders.reduce((sum, o) => sum + o.total, 0);
 
     return { totalOrders, pendingOrders, deliveredOrders, totalRevenue };
   };
@@ -375,8 +528,8 @@ function AdminDashboard() {
   };
 
   const getFilteredOrders = () => {
-    if (statusFilter === "all") return orders;
-    return orders.filter(o => o.status === statusFilter);
+    if (statusFilter === "all") return enrichedOrders;
+    return enrichedOrders.filter(o => o.status === statusFilter);
   };
 
   const formatDate = (dateString) => {
@@ -389,7 +542,7 @@ function AdminDashboard() {
   };
 
   const getCustomerName = (order) => {
-    return order.customerName || "Customer";
+    return resolveCustomerDetails(order).customerName;
   };
 
   // Payment Management Functions
@@ -428,23 +581,54 @@ function AdminDashboard() {
   const getCustomers = () => {
     const customerMap = new Map();
 
-    displayPayments.forEach(payment => {
-      const rawKey = payment.customerEmail || payment.customerPhone || payment.customerName || payment.orderId || payment.id || "";
-      const key = rawKey.toString().toLowerCase() || payment.id;
+    const ensureCustomer = (input = {}) => {
+      const resolved = resolveCustomerDetails(input);
 
-      const existing = customerMap.get(key) || {
-        id: key,
-        name: payment.customerName || "Customer",
-        email: payment.customerEmail || "N/A",
-        phone: payment.customerPhone || "N/A",
-        totalSpent: 0,
-        orders: new Set(),
-        methods: new Set(),
-        lastPaymentDate: null,
-        paidCount: 0,
-        pendingCount: 0,
-        failedCount: 0
-      };
+      // Use customer IDENTITY fields as key (not the record's own _id/orderId)
+      // so that orders/payments merge into the same entry as the registered user.
+      const customerKey =
+        normalizeLookupKey(resolved.customerId) ||
+        normalizeLookupKey(input.customerId || input.userId) ||
+        normalizeLookupKey(resolved.customerEmail !== "N/A" ? resolved.customerEmail : "") ||
+        normalizeLookupKey(resolved.customerUsername) ||
+        normalizeLookupKey(input._id || input.id) ||
+        `customer-${customerMap.size + 1}`;
+
+      if (!customerMap.has(customerKey)) {
+        customerMap.set(customerKey, {
+          id: customerKey,
+          name: resolved.customerName || "Customer",
+          email: resolved.customerEmail || "N/A",
+          phone: resolved.customerPhone || "N/A",
+          totalSpent: 0,
+          orders: new Set(),
+          methods: new Set(),
+          lastPaymentDate: null,
+          paidCount: 0,
+          pendingCount: 0,
+          failedCount: 0
+        });
+      }
+
+      const existing = customerMap.get(customerKey);
+      if (resolved.customerName && resolved.customerName !== "Customer") existing.name = resolved.customerName;
+      if (resolved.customerEmail && resolved.customerEmail !== "N/A") existing.email = resolved.customerEmail;
+      if (resolved.customerPhone && resolved.customerPhone !== "N/A") existing.phone = resolved.customerPhone;
+      return existing;
+    };
+
+    registeredUsers.forEach((user) => {
+      ensureCustomer(user);
+    });
+
+    enrichedOrders.forEach((order) => {
+      const customer = ensureCustomer(order);
+      if (order.id) customer.orders.add(order.id);
+      if (order.paymentMethod) customer.methods.add(normalizePaymentMethod(order.paymentMethod));
+    });
+
+    displayPayments.forEach(payment => {
+      const existing = ensureCustomer(payment);
 
       existing.totalSpent += Number(payment.amount || 0);
       if (payment.orderId) existing.orders.add(payment.orderId);
@@ -458,7 +642,6 @@ function AdminDashboard() {
       if (payment.status === "Pending") existing.pendingCount += 1;
       if (payment.status === "Failed") existing.failedCount += 1;
 
-      customerMap.set(key, existing);
     });
 
     return Array.from(customerMap.values()).map(customer => ({
@@ -513,13 +696,13 @@ function AdminDashboard() {
     
     // Auto-fill customer info if order is selected
     if (name === "orderId" && value) {
-      const selectedOrd = orders.find(o => o.id.toString() === value);
+      const selectedOrd = enrichedOrders.find(o => o.id.toString() === value);
       if (selectedOrd) {
         setPaymentFormData(prev => ({
           ...prev,
           customerName: selectedOrd.customerName || "Customer",
-          customerEmail: selectedOrd.deliveryCity || "",
-          customerPhone: ""
+          customerEmail: selectedOrd.customerEmail || "",
+          customerPhone: selectedOrd.customerPhone || ""
         }));
       }
     }
@@ -544,7 +727,7 @@ function AdminDashboard() {
       return;
     }
 
-    const selectedOrd = orders.find(o => o.id.toString() === paymentFormData.orderId);
+    const selectedOrd = enrichedOrders.find(o => o.id.toString() === paymentFormData.orderId);
     const newPayment = {
       orderId: paymentFormData.orderId,
       transactionId: `TXN${Date.now()}`,
@@ -1291,15 +1474,122 @@ function AdminDashboard() {
                       Stock Value: ₹{(Number(product.purchaseCost ?? product.wholesalePrice ?? 0) * product.stock).toLocaleString()}
                     </div>
                   </div>
-                  <button 
+                  <button
                     className="btn-stock-update"
-                    onClick={() => handleStockUpdate(product)}
+                    onClick={() => openStockModal(product)}
                   >
                     📝 Update Stock
                   </button>
                 </div>
               ))}
             </div>
+
+            {showStockModal && selectedStockProduct && (
+              <div className="modal-overlay stock-modal-overlay" onClick={closeStockModal}>
+                <div className="modal-content stock-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="stock-modal-header">
+                    <div className="stock-modal-title">
+                      <span className="stock-icon">📦</span>
+                      <div>
+                        <h2>Update Stock</h2>
+                        <p className="product-name-subtitle">{selectedStockProduct.name}</p>
+                      </div>
+                    </div>
+                    <button className="modal-close" onClick={closeStockModal}>×</button>
+                  </div>
+
+                  <div className="stock-modal-body">
+                    <div className="current-stock-card">
+                      <div className="stock-stat">
+                        <span className="stat-label">Current Stock</span>
+                        <span className="stat-value primary">{Number(selectedStockProduct.stock || 0)}</span>
+                      </div>
+                      <div className="stock-stat">
+                        <span className="stat-label">Current Avg Price</span>
+                        <span className="stat-value">₹{Number(selectedStockProduct.purchaseCost ?? selectedStockProduct.wholesalePrice ?? 0).toFixed(2)}</span>
+                      </div>
+                      <div className="stock-stat">
+                        <span className="stat-label">Unit</span>
+                        <span className="stat-value accent">{selectedStockProduct.unit || "unit"}</span>
+                      </div>
+                    </div>
+
+                    <div className="stock-update-form">
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>
+                            New Stock Qty
+                            <span className="required">*</span>
+                          </label>
+                          <div className="input-with-unit">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              name="stock"
+                              value={stockFormData.stock}
+                              onChange={handleStockFormChange}
+                              placeholder="Enter stock"
+                            />
+                            <span className="unit-label">{selectedStockProduct.unit || "unit"}</span>
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label>
+                            New Purchase Price
+                            <span className="required">*</span>
+                          </label>
+                          <div className="input-with-unit">
+                            <span className="currency-symbol">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              name="purchasePrice"
+                              value={stockFormData.purchasePrice}
+                              onChange={handleStockFormChange}
+                              placeholder="Enter purchase price"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stock-preview-card">
+                        <h4>Live Preview</h4>
+                        <div className="preview-grid">
+                          <div className="preview-item">
+                            <span className="preview-label">Updated Stock</span>
+                            <span className="preview-value highlight">
+                              {previewStock}
+                            </span>
+                          </div>
+                          <div className="preview-item">
+                            <span className="preview-label">Added Qty</span>
+                            <span className="preview-value accent">{previewAddedQty}</span>
+                          </div>
+                          <div className="preview-item">
+                            <span className="preview-label">Final Avg Purchase</span>
+                            <span className="preview-value success">
+                              ₹{previewWeightedAvg.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="stock-modal-actions">
+                        <button className="btn-cancel" onClick={closeStockModal}>
+                          Cancel
+                        </button>
+                        <button className="btn-update-stock" onClick={handleStockUpdate}>
+                          ✅ Update Stock & Price
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1512,7 +1802,7 @@ function AdminDashboard() {
                       onChange={handlePaymentInputChange}
                     >
                       <option value="">-- Select an Order --</option>
-                      {orders.map(order => (
+                      {enrichedOrders.map(order => (
                         <option key={order.id} value={order.id}>
                           #{order.id} - {order.customerName || "Customer"} (₹{order.total || 0})
                         </option>

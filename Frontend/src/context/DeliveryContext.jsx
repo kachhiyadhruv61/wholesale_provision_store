@@ -33,7 +33,7 @@ export function DeliveryProvider({ children }) {
   const loadDeliveries = async () => {
     setLoading(true);
     try {
-      const payload = await apiRequest("/deliveries");
+      const payload = await apiRequest("/api/deliveries");
       const rows = getResponseList(payload);
       setDeliveries(rows.map(mapDeliveryRecord));
     } catch (error) {
@@ -52,7 +52,7 @@ export function DeliveryProvider({ children }) {
   const getDeliveryById = async (deliveryId) => {
     const targetId = deliveryId?.toString?.() || deliveryId;
     try {
-      const payload = await apiRequest(`/deliveries/${encodeURIComponent(targetId)}`);
+      const payload = await apiRequest(`/api/deliveries/${encodeURIComponent(targetId)}`);
       return { success: true, data: mapDeliveryRecord(payload?.data || payload) };
     } catch (error) {
       console.error("Failed to get delivery by ID", error);
@@ -78,7 +78,7 @@ export function DeliveryProvider({ children }) {
     };
 
     try {
-      const payload = await apiRequest("/deliveries", {
+      const payload = await apiRequest("/api/deliveries", {
         method: "POST",
         body: JSON.stringify(newDelivery),
       });

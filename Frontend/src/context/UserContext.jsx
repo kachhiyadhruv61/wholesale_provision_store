@@ -3,6 +3,21 @@ import { apiClient } from "../utils/apiClient";
 
 export const UserContext = createContext();
 
+const DEFAULT_CITY = "Anand";
+const DEFAULT_STATE = "Gujarat";
+
+const mapProfilePayload = (input = {}, currentUser = {}) => ({
+  username: String(input.username ?? currentUser.username ?? "").trim(),
+  fullname: String(input.ownerName ?? input.fullname ?? currentUser.ownerName ?? currentUser.username ?? "").trim(),
+  shopname: String(input.shopName ?? input.shopname ?? currentUser.shopName ?? "").trim(),
+  shopaddress: String(input.address ?? input.shopaddress ?? currentUser.address ?? "").trim(),
+  email: String(input.email ?? currentUser.email ?? "").trim(),
+  phonenumber: String(input.phone ?? input.phonenumber ?? currentUser.phone ?? "").trim(),
+  city: String(input.city ?? currentUser.city ?? DEFAULT_CITY).trim(),
+  state: String(input.state ?? currentUser.state ?? DEFAULT_STATE).trim(),
+  pincode: String(input.pincode ?? currentUser.pincode ?? "").trim(),
+});
+
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
 
@@ -29,14 +44,14 @@ export function UserProvider({ children }) {
 
   const normalizeUser = (input = {}) => ({
     id: input.id || input._id || Date.now().toString(),
-    _id: input._id || input.id || null,
+    _id: input.registerId || input._id || input.id || null,
     username: input.username || "",
     email: input.email || "",
-    password: input.password || "",
+    password: "",
     phone: input.phone || input.phonenumber || "",
     address: input.address || input.shopaddress || "",
-    city: input.city || "Anand",
-    state: input.state || "Gujarat",
+    city: input.city || DEFAULT_CITY,
+    state: input.state || DEFAULT_STATE,
     pincode: input.pincode || "",
     joinDate: input.joinDate || input.createdAt || new Date().toISOString(),
     ownerName: input.ownerName || input.fullname || "",
@@ -44,43 +59,51 @@ export function UserProvider({ children }) {
   });
 
   const fetchRegisteredUsers = async () => {
-    const response = await apiClient.get("/register");
+    const response = await apiClient.get("/api/register");
     return Array.isArray(response?.data) ? response.data : [];
   };
 
   const updateUserProfile = async (updatedData) => {
     const newUser = { ...user, ...updatedData };
-    persistUser(newUser);
 
     if (!newUser?._id) {
+      persistUser(normalizeUser(newUser));
       return { success: true };
     }
 
     try {
-      await apiClient.put(`/register/${encodeURIComponent(newUser._id)}`, {
-        username: newUser.username,
-        fullname: newUser.ownerName || newUser.username,
-        shopname: newUser.shopName || "",
-        shopaddress: newUser.address || "",
-        email: newUser.email,
-        phonenumber: newUser.phone || "0000000000",
-        password: newUser.password || "password123",
-        confirmpassword: newUser.password || "password123",
-        city: newUser.city,
-        state: newUser.state,
-        pincode: newUser.pincode,
-      });
-      return { success: true };
+      const response = await apiClient.put(
+        `/api/register/${encodeURIComponent(newUser._id)}`,
+        mapProfilePayload(newUser, user)
+      );
+
+      const normalizedUser = normalizeUser({ ...newUser, ...(response?.data || {}) });
+      persistUser(normalizedUser);
+      return { success: true, data: normalizedUser };
     } catch (error) {
       return { success: false, message: error.message || "Profile update failed" };
     }
   };
 
   const changePassword = async (oldPassword, newPassword) => {
-    if (user && user.password === oldPassword) {
-      return updateUserProfile({ password: newPassword });
+    if (!user?._id && !user?.email) {
+      return { success: false, message: "Please login again and retry." };
     }
-    return { success: false, message: "Incorrect old password" };
+
+    try {
+      const response = await apiClient.post("/api/auth/change-password", {
+        userId: user._id,
+        email: user.email,
+        oldPassword,
+        newPassword,
+      });
+
+      const normalizedUser = normalizeUser({ ...user, ...(response?.data || {}) });
+      persistUser(normalizedUser);
+      return { success: true, data: normalizedUser };
+    } catch (error) {
+      return { success: false, message: error.message || "Unable to change password." };
+    }
   };
 
   const loginUser = async (identifier, password) => {
@@ -97,7 +120,7 @@ export function UserProvider({ children }) {
       const loginEmail = matchedRegister?.email || identifier;
 
       try {
-        const response = await apiClient.post("/auth/login", {
+        const response = await apiClient.post("/api/auth/login", {
           email: loginEmail,
           password,
         });
@@ -106,25 +129,7 @@ export function UserProvider({ children }) {
         persistUser(merged);
         return { success: true, data: merged };
       } catch (loginError) {
-        const fallbackPassword = String(matchedRegister?.password || "");
-        if (!matchedRegister || fallbackPassword !== String(password || "")) {
-          return { success: false, message: loginError.message || "Login failed" };
-        }
-
-        // Sync missing auth login record in background for future /auth/login compatibility.
-        apiClient
-          .post("/auth/register", {
-            username: matchedRegister.username,
-            email: matchedRegister.email,
-            password: fallbackPassword,
-          })
-          .catch(() => {
-            // Ignore if already exists or backend rejects duplicate.
-          });
-
-        const merged = normalizeUser(matchedRegister);
-        persistUser(merged);
-        return { success: true, data: merged };
+        return { success: false, message: loginError.message || "Login failed" };
       }
     } catch (error) {
       return { success: false, message: error.message || "Login failed" };
@@ -133,29 +138,19 @@ export function UserProvider({ children }) {
 
   const resetPassword = async (identifier, newPassword) => {
     try {
-      const users = await fetchRegisteredUsers();
-      const normalizedIdentifier = String(identifier || "").trim().toLowerCase();
-      const matchedUser = users.find((entry) => {
-        const username = String(entry?.username || "").trim().toLowerCase();
-        const email = String(entry?.email || "").trim().toLowerCase();
-        return username === normalizedIdentifier || email === normalizedIdentifier;
+      const response = await apiClient.post("/api/auth/reset-password", {
+        identifier,
+        newPassword,
       });
 
-      if (!matchedUser?._id) {
-        return { success: false, message: "User not found with provided details." };
+      if (user && response?.data) {
+        const responseUserId = response.data.registerId || response.data._id;
+        if (user._id === responseUserId || user.email === response.data.email) {
+          persistUser(normalizeUser({ ...user, ...response.data }));
+        }
       }
 
-      await apiClient.put(`/register/${encodeURIComponent(matchedUser._id)}`, {
-        ...matchedUser,
-        password: newPassword,
-        confirmpassword: newPassword,
-      });
-
-      if (user && (user._id === matchedUser._id || user.email === matchedUser.email)) {
-        persistUser({ ...user, password: newPassword });
-      }
-
-      return { success: true };
+      return { success: true, data: response?.data };
     } catch (error) {
       return { success: false, message: error.message || "Unable to reset password." };
     }

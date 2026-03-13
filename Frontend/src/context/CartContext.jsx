@@ -20,14 +20,29 @@ export function CartProvider({ children }) {
   };
 
   const addToCart = (product) => {
+    let addResult = { success: true };
+
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex((item) => item.id === product.id);
       const incomingQty = product.quantity || 1;
+      const maxStock = Number(product.stock || 0);
 
       if (existingIndex !== -1) {
         const updatedCart = [...prevCart];
         const existingItem = updatedCart[existingIndex];
         const newQuantity = (existingItem.quantity || 1) + incomingQty;
+
+        if (Number.isFinite(maxStock) && maxStock >= 0 && newQuantity > maxStock) {
+          addResult = {
+            success: false,
+            reason: "insufficient_stock",
+            available: maxStock,
+            requested: newQuantity,
+            productName: product.name || existingItem.name || "Product",
+          };
+          return prevCart;
+        }
+
         const unitPrice = getBulkPrice(existingItem, newQuantity);
 
         updatedCart[existingIndex] = {
@@ -38,9 +53,22 @@ export function CartProvider({ children }) {
         return updatedCart;
       }
 
+      if (Number.isFinite(maxStock) && maxStock >= 0 && incomingQty > maxStock) {
+        addResult = {
+          success: false,
+          reason: "insufficient_stock",
+          available: maxStock,
+          requested: incomingQty,
+          productName: product.name || "Product",
+        };
+        return prevCart;
+      }
+
       const unitPrice = getBulkPrice(product, incomingQty);
       return [...prevCart, { ...product, quantity: incomingQty, price: unitPrice }];
     });
+
+    return addResult;
   };
 
   const incrementQuantity = (index) => {

@@ -14,6 +14,8 @@ function Cart() {
     navigate("/checkout");
   };
 
+  
+
   const handleContinueShopping = () => {
     navigate("/products");
   };

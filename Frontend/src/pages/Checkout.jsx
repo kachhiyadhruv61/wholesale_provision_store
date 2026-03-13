@@ -13,7 +13,7 @@ function Checkout() {
   const { user } = useContext(UserContext);
   const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
-  const { deductStockForOrder, products } = useContext(ProductContext);
+  const { deductStockForOrder, validateStockForOrder, products } = useContext(ProductContext);
   const { addNotification } = useContext(NotificationContext);
   const { deliveryLocations } = useContext(DeliveryContext);
 
@@ -150,6 +150,15 @@ function Checkout() {
       return;
     }
 
+    const stockValidation = validateStockForOrder(cart);
+    if (!stockValidation.ok) {
+      const detail = stockValidation.shortages
+        .map((entry) => `${entry.name}: requested ${entry.requested}, available ${entry.available}`)
+        .join("\n");
+      alert(`Insufficient stock for selected items:\n${detail}`);
+      return;
+    }
+
     setIsProcessingPayment(true);
 
     setTimeout(async () => {
@@ -216,7 +225,7 @@ function Checkout() {
         }
       });
 
-      deductStockForOrder(cart);
+      deductStockForOrder(cart, { syncBackend: false });
       clearCart();
 
       setTimeout(() => {

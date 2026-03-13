@@ -20,13 +20,13 @@ const normalizeOrder = (order = {}) => {
     paymentMethod: order.paymentMethod || order.payment || "cod",
     paymentStatus: order.paymentStatus || "Pending",
     status: order.status || "Pending",
-    customerId: order.customerId || order.userId || null,
-    customerUsername: order.customerUsername || "",
-    customerEmail: order.customerEmail || "",
-    customerName: order.customerName || order?.delivery?.name || "",
+    customerId: order.customerId || order.userId || order.registerId || null,
+    customerUsername: order.customerUsername || order.username || "",
+    customerEmail: order.customerEmail || order.email || "",
+    customerName: order.customerName || order.name || order.fullname || order?.delivery?.name || "",
     deliveryAddress: order.deliveryAddress || order?.delivery?.deliveryAddress || "",
-    deliveryCity: order.deliveryCity || order?.delivery?.city || "",
-    deliveryState: order.deliveryState || "",
+    deliveryCity: order.deliveryCity || order.city || order?.delivery?.city || "",
+    deliveryState: order.deliveryState || order.state || "",
     deliveryPincode: order.deliveryPincode || order?.delivery?.pincode || "",
     specialInstructions: order.specialInstructions || order?.delivery?.specialInstruction || "",
     statusUpdatedAt: order.statusUpdatedAt || order.updatedAt || order.createdAt || null,
@@ -45,16 +45,11 @@ const toBackendPayment = (method = "cod") => {
 const toBackendStatus = (status = "Pending") => {
   const normalized = String(status || "Pending").toLowerCase();
   if (normalized === "cancelled" || normalized === "canceled") return "Cancelled";
-  if (
-    normalized === "completed" ||
-    normalized === "confirmed" ||
-    normalized === "processing" ||
-    normalized === "shipped" ||
-    normalized === "delivered" ||
-    normalized === "out for delivery"
-  ) {
-    return "Completed";
-  }
+  if (normalized === "confirmed") return "Confirmed";
+  if (normalized === "processing") return "Processing";
+  if (normalized === "delivered") return "Delivered";
+  if (normalized === "completed") return "Completed";
+  if (normalized === "shipped" || normalized === "out for delivery") return "Processing";
   return "Pending";
 };
 
@@ -80,7 +75,7 @@ export function OrderProvider({ children }) {
       }
 
       try {
-        const response = await apiClient.get("/orders");
+        const response = await apiClient.get("/api/orders");
         const remoteOrders = Array.isArray(response?.data) ? response.data.map(normalizeOrder) : [];
         const merged = [...localOrders];
 
@@ -169,17 +164,33 @@ export function OrderProvider({ children }) {
     setOrders((prev) => [newOrder, ...prev]);
 
     try {
-      const response = await apiClient.post("/orders", {
+      const backendDate = new Date(order.orderDate || now).toISOString();
+      const backendStatus = toBackendStatus(order.status || "Pending");
+      const response = await apiClient.post("/api/orders", {
         orderId: `ORD-${localId}`,
         userId: String(order.customerId || order.customerEmail || "guest"),
+        date: backendDate,
         totalAmount: Number(order.total || 0),
         payment: toBackendPayment(order.paymentMethod),
-        status: toBackendStatus(order.status || "Pending"),
+        status: backendStatus,
+        action: backendStatus === "Pending" ? "Pending" : "Processing",
         name: order.customerName || order.customerUsername || "Customer",
+        email: order.customerEmail || "",
         deliveryAddress: order.deliveryAddress || "",
         city: order.deliveryCity || "",
+        state: order.deliveryState || "",
         pincode: String(order.deliveryPincode || ""),
         specialInstruction: order.specialInstructions || "",
+        items: (order.items || []).map((item) => ({
+          id: item._id || item.id || "",
+          name: item.name || "",
+          price: Number(item.price || 0),
+          quantity: Number(item.quantity || 1),
+          image: item.image || "",
+          category: item.category || "",
+        })),
+        subtotal: Number(order.subtotal || order.total || 0),
+        deliveryCharge: Number(order.deliveryCharge || 0),
       });
 
       const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
@@ -223,7 +234,7 @@ export function OrderProvider({ children }) {
     }
 
     try {
-      await apiClient.put(`/orders/${encodeURIComponent(orderIdString)}`, {
+      await apiClient.put(`/api/orders/${encodeURIComponent(orderIdString)}`, {
         status: toBackendStatus(newStatus),
       });
       return { success: true };

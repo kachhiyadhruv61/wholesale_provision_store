@@ -50,12 +50,20 @@ function ProductDetail() {
       return;
     }
 
-    addToCart({
+    const result = addToCart({
       ...product,
       quantity: inputQuantity,
       price: getPriceForQuantity(product.id, inputQuantity)
     });
-    
+
+    if (!result?.success) {
+      setToast({
+        message: `Insufficient stock for ${result.productName}: requested ${result.requested}, available ${result.available}`,
+        type: "warning"
+      });
+      return;
+    }
+
     setToast({
       message: `✨ Added ${inputQuantity} ${product.unit}(s) of ${product.name} to cart!`,
       type: "success"

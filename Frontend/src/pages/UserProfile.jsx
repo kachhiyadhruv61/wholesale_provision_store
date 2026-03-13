@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
@@ -18,6 +18,12 @@ function UserProfile() {
     confirmPassword: "",
   });
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setFormData(
+      user || { username: "", email: "", phone: "", address: "", city: "", state: "", pincode: "" }
+    );
+  }, [user]);
 
   if (!user) {
     return (
@@ -85,7 +91,7 @@ function UserProfile() {
           <p className="subtitle">Wholesale Retailer • Member since {new Date(user.joinDate).toLocaleDateString()}</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => navigate("/orders")}>View Orders</button>
+          <button className="btn-secondary" onClick={() => navigate("/order-history")}>View Orders</button>
           <button className="btn-danger" onClick={handleLogout}>Logout</button>
         </div>
       </div>
