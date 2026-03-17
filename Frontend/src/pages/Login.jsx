@@ -6,14 +6,12 @@ import { UserContext } from "../context/UserContext";
 function Login() {
 
   const navigate = useNavigate();
-  const { setAuthenticatedUser } = useContext(UserContext);
+  const { loginUser } = useContext(UserContext);
 
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
   });
-
-  const API_URL = "http://localhost:5000/login"; 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -35,42 +33,15 @@ function Login() {
     }
 
     try {
+      const result = await loginUser(credentials.username, credentials.password);
 
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          username: credentials.username,
-          password: credentials.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        alert(data.message);
+      if (!result?.success) {
+        alert(result?.message || "Invalid username/email or password.");
         return;
       }
 
-      // SAVE TOKENS
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setAuthenticatedUser(data.user || {});
-
-      if (data.user.role === "admin") {
-        localStorage.setItem("adminLoggedIn", "true");
-        // localStorage.setItem("adminUsername", credentials.username);
-        navigate("/admin-home");
-      } else {
-        navigate("/products");
-      }
-
+      navigate("/products");
     } catch (error) {
-
       console.error("Login Error:", error);
       alert("Server error");
     }
