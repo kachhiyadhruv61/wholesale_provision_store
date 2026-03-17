@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const validate = require('../middleware/validationMiddleware');
+const auth = require("../middleware/authMiddleware");
 
 /**
  * @swagger
@@ -17,11 +18,13 @@ const validate = require('../middleware/validationMiddleware');
  *   get:
  *     summary: Get all users
  *     tags: [Users]
+ *     security: 
+ *      - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of users
  */
-router.get('/users', userController.getUsers);
+router.get('/users',auth, userController.getUsers);
 
 /**
  * @swagger
@@ -29,6 +32,8 @@ router.get('/users', userController.getUsers);
  *   get:
  *     summary: Get user by ID
  *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -42,7 +47,7 @@ router.get('/users', userController.getUsers);
  *       404:
  *         description: User not found
  */
-router.get('/users/:id', userController.getUserById);
+router.get('/users/:id',auth, userController.getUserById);
 
 /**
  * @swagger

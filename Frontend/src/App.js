@@ -63,7 +63,7 @@ function AppShell() {
         <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/profile" element={<UserProfile />} />
         {/* Admin Routes - Dedicated admin login page */}
-        <Route path="/admin" element={<AdminLoginPage />} />
+        <Route path="/admin" element={<Login />} />
         <Route
           path="/admin-home"
           element={

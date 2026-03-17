@@ -58,6 +58,12 @@ export function UserProvider({ children }) {
     shopName: input.shopName || input.shopname || "",
   });
 
+  const setAuthenticatedUser = (input = {}) => {
+    const normalized = normalizeUser(input);
+    persistUser(normalized);
+    return normalized;
+  };
+
   const fetchRegisteredUsers = async () => {
     const response = await apiClient.get("/api/register");
     return Array.isArray(response?.data) ? response.data : [];
@@ -164,6 +170,7 @@ export function UserProvider({ children }) {
     <UserContext.Provider
       value={{
         user,
+        setAuthenticatedUser,
         updateUserProfile,
         changePassword,
         loginUser,

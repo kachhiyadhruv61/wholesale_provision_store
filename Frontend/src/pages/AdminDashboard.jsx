@@ -5,7 +5,8 @@ import { OrderContext } from "../context/OrderContext";
 import { PaymentContext } from "../context/PaymentContext";
 import { NotificationContext } from "../context/NotificationContext";
 import CommonTable from "../components/CommonTable";
-import { apiClient } from "../utils/apiClient";
+// import { apiClient } from "../utils/apiClient";
+import { apiFetch } from "../utils/apiFetch";
 
 const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase();
 
@@ -91,11 +92,15 @@ function AdminDashboard() {
 
     const loadRegisteredUsers = async () => {
       try {
-        const response = await apiClient.get("/api/register");
-        const remoteUsers = Array.isArray(response?.data) ? response.data : [];
-        if (isMounted) {
-          setRegisteredUsers(remoteUsers);
-        }
+        // /const response = await apiClient.get("/api/register");/
+        const res = await apiFetch("/users", {
+        method: "GET",
+      });
+      const remoteUsers = await res.json();
+        // const remoteUsers = Array.isArray(response?.data) ? response.data : [];
+        // if (isMounted) {
+          setRegisteredUsers(remoteUsers.data);
+        // }
       } catch {
         if (isMounted) {
           setRegisteredUsers([]);

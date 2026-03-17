@@ -12,13 +12,13 @@ app.use(cors());
 // Import Routes
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productroutes');
-const registerRoutes = require('./routes/registerroutes');
 const paymentRoutes = require('./routes/paymentroutes');
 const orderRoutes = require('./routes/orderroutes');
 const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const contactRoutes = require('./routes/contactroutes');
 const plannedRoutes = require('./routes/plannedroutes');
+const authRoutes = require('./routes/authRoute');
 // Use Routes
 app.use('/', userRoutes);
 
@@ -26,7 +26,7 @@ app.use('/', productRoutes);
 app.use('/', orderRoutes);
 app.use('/', contactRoutes);
 app.use('/', loginRoutes);
-app.use('/', registerRoutes);
+app.use('/', authRoutes);
 app.use('/', paymentRoutes);
 app.use('/', deliveryRoutes);
 app.use('/', plannedRoutes);
@@ -37,7 +37,6 @@ app.use('/api', productRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', loginRoutes);
-app.use('/api', registerRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', deliveryRoutes);
 app.use('/api', plannedRoutes);
@@ -55,6 +54,20 @@ const options = {
       {
         url: "http://localhost:5000"
       }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT"
+        }
+      }
+    },
+    security: [
+      {
+        bearerAuth: []
+      }
     ]
   },
   apis: ["./routes/*.js"],
@@ -62,7 +75,13 @@ const options = {
 
 const swaggerSpec = swaggerJsdoc(options);
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const swaggerUiOptions = {
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+};
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
 // Error Handler (Always keep at last)
 app.use(errorHandler);
