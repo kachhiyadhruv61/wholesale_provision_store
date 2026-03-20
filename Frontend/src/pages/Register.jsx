@@ -36,7 +36,7 @@ function Register() {
     }
 
     try {
-      await apiClient.post("/api/register", {
+      await apiClient.post("/registers", {
         username: formData.username.trim(),
         fullname: formData.ownerName.trim(),
         shopname: formData.shopName.trim(),

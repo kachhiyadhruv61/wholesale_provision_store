@@ -56,17 +56,13 @@ export function UserProvider({ children }) {
     joinDate: input.joinDate || input.createdAt || new Date().toISOString(),
     ownerName: input.ownerName || input.fullname || "",
     shopName: input.shopName || input.shopname || "",
+    role: input.role || "customer",
   });
 
   const setAuthenticatedUser = (input = {}) => {
     const normalized = normalizeUser(input);
     persistUser(normalized);
     return normalized;
-  };
-
-  const fetchRegisteredUsers = async () => {
-    const response = await apiClient.get("/api/register");
-    return Array.isArray(response?.data) ? response.data : [];
   };
 
   const updateUserProfile = async (updatedData) => {
@@ -114,29 +110,22 @@ export function UserProvider({ children }) {
 
   const loginUser = async (identifier, password) => {
     try {
-      const users = await fetchRegisteredUsers();
-      const normalizedIdentifier = String(identifier || "").trim().toLowerCase();
-
-      const matchedRegister = users.find((entry) => {
-        const username = String(entry?.username || "").trim().toLowerCase();
-        const email = String(entry?.email || "").trim().toLowerCase();
-        return username === normalizedIdentifier || email === normalizedIdentifier;
+      const response = await apiClient.post("/api/login", {
+        identifier: String(identifier || "").trim(),
+        password,
       });
 
-      const loginEmail = matchedRegister?.email || identifier;
+      const merged = normalizeUser(response?.data || {});
+      persistUser(merged);
 
-      try {
-        const response = await apiClient.post("/api/auth/login", {
-          email: loginEmail,
-          password,
-        });
-
-        const merged = normalizeUser({ ...matchedRegister, ...(response?.data || {}) });
-        persistUser(merged);
-        return { success: true, data: merged };
-      } catch (loginError) {
-        return { success: false, message: loginError.message || "Login failed" };
+      // Set admin flag if this is an admin user
+      if (merged.role === "admin") {
+        localStorage.setItem("adminLoggedIn", "true");
+      } else {
+        localStorage.removeItem("adminLoggedIn");
       }
+
+      return { success: true, data: merged };
     } catch (error) {
       return { success: false, message: error.message || "Login failed" };
     }
@@ -163,6 +152,7 @@ export function UserProvider({ children }) {
   };
 
   const logoutUser = () => {
+    localStorage.removeItem("adminLoggedIn");
     persistUser(null);
   };
 

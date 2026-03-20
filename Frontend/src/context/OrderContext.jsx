@@ -55,49 +55,44 @@ const toBackendStatus = (status = "Pending") => {
 
 export function OrderProvider({ children }) {
   const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+
+  const extractOrdersArray = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.orders)) return payload.orders;
+    if (Array.isArray(payload?.result)) return payload.result;
+    return [];
+  };
 
   useEffect(() => {
     let isMounted = true;
 
     const loadOrders = async () => {
-      let localOrders = [];
-      const savedOrders = localStorage.getItem("orders");
-      if (savedOrders) {
-        try {
-          localOrders = JSON.parse(savedOrders).map(normalizeOrder);
-        } catch {
-          localOrders = [];
-        }
-      }
-
       if (isMounted) {
-        setOrders(localOrders);
+        setOrdersLoading(true);
+        setOrdersError("");
       }
 
       try {
-        const response = await apiClient.get("/api/orders");
-        const remoteOrders = Array.isArray(response?.data) ? response.data.map(normalizeOrder) : [];
-        const merged = [...localOrders];
-
-        remoteOrders.forEach((remoteOrder) => {
-          const index = merged.findIndex((entry) => entry.id === remoteOrder.id);
-          if (index === -1) {
-            merged.unshift(remoteOrder);
-            return;
-          }
-          const localOrder = merged[index];
-          merged[index] = normalizeOrder({
-            ...localOrder,
-            ...remoteOrder,
-            items: localOrder.items?.length ? localOrder.items : remoteOrder.items,
-          });
-        });
-
+        const response = await apiClient.get("/orders");
+        const remoteOrders = extractOrdersArray(response).map(normalizeOrder);
         if (isMounted) {
-          setOrders(merged);
+          setOrders(remoteOrders);
+          setOrdersError("");
         }
-      } catch {
-        // Keep local fallback when API is unavailable.
+
+        return;
+      } catch (error) {
+        if (isMounted) {
+          setOrders([]);
+          setOrdersError(error?.message || "Unable to load orders from backend.");
+        }
+      } finally {
+        if (isMounted) {
+          setOrdersLoading(false);
+        }
       }
 
     };
@@ -109,65 +104,14 @@ export function OrderProvider({ children }) {
     };
   }, []);
 
-  // Sync orders live across tabs/windows
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key !== "orders") return;
-      try {
-        const parsed = event.newValue ? JSON.parse(event.newValue) : [];
-        setOrders(Array.isArray(parsed) ? parsed.map(normalizeOrder) : []);
-      } catch {
-        setOrders([]);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("orders", JSON.stringify(orders));
-  }, [orders]);
-
   const addOrder = async (order) => {
     const now = new Date().toISOString();
-    const initialStatus = order.status || "Confirmed";
-    const localId = Date.now().toString();
-    const newOrder = normalizeOrder({
-      id: localId,
-      date: now,
-      orderDate: now,
-      items: order.items || [],
-      total: order.total || 0,
-      customerId: order.customerId || null,
-      customerUsername: order.customerUsername || "",
-      customerEmail: order.customerEmail || "",
-      // Extended fields (optional, for richer display)
-      paymentMethod: order.paymentMethod || "cod",
-      paymentStatus: order.paymentStatus || "Pending",
-      status: initialStatus,
-      statusUpdatedAt: now,
-      statusHistory: [
-        {
-          status: initialStatus,
-          timestamp: now,
-        },
-      ],
-      deliveryAddress: order.deliveryAddress || "",
-      deliveryCity: order.deliveryCity || "",
-      deliveryState: order.deliveryState || "",
-      deliveryPincode: order.deliveryPincode || "",
-      specialInstructions: order.specialInstructions || "",
-      estimatedDeliveryAt: order.estimatedDeliveryAt || null,
-    });
-
-    setOrders((prev) => [newOrder, ...prev]);
 
     try {
       const backendDate = new Date(order.orderDate || now).toISOString();
       const backendStatus = toBackendStatus(order.status || "Pending");
-      const response = await apiClient.post("/api/orders", {
-        orderId: `ORD-${localId}`,
+      const orderPayload = {
+        orderId: `ORD-${Date.now()}`,
         userId: String(order.customerId || order.customerEmail || "guest"),
         date: backendDate,
         totalAmount: Number(order.total || 0),
@@ -176,6 +120,7 @@ export function OrderProvider({ children }) {
         action: backendStatus === "Pending" ? "Pending" : "Processing",
         name: order.customerName || order.customerUsername || "Customer",
         email: order.customerEmail || "",
+        customerPhone: order.customerPhone || "",
         deliveryAddress: order.deliveryAddress || "",
         city: order.deliveryCity || "",
         state: order.deliveryState || "",
@@ -191,19 +136,27 @@ export function OrderProvider({ children }) {
         })),
         subtotal: Number(order.subtotal || order.total || 0),
         deliveryCharge: Number(order.deliveryCharge || 0),
-      });
+      };
+
+      console.log("POST /orders payload:", orderPayload);
+      const response = await apiClient.post("/orders", orderPayload);
+
+      if (response?.success === false) {
+        return null;
+      }
 
       const insertedId = response?.insertedId?.toString?.() || response?.insertedId;
-      if (insertedId) {
-        const syncedOrder = normalizeOrder({ ...newOrder, id: insertedId, _id: insertedId });
-        setOrders((prev) => prev.map((entry) => (entry.id === localId ? syncedOrder : entry)));
-        return syncedOrder;
-      }
-    } catch {
-      // Keep local order so checkout UX is not blocked if backend is down.
-    }
+      const savedOrder = normalizeOrder({
+        ...(response?.data || {}),
+        id: insertedId || response?.data?._id || response?.data?.id || Date.now().toString(),
+        _id: response?.data?._id || insertedId || null,
+      });
 
-    return newOrder;
+      setOrders((prev) => [savedOrder, ...prev]);
+      return savedOrder;
+    } catch {
+      return null;
+    }
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -234,7 +187,7 @@ export function OrderProvider({ children }) {
     }
 
     try {
-      await apiClient.put(`/api/orders/${encodeURIComponent(orderIdString)}`, {
+      await apiClient.put(`/orders/${encodeURIComponent(orderIdString)}`, {
         status: toBackendStatus(newStatus),
       });
       return { success: true };
@@ -252,7 +205,7 @@ export function OrderProvider({ children }) {
   };
 
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
+    <OrderContext.Provider value={{ orders, ordersLoading, ordersError, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
       {children}
     </OrderContext.Provider>
   );

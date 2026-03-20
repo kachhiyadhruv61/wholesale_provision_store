@@ -30,6 +30,38 @@
    *         description: Internal server error
    */
   router.get('/auth/users', loginController.getLogins);
+  router.get('/users', loginController.getLogins);
+
+  router.get('/register', loginController.getRegisters);
+
+  router.post(
+    '/register',
+    body('username')
+      .notEmpty().withMessage('Username is required')
+      .isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+
+    body('email')
+      .notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Valid email is required'),
+
+    body('password')
+      .notEmpty().withMessage('Password is required')
+      .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+
+    body('confirmpassword')
+      .optional()
+      .isLength({ min: 6 }).withMessage('Confirm password must be at least 6 characters'),
+
+    validate,
+    loginController.createRegister
+  );
+
+  router.put(
+    '/register/:id',
+    param('id').isMongoId().withMessage('Register ID must be a valid MongoDB ID'),
+    validate,
+    loginController.updateRegister
+  );
 
   /**
    * @swagger
@@ -122,10 +154,31 @@
    *         description: Internal server error
    */
   router.post(
-    '/auth/login',
-    body('email')
-      .notEmpty().withMessage('Email is required')
-      .isEmail().withMessage('Valid email is required'),
+    '/login',
+    body().custom((value, { req }) => {
+      const identifier = String(req.body.identifier || req.body.email || req.body.username || '').trim();
+      if (!identifier) {
+        throw new Error('Username or email is required');
+      }
+      return true;
+    }),
+
+    body('password')
+      .notEmpty().withMessage('Password is required'),
+
+    validate,
+    loginController.loginUser
+  );
+
+  router.post(
+    '/user/login',
+    body().custom((value, { req }) => {
+      const identifier = String(req.body.identifier || req.body.email || req.body.username || '').trim();
+      if (!identifier) {
+        throw new Error('Username or email is required');
+      }
+      return true;
+    }),
 
     body('password')
       .notEmpty().withMessage('Password is required'),
@@ -184,6 +237,13 @@
    *       500:
    *         description: Internal server error
    */
+  router.delete(
+    '/users/:id',
+    param('id').isMongoId().withMessage('User ID must be a valid MongoDB ID'),
+    validate,
+    loginController.deleteLogin
+  );
+
   router.delete(
     '/auth/users/:id',
     param('id').isMongoId().withMessage('User ID must be a valid MongoDB ID'),

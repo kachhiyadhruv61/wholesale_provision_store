@@ -325,7 +325,7 @@ function Home() {
       {/* Sticky WhatsApp / Call Button */}
       <div className="sticky-contact-buttons">
         <a 
-          href="https://wa.me/919876543210?text=Hello%2C%20I%27m%20interested%20in%20your%20wholesale%20products" 
+          href="https://wa.me/919313616159?text=Hello%2C%20I%27m%20interested%20in%20your%20wholesale%20products" 
           target="_blank" 
           rel="noopener noreferrer"
           className="sticky-btn sticky-whatsapp"
@@ -336,7 +336,7 @@ function Home() {
         </a>
         
         <a 
-          href="tel:+919876543210" 
+          href="tel:+919313616159" 
           className="sticky-btn sticky-call"
           aria-label="Quick Call"
         >

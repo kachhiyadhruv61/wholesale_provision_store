@@ -40,7 +40,12 @@ function Login() {
         return;
       }
 
-      navigate("/products");
+      // Redirect based on user role
+      if (result.data?.role === "admin") {
+        navigate("/admin-home");
+      } else {
+        navigate("/products");
+      }
     } catch (error) {
       console.error("Login Error:", error);
       alert("Server error");
@@ -61,16 +66,16 @@ function Login() {
 
           <form onSubmit={handleLogin} className="login-form">
 
-            {/* USERNAME */}
+            {/* USERNAME OR EMAIL */}
 
             <div className="form-group">
 
-              <label>Username</label>
+              <label>Username or Email</label>
 
               <input
                 type="text"
                 name="username"
-                placeholder="Enter username"
+                placeholder="Enter username or email"
                 value={credentials.username}
                 onChange={handleChange}
                 required

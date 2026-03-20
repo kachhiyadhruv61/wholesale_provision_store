@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcryptjs"); 
 const { getDB } = require('../config/db');
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
 const jwt = require('jsonwebtoken');
@@ -20,7 +20,6 @@ const loginUser = async (req, res, next) => {
       });
     }
 
-    // 🔐 Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -64,18 +63,16 @@ const createRegister = async (req, res, next) => {
     const db = getDB();
 
     const {
-      name,
       username,
+      fullname,
+      shopname,
+      shopaddress,
       email,
+      phonenumber,
       password,
-      phone,
-      gender,
-      emailOtp,
-      address,
-      pincode
+      confirmpassword
     } = req.body;
 
-    // 🔎 Check if username already exists
     const existingUsername = await db.collection("users").findOne({ username });
 
     if (existingUsername) {
@@ -85,7 +82,6 @@ const createRegister = async (req, res, next) => {
       });
     }
 
-    // 🔎 Check if email already exists
     const existingEmail = await db.collection("users").findOne({ email });
 
     if (existingEmail) {
@@ -95,20 +91,17 @@ const createRegister = async (req, res, next) => {
       });
     }
 
-    // 🔐 Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newRegister = {
-      name,
+      name: fullname,
       username,
       email,
       password: hashedPassword,
       role: "user",
-      phone,
-      gender,
-      emailOtp: emailOtp || null,
-      address,
-      pincode,
+      phone: phonenumber,
+      shopname,
+      address: shopaddress,
       status: "Active",
       createdAt: new Date(),
       updatedAt: new Date()
@@ -140,7 +133,6 @@ const refreshToken = async (req, res) => {
       });
     }    
     const decoded = jwt.verify(refreshToken, "qweuansdasdg123123");
-    
     
     const user = await db.collection("users").findOne({
       _id: new ObjectId(decoded.id),

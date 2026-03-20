@@ -9,6 +9,11 @@ import CommonTable from "../components/CommonTable";
 import { apiFetch } from "../utils/apiFetch";
 
 const normalizeLookupKey = (value) => String(value || "").trim().toLowerCase();
+const normalizePhoneKey = (value) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
 
 const getPreferredCustomerName = (candidate = {}) => {
   const options = [
@@ -24,9 +29,17 @@ const getPreferredCustomerName = (candidate = {}) => {
 };
 
 function AdminDashboard() {
-  const { products, addProduct, updateProduct, deleteProduct, updateStock } = useContext(ProductContext);
-  const { orders, updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext);
-  const { payments, addPayment, updatePaymentStatus } = useContext(PaymentContext);
+  const {
+    products = [],
+    productsLoading = false,
+    productsError = "",
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    updateStock,
+  } = useContext(ProductContext) || {};
+  const { orders = [], ordersLoading = false, ordersError = "", updateOrderStatus, updateOrderPaymentStatus } = useContext(OrderContext) || {};
+  const { payments = [], addPayment, updatePaymentStatus } = useContext(PaymentContext) || {};
   const { addNotification } = useContext(NotificationContext);
   const navigate = useNavigate();
   const [registeredUsers, setRegisteredUsers] = useState([]);
@@ -90,17 +103,31 @@ function AdminDashboard() {
   useEffect(() => {
     let isMounted = true;
 
+    const parseUsersPayload = async (res) => {
+      const payload = await res.json();
+      if (Array.isArray(payload?.data)) return payload.data;
+      if (Array.isArray(payload)) return payload;
+      return [];
+    };
+
     const loadRegisteredUsers = async () => {
       try {
-        // /const response = await apiClient.get("/api/register");/
-        const res = await apiFetch("/users", {
-        method: "GET",
-      });
-      const remoteUsers = await res.json();
-        // const remoteUsers = Array.isArray(response?.data) ? response.data : [];
-        // if (isMounted) {
-          setRegisteredUsers(remoteUsers.data);
-        // }
+        let normalizedUsers = [];
+
+        // Registered customer master data is served by /register in backend login routes.
+        const registerRes = await apiFetch("/register", { method: "GET" });
+        if (registerRes?.ok) {
+          normalizedUsers = await parseUsersPayload(registerRes);
+        } else {
+          const apiRegisterRes = await apiFetch("/api/register", { method: "GET" });
+          if (apiRegisterRes?.ok) {
+            normalizedUsers = await parseUsersPayload(apiRegisterRes);
+          }
+        }
+
+        if (isMounted) {
+          setRegisteredUsers(normalizedUsers);
+        }
       } catch {
         if (isMounted) {
           setRegisteredUsers([]);
@@ -118,7 +145,7 @@ function AdminDashboard() {
   const registeredUserLookup = useMemo(() => {
     const lookup = new Map();
 
-    registeredUsers.forEach((entry) => {
+    (registeredUsers || []).forEach((entry) => {
       const normalizedUser = {
         ...entry,
         customerName: getPreferredCustomerName(entry),
@@ -254,7 +281,11 @@ function AdminDashboard() {
       ]
     };
 
-    await addProduct(newProduct);
+    const result = await addProduct(newProduct);
+    if (result?.success === false) {
+      alert(result.message || "Unable to add product.");
+      return;
+    }
     alert("Product Added Successfully!");
     resetForm();
   };
@@ -453,6 +484,13 @@ function AdminDashboard() {
     return method;
   };
 
+  const normalizeOrderStatus = (status) => {
+    const value = String(status || "").trim().toLowerCase();
+    if (!value) return "Pending";
+    if (value === "canceled") return "Cancelled";
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
   const paymentsFromOrders = useMemo(() => (
     enrichedOrders.map(order => ({
       id: `PAY${order.id}`,
@@ -476,7 +514,7 @@ function AdminDashboard() {
 
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
-    const extraPayments = payments
+    const extraPayments = (payments || [])
       .filter(p => !orderIds.has(p.orderId?.toString()))
       .map((payment) => {
         const relatedOrder = orderLookup.get(String(payment.orderId || ""));
@@ -495,8 +533,8 @@ function AdminDashboard() {
   // Order Management Functions
   const getOrderStats = () => {
     const totalOrders = enrichedOrders.length;
-    const pendingOrders = enrichedOrders.filter(o => o.status === "Pending").length;
-    const deliveredOrders = enrichedOrders.filter(o => o.status === "Delivered").length;
+    const pendingOrders = enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Pending").length;
+    const deliveredOrders = enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Delivered").length;
     const totalRevenue = enrichedOrders.reduce((sum, o) => sum + o.total, 0);
 
     return { totalOrders, pendingOrders, deliveredOrders, totalRevenue };
@@ -509,7 +547,7 @@ function AdminDashboard() {
       "Delivered": "Delivered",
       "Cancelled": "Cancelled"
     };
-    return statusMap[status] || "Unknown";
+    return statusMap[normalizeOrderStatus(status)] || "Unknown";
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -534,7 +572,7 @@ function AdminDashboard() {
 
   const getFilteredOrders = () => {
     if (statusFilter === "all") return enrichedOrders;
-    return enrichedOrders.filter(o => o.status === statusFilter);
+    return enrichedOrders.filter(o => normalizeOrderStatus(o.status) === statusFilter);
   };
 
   const formatDate = (dateString) => {
@@ -585,17 +623,40 @@ function AdminDashboard() {
 
   const getCustomers = () => {
     const customerMap = new Map();
+    const customerAliases = new Map();
+
+    const buildCustomerKeys = (resolved = {}, input = {}) => {
+      const keys = [
+        normalizeLookupKey(resolved.customerId),
+        normalizeLookupKey(input.customerId || input.userId),
+        normalizeLookupKey(resolved.customerEmail !== "N/A" ? resolved.customerEmail : ""),
+        normalizeLookupKey(input.customerEmail !== "N/A" ? input.customerEmail : input.email),
+        normalizePhoneKey(resolved.customerPhone !== "N/A" ? resolved.customerPhone : ""),
+        normalizePhoneKey(input.customerPhone !== "N/A" ? input.customerPhone : input.phone || input.phonenumber),
+        normalizeLookupKey(resolved.customerUsername),
+        normalizeLookupKey(input.username),
+      ];
+
+      const resolvedName = normalizeLookupKey(resolved.customerName);
+      const inputName = normalizeLookupKey(input.customerName || input.name || input.fullname || input.ownerName);
+      if (resolvedName && resolvedName !== "customer") keys.push(`name:${resolvedName}`);
+      if (inputName && inputName !== "customer") keys.push(`name:${inputName}`);
+
+      return [...new Set(keys.filter(Boolean))];
+    };
 
     const ensureCustomer = (input = {}) => {
       const resolved = resolveCustomerDetails(input);
+      const candidateKeys = buildCustomerKeys(resolved, input);
+      const matchedPrimaryKey = candidateKeys
+        .map((key) => customerAliases.get(key))
+        .find(Boolean);
 
       // Use customer IDENTITY fields as key (not the record's own _id/orderId)
       // so that orders/payments merge into the same entry as the registered user.
       const customerKey =
-        normalizeLookupKey(resolved.customerId) ||
-        normalizeLookupKey(input.customerId || input.userId) ||
-        normalizeLookupKey(resolved.customerEmail !== "N/A" ? resolved.customerEmail : "") ||
-        normalizeLookupKey(resolved.customerUsername) ||
+        matchedPrimaryKey ||
+        candidateKeys[0] ||
         normalizeLookupKey(input._id || input.id) ||
         `customer-${customerMap.size + 1}`;
 
@@ -619,6 +680,12 @@ function AdminDashboard() {
       if (resolved.customerName && resolved.customerName !== "Customer") existing.name = resolved.customerName;
       if (resolved.customerEmail && resolved.customerEmail !== "N/A") existing.email = resolved.customerEmail;
       if (resolved.customerPhone && resolved.customerPhone !== "N/A") existing.phone = resolved.customerPhone;
+
+      // Keep aliases updated so future records with partial identity still merge.
+      buildCustomerKeys(existing, input).forEach((aliasKey) => {
+        customerAliases.set(aliasKey, customerKey);
+      });
+
       return existing;
     };
 
@@ -781,7 +848,8 @@ function AdminDashboard() {
       dateDisplay: formatDate(order.date),
       totalAmount: order.total || 0,
       paymentLabel: order.paymentMethod === "cod" ? "COD" : "Online",
-      statusLabel: order.status || "Pending",
+      statusLabel: normalizeOrderStatus(order.status),
+      invoiceDisplay: order.invoiceId || "No Invoice",
       actions: ""
     })),
     [getFilteredOrders, getCustomerName, formatDate]
@@ -916,6 +984,11 @@ function AdminDashboard() {
       Cell: ({ cell }) => <strong>#{cell.getValue()}</strong>
     },
     {
+      accessorKey: "invoiceDisplay",
+      header: "Invoice ID",
+      Cell: ({ cell }) => <span className="invoice-id">{cell.getValue()}</span>
+    },
+    {
       accessorKey: "customerDisplay",
       header: "Customer",
       Cell: ({ row }) => (
@@ -941,7 +1014,7 @@ function AdminDashboard() {
       header: "Status",
       Cell: ({ row }) => (
         <span className={`status-badge status-${row.original.statusLabel?.toLowerCase() || "pending"}`}>
-          {getStatusBadge(row.original.statusLabel || "Pending")} {row.original.statusLabel || "Pending"}
+          {getStatusBadge(row.original.statusLabel || "Pending")}
         </span>
       )
     },
@@ -1171,6 +1244,26 @@ function AdminDashboard() {
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
           </h1>
+          {(activeTab === "products" || activeTab === "stock") && productsLoading && (
+            <div className="admin-alert">
+              <strong>Loading:</strong> Syncing product data from MongoDB...
+            </div>
+          )}
+          {(activeTab === "products" || activeTab === "stock") && productsError && (
+            <div className="admin-alert warning">
+              <strong>Product API Error:</strong> {productsError}
+            </div>
+          )}
+          {activeTab === "orders" && ordersLoading && (
+            <div className="admin-alert">
+              <strong>Loading:</strong> Syncing order data from MongoDB...
+            </div>
+          )}
+          {activeTab === "orders" && ordersError && (
+            <div className="admin-alert warning">
+              <strong>Order API Error:</strong> {ordersError}
+            </div>
+          )}
           {lowStockProducts.length > 0 && (
             <div className="admin-alert warning">
               <strong>⚠️ Low Stock Alert:</strong> {lowStockProducts.length} products need restocking.
@@ -1410,11 +1503,17 @@ function AdminDashboard() {
             )}
 
             <div className="products-table">
-              <CommonTable
-                columns={productColumns}
-                data={productTableData}
-                fileName="products"
-              />
+              {productsLoading ? (
+                <div className="empty-state">
+                  <p>Loading products...</p>
+                </div>
+              ) : (
+                <CommonTable
+                  columns={productColumns}
+                  data={productTableData}
+                  fileName="products"
+                />
+              )}
             </div>
           </div>
         )}
@@ -1629,25 +1728,31 @@ function AdminDashboard() {
                   className={statusFilter === "Pending" ? "active" : ""} 
                   onClick={() => setStatusFilter("Pending")}
                 >
-                  Pending ({orders.filter(o => o.status === "Pending").length})
+                  Pending ({enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Pending").length})
                 </button>
                 <button 
                   className={statusFilter === "Processing" ? "active" : ""} 
                   onClick={() => setStatusFilter("Processing")}
                 >
-                  Processing ({orders.filter(o => o.status === "Processing").length})
+                  Processing ({enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Processing").length})
                 </button>
                 <button 
                   className={statusFilter === "Delivered" ? "active" : ""} 
                   onClick={() => setStatusFilter("Delivered")}
                 >
-                  Delivered ({orders.filter(o => o.status === "Delivered").length})
+                  Delivered ({enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Delivered").length})
+                </button>
+                <button
+                  className={statusFilter === "Confirmed" ? "active" : ""}
+                  onClick={() => setStatusFilter("Confirmed")}
+                >
+                  Confirmed ({enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Confirmed").length})
                 </button>
                 <button 
                   className={statusFilter === "Cancelled" ? "active" : ""} 
                   onClick={() => setStatusFilter("Cancelled")}
                 >
-                  Cancelled ({orders.filter(o => o.status === "Cancelled").length})
+                  Cancelled ({enrichedOrders.filter(o => normalizeOrderStatus(o.status) === "Cancelled").length})
                 </button>
               </div>
             </div>
@@ -1710,6 +1815,18 @@ function AdminDashboard() {
                           <span className="label">Payment Status:</span>
                           <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
                         </div>
+                        <div className="detail-item">
+                          <span className="label">Invoice ID:</span>
+                          <span className="value" style={{ fontWeight: 600, color: '#2563eb' }}>
+                            {selectedOrder.invoiceId || "No Invoice Generated Yet"}
+                          </span>
+                        </div>
+                        {selectedOrder.invoiceGeneratedAt && (
+                          <div className="detail-item">
+                            <span className="label">Invoice Generated:</span>
+                            <span className="value">{formatDateTime(selectedOrder.invoiceGeneratedAt)}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

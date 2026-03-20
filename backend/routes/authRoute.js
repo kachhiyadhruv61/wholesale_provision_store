@@ -24,38 +24,39 @@ const validate = require('../middleware/validationMiddleware');
  *           schema:
  *             type: object
  *             required:
- *               - name
  *               - username
+ *               - fullname
+ *               - shopname
+ *               - shopaddress
  *               - email
+ *               - phonenumber
  *               - password
+ *               - confirmpassword
  *             properties:
- *               name:
- *                 type: string
- *                 example: Dipali
  *               username:
  *                 type: string
- *                 example: Dipali004
+ *                 example: dhruv123
+ *               fullname:
+ *                 type: string
+ *                 example: Dhruv Kachhiya
+ *               shopname:
+ *                 type: string
+ *                 example: DK Store
+ *               shopaddress:
+ *                 type: string
+ *                 example: Anand, Gujarat
  *               email:
  *                 type: string
- *                 example: dipali@gmail.com
+ *                 example: your@email.com
+ *               phonenumber:
+ *                 type: string
+ *                 example: 9876543210
  *               password:
  *                 type: string
  *                 example: 123456
- *               phone:
+ *               confirmpassword:
  *                 type: string
- *                 example: 9876543210
- *               gender:
- *                 type: string
- *                 example: female
- *               emailOtp:
- *                 type: string
- *                 example: 1234
- *               address:
- *                 type: string
- *                 example: Surat
- *               pincode:
- *                 type: string
- *                 example: 395006
+ *                 example: 123456
  *     responses:
  *       201:
  *         description: Register created
@@ -70,25 +71,35 @@ const validate = require('../middleware/validationMiddleware');
  */
 router.post(
   '/registers',
-  body('name')
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 3 }).withMessage('Name must be at least 3 characters'),
 
   body('username')
     .notEmpty().withMessage('Username is required')
-    .isLength({ min: 3 }).withMessage('Userame must be at least 3 characters'),
+    .isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+
+  body('fullname')
+    .notEmpty().withMessage('Full name is required')
+    .isLength({ min: 3 }).withMessage('Full name must be at least 3 characters'),
+
+  body('shopname')
+    .notEmpty().withMessage('Shop name is required'),
+
+  body('shopaddress')
+    .notEmpty().withMessage('Shop address is required'),
 
   body('email')
     .notEmpty().withMessage('Email is required')
     .isEmail().withMessage('Valid email is required'),
 
+  body('phonenumber')
+    .notEmpty().withMessage('Phone number is required')
+    .isLength({ min: 10 }).withMessage('Phone must be at least 10 digits'),
+
   body('password')
     .notEmpty().withMessage('Password is required')
     .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 
-  body('phone')
-    .optional()
-    .isLength({ min: 10 }).withMessage('Phone must be at least 10 digits'),
+  body('confirmpassword')
+    .notEmpty().withMessage('Confirm password is required'),
 
   validate,
   authController.createRegister
@@ -112,7 +123,7 @@ router.post(
  *             properties:
  *               username:
  *                 type: string
- *                 example: Dipali004
+ *                 example: dhruv123
  *               password:
  *                 type: string
  *                 example: 123456
