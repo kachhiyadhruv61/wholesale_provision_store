@@ -1,4 +1,5 @@
 import { createContext, useState } from "react";
+import { calculateCartBilling, getGstRateByCategory, normalizeCategory } from "../utils/gst";
 
 export const CartContext = createContext();
 
@@ -49,6 +50,12 @@ export function CartProvider({ children }) {
           ...existingItem,
           quantity: newQuantity,
           price: unitPrice,
+          category: normalizeCategory(existingItem.category || product.category || ""),
+          gstPercent: Number(
+            existingItem.gstPercent != null
+              ? existingItem.gstPercent
+              : getGstRateByCategory(existingItem.category || product.category)
+          ),
         };
         return updatedCart;
       }
@@ -65,7 +72,16 @@ export function CartProvider({ children }) {
       }
 
       const unitPrice = getBulkPrice(product, incomingQty);
-      return [...prevCart, { ...product, quantity: incomingQty, price: unitPrice }];
+      return [
+        ...prevCart,
+        {
+          ...product,
+          quantity: incomingQty,
+          price: unitPrice,
+          category: normalizeCategory(product.category || ""),
+          gstPercent: getGstRateByCategory(product.category),
+        },
+      ];
     });
 
     return addResult;
@@ -118,6 +134,10 @@ export function CartProvider({ children }) {
     0
   );
 
+  const cartBilling = calculateCartBilling(cart);
+  const totalGst = cartBilling.totalGst;
+  const grandTotal = cartBilling.subtotalAfterGst;
+
   const deliveryCharge = totalPrice > 0 && totalPrice < 6000 ? 150 : 0;
 
   return (
@@ -127,6 +147,9 @@ export function CartProvider({ children }) {
         addToCart,
         removeFromCart,
         totalPrice,
+        totalGst,
+        grandTotal,
+        cartBilling,
         deliveryCharge,
         clearCart,
         incrementQuantity,

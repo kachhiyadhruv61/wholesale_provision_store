@@ -148,6 +148,20 @@ router.post(
   body('action')
     .notEmpty().withMessage('Action is required'),
 
+  body('items').optional().isArray().withMessage('items must be an array'),
+  body('items.*.name').optional().isString().withMessage('item name must be a string'),
+  body('items.*.category').optional().isString().withMessage('item category must be a string'),
+  body('items.*.price').optional().isFloat({ gt: 0 }).withMessage('item price must be greater than 0'),
+  body('items.*.quantity').optional().isInt({ gt: 0 }).withMessage('item quantity must be greater than 0'),
+  body('items.*.gstPercent').optional().isFloat({ min: 0 }).withMessage('item gstPercent must be 0 or greater'),
+  body('items.*.gstAmount').optional().isFloat({ min: 0 }).withMessage('item gstAmount must be 0 or greater'),
+  body('items.*.subtotal').optional().isFloat({ min: 0 }).withMessage('item subtotal must be 0 or greater'),
+  body('items.*.total').optional().isFloat({ min: 0 }).withMessage('item total must be 0 or greater'),
+  body('totalAmountBeforeGst').optional().isFloat({ min: 0 }).withMessage('totalAmountBeforeGst must be 0 or greater'),
+  body('totalGst').optional().isFloat({ min: 0 }).withMessage('totalGst must be 0 or greater'),
+  body('subtotalAfterGst').optional().isFloat({ min: 0 }).withMessage('subtotalAfterGst must be 0 or greater'),
+  body('finalPayableAmount').optional().isFloat({ min: 0 }).withMessage('finalPayableAmount must be 0 or greater'),
+
   validate,
   orderController.createOrder
 );

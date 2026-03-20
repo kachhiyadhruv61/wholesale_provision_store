@@ -8,6 +8,80 @@ const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM || '';
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || '';
 
+const GST_RULES = {
+  Grocery: 5,
+  'Pan Center': 28,
+  'Masala Spices': 5,
+  'Daily Used Product': 12,
+  Snacks: 5,
+  Biscuits: 5,
+  Chocolates: 12,
+};
+
+const CATEGORY_ALIASES = {
+  grains: 'Grocery',
+  grocery: 'Grocery',
+  grocerry: 'Grocery',
+  'pan center': 'Pan Center',
+  'masala spices': 'Masala Spices',
+  'daily used product': 'Daily Used Product',
+  snacks: 'Snacks',
+  biscuit: 'Biscuits',
+  biscuits: 'Biscuits',
+  chocolate: 'Chocolates',
+  chocolates: 'Chocolates',
+};
+
+const toMoney = (value) => Number(Number(value || 0).toFixed(2));
+
+const normalizeCategory = (category) => {
+  const key = String(category || '').trim().toLowerCase();
+  if (!key) return '';
+  return CATEGORY_ALIASES[key] || String(category || '').trim();
+};
+
+const getGstRateByCategory = (category) => Number(GST_RULES[normalizeCategory(category)] || 0);
+
+const buildBilledItem = (item = {}) => {
+  const quantity = Number(item.quantity || 1);
+  const price = Number(item.price || 0);
+  const category = normalizeCategory(item.category || '');
+  const gstPercent = Number(item.gstPercent != null ? item.gstPercent : getGstRateByCategory(category));
+  const subtotal = toMoney(price * quantity);
+  const gstAmount = toMoney((subtotal * gstPercent) / 100);
+  const total = toMoney(subtotal + gstAmount);
+
+  return {
+    ...item,
+    name: String(item.name || ''),
+    category,
+    quantity,
+    price,
+    gstPercent,
+    subtotal,
+    gstAmount,
+    total,
+  };
+};
+
+const buildOrderBilling = (items = [], deliveryCharge = 0) => {
+  const billedItems = Array.isArray(items) ? items.map(buildBilledItem) : [];
+  const totalAmountBeforeGst = toMoney(billedItems.reduce((sum, item) => sum + item.subtotal, 0));
+  const totalGst = toMoney(billedItems.reduce((sum, item) => sum + item.gstAmount, 0));
+  const subtotalAfterGst = toMoney(totalAmountBeforeGst + totalGst);
+  const safeDeliveryCharge = toMoney(deliveryCharge);
+  const finalPayableAmount = toMoney(subtotalAfterGst + safeDeliveryCharge);
+
+  return {
+    items: billedItems,
+    totalAmountBeforeGst,
+    totalGst,
+    subtotalAfterGst,
+    deliveryCharge: safeDeliveryCharge,
+    finalPayableAmount,
+  };
+};
+
 const normalizePhoneNumber = (value) => {
   const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -247,21 +321,30 @@ const queueDispatchConfirmation = async ({ db, orderId, order, force = false }) 
 
 const createOrderInvoice = async (db, orderDoc) => {
   const now = new Date();
+  const billing = buildOrderBilling(orderDoc.items, orderDoc.deliveryCharge);
   const invoice = {
     invoiceId: `INV-${String(orderDoc.orderId || orderDoc._id || Date.now())}`,
     orderId: String(orderDoc._id),
     customerName: String(orderDoc.name || orderDoc.customerName || 'Customer'),
     customerPhone: String(orderDoc.customerPhone || ''),
-    totalAmount: Number(orderDoc.totalAmount || 0),
+    totalAmountBeforeGst: Number(orderDoc.totalAmountBeforeGst || billing.totalAmountBeforeGst || 0),
+    totalGst: Number(orderDoc.totalGst || billing.totalGst || 0),
+    subtotalAfterGst: Number(orderDoc.subtotalAfterGst || billing.subtotalAfterGst || 0),
+    deliveryCharge: Number(orderDoc.deliveryCharge || billing.deliveryCharge || 0),
+    finalPayableAmount: Number(orderDoc.finalPayableAmount || orderDoc.totalAmount || billing.finalPayableAmount || 0),
+    totalAmount: Number(orderDoc.totalAmount || orderDoc.finalPayableAmount || billing.finalPayableAmount || 0),
     paymentMethod: String(orderDoc.payment || 'Unknown'),
     status: 'Generated',
-    items: Array.isArray(orderDoc.items)
-      ? orderDoc.items.map((item) => ({
-          name: String(item?.name || ''),
-          quantity: Number(item?.quantity || 0),
-          price: Number(item?.price || 0),
-        }))
-      : [],
+    items: billing.items.map((item) => ({
+      name: String(item.name || ''),
+      category: String(item.category || ''),
+      quantity: Number(item.quantity || 0),
+      price: Number(item.price || 0),
+      gstPercent: Number(item.gstPercent || 0),
+      subtotal: Number(item.subtotal || 0),
+      gstAmount: Number(item.gstAmount || 0),
+      total: Number(item.total || 0),
+    })),
     generatedAt: now,
     createdAt: now,
   };
@@ -432,12 +515,20 @@ const createOrder = async (req, res, next) => {
       stockReservations.push({ productId, qty });
     }
 
+    const billing = buildOrderBilling(rawItems, req.body.deliveryCharge || 0);
+
     const orderData = {
       ...req.body,
       orderId: req.body.orderId,
       userId: req.body.userId,
       date: req.body.date || new Date(),
-      totalAmount: Number(req.body.totalAmount || req.body.total || 0),
+      items: billing.items,
+      totalAmountBeforeGst: Number(req.body.totalAmountBeforeGst || req.body.subtotal || billing.totalAmountBeforeGst),
+      totalGst: Number(req.body.totalGst || billing.totalGst),
+      subtotalAfterGst: Number(req.body.subtotalAfterGst || billing.subtotalAfterGst),
+      deliveryCharge: Number(req.body.deliveryCharge || billing.deliveryCharge),
+      finalPayableAmount: Number(req.body.finalPayableAmount || req.body.totalAmount || req.body.total || billing.finalPayableAmount),
+      totalAmount: Number(req.body.totalAmount || req.body.total || req.body.finalPayableAmount || billing.finalPayableAmount),
       payment: req.body.payment,
       status: req.body.status,
       action: req.body.action

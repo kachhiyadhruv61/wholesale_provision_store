@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
 import CommonTable from "../components/CommonTable";
+import { calculateDeliveryEta } from "../utils/deliveryEta";
 
 function OrderHistory() {
   const { orders } = useContext(OrderContext);
@@ -21,6 +22,21 @@ function OrderHistory() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const resolveExpectedDeliveryAt = (order) => {
+    const direct = order?.estimatedDeliveryAt || order?.deliveryInfo?.estimatedDeliveryAt;
+    if (direct) return direct;
+
+    const base = order?.orderDate || order?.date;
+    if (!base) return null;
+
+    const baseDate = new Date(base);
+    if (Number.isNaN(baseDate.getTime())) return null;
+
+    // Fallback rule: delivery ETA = 4 hours from order time during business window.
+    // If order is outside business window, ETA starts from next business day window.
+    return calculateDeliveryEta({ distanceKm: 0, orderDate: baseDate }).estimatedDeliveryAt;
   };
 
   const methodLabel = (m) => {
@@ -137,12 +153,35 @@ function OrderHistory() {
     const logoDataUrl = await loadImageDataUrl(`${process.env.PUBLIC_URL || ""}/images/logos/3.png`);
     const orderDate = new Date(order?.date || new Date());
     const orderItems = Array.isArray(order?.items) ? order.items : [];
-    const grandTotal = Number(order?.total || 0);
+
     const subtotal = orderItems.reduce(
       (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0),
       0
     );
-    const deliveryCharge = Math.max(grandTotal - subtotal, 0);
+
+    const totalGst =
+      order?.totalGst != null
+        ? Number(order.totalGst || 0)
+        : orderItems.reduce((sum, item) => {
+            const lineSubtotal = Number(item?.price || 0) * Number(item?.quantity || 0);
+            if (item?.gstAmount != null) {
+              return sum + Number(item.gstAmount || 0);
+            }
+            const gstPercent = Number(item?.gstPercent || 0);
+            return sum + (lineSubtotal * gstPercent) / 100;
+          }, 0);
+
+    const subtotalAfterGst =
+      order?.subtotalAfterGst != null
+        ? Number(order.subtotalAfterGst || 0)
+        : subtotal + totalGst;
+
+    const deliveryCharge =
+      order?.deliveryCharge != null
+        ? Number(order.deliveryCharge || 0)
+        : Math.max(Number(order?.total || order?.finalPayableAmount || 0) - subtotalAfterGst, 0);
+
+    const grandTotal = Number(order?.finalPayableAmount || order?.total || subtotalAfterGst + deliveryCharge);
 
     if (logoDataUrl) {
       doc.addImage(logoDataUrl, "PNG", 14, 10, 16, 16);
@@ -190,9 +229,10 @@ function OrderHistory() {
     const finalY = doc.lastAutoTable?.finalY || 70;
     doc.setFontSize(11);
     doc.text(`Subtotal: Rs ${subtotal.toFixed(2)}`, 140, finalY + 12);
-    doc.text(`Delivery Charge: Rs ${deliveryCharge.toFixed(2)}`, 140, finalY + 18);
+    doc.text(`GST: Rs ${totalGst.toFixed(2)}`, 140, finalY + 18);
+    doc.text(`Delivery Charge: Rs ${deliveryCharge.toFixed(2)}`, 140, finalY + 24);
     doc.setFontSize(12);
-    doc.text(`Grand Total: Rs ${grandTotal.toFixed(2)}`, 140, finalY + 26);
+    doc.text(`Grand Total: Rs ${grandTotal.toFixed(2)}`, 140, finalY + 32);
 
     const fullAddress = [
       order?.deliveryAddress,
@@ -205,7 +245,7 @@ function OrderHistory() {
 
     doc.setFontSize(10);
     doc.text(`Delivery Address: ${fullAddress || "N/A"}`, 14, finalY + 12);
-  doc.text("Thank you for shopping with DK TRADERS.", 14, finalY + 24);
+    doc.text("Thank you for shopping with DK TRADERS.", 14, finalY + 24);
 
     doc.save(`invoice-${order?.id || Date.now()}.pdf`);
   };
@@ -314,6 +354,40 @@ function OrderHistory() {
       {showOrderModal && selectedOrder && (
         (() => {
           const progress = getStatusProgress(selectedOrder.status);
+          const expectedDeliveryAt = resolveExpectedDeliveryAt(selectedOrder);
+          const selectedItems = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
+          const summarySubtotal = selectedItems.reduce(
+            (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0),
+            0
+          );
+          const summaryGst =
+            selectedOrder?.totalGst != null
+              ? Number(selectedOrder.totalGst || 0)
+              : selectedItems.reduce((sum, item) => {
+                  const lineSubtotal = Number(item?.price || 0) * Number(item?.quantity || 0);
+                  if (item?.gstAmount != null) {
+                    return sum + Number(item.gstAmount || 0);
+                  }
+                  return sum + (lineSubtotal * Number(item?.gstPercent || 0)) / 100;
+                }, 0);
+          const summaryAfterGst =
+            selectedOrder?.subtotalAfterGst != null
+              ? Number(selectedOrder.subtotalAfterGst || 0)
+              : summarySubtotal + summaryGst;
+          const summaryDelivery =
+            selectedOrder?.deliveryCharge != null
+              ? Number(selectedOrder.deliveryCharge || 0)
+              : Math.max(Number(selectedOrder?.total || selectedOrder?.finalPayableAmount || 0) - summaryAfterGst, 0);
+          const summaryTotal = Number(
+            selectedOrder?.finalPayableAmount || selectedOrder?.total || summaryAfterGst + summaryDelivery
+          );
+
+          const formatMoney = (value) =>
+            Number(value || 0).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+
           return (
         <div className="modal-overlay" onClick={() => setShowOrderModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -346,7 +420,7 @@ function OrderHistory() {
                   <div>
                     <span className="label">Expected Delivery:</span>
                     <span className="value">
-                      {selectedOrder.estimatedDeliveryAt ? formatDate(selectedOrder.estimatedDeliveryAt) : "TBD"}
+                      {expectedDeliveryAt ? formatDate(expectedDeliveryAt) : "TBD"}
                     </span>
                   </div>
                 </div>
@@ -461,15 +535,23 @@ function OrderHistory() {
               <div className="order-detail-section order-summary">
                 <div className="summary-row">
                   <span>Subtotal:</span>
-                  <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
+                  <span>₹{formatMoney(summarySubtotal)}</span>
+                </div>
+                <div className="summary-row">
+                  <span>GST:</span>
+                  <span>₹{formatMoney(summaryGst)}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Subtotal (After GST):</span>
+                  <span>₹{formatMoney(summaryAfterGst)}</span>
                 </div>
                 <div className="summary-row">
                   <span>Delivery Charges:</span>
-                  <span>₹0</span>
+                  <span>₹{formatMoney(summaryDelivery)}</span>
                 </div>
                 <div className="summary-row total">
                   <span>Total Amount:</span>
-                  <span>₹{(selectedOrder.total || 0).toLocaleString()}</span>
+                  <span>₹{formatMoney(summaryTotal)}</span>
                 </div>
               </div>
             </div>

@@ -7,11 +7,12 @@ import { ProductContext } from "../context/ProductContext";
 import { NotificationContext } from "../context/NotificationContext";
 import { DeliveryContext } from "../context/DeliveryContext";
 import { calculateDeliveryEta } from "../utils/deliveryEta";
+import { calculateCartBilling, formatInvoiceText, generateInvoice } from "../utils/gst";
 
 function Checkout() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
-  const { cart, totalPrice, deliveryCharge, clearCart } = useContext(CartContext);
+  const { cart, totalPrice, deliveryCharge, clearCart, totalGst, grandTotal } = useContext(CartContext);
   const { addOrder } = useContext(OrderContext);
   const { deductStockForOrder, validateStockForOrder, products } = useContext(ProductContext);
   const { addNotification } = useContext(NotificationContext);
@@ -28,6 +29,7 @@ function Checkout() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStep, setPaymentStep] = useState("details");
   const [deliveryInfo, setDeliveryInfo] = useState(null);
+  const [lastInvoice, setLastInvoice] = useState(null);
   
   const [formData, setFormData] = useState({
     customerName: user?.username || "",
@@ -161,15 +163,29 @@ function Checkout() {
 
     setIsProcessingPayment(true);
 
+    const gstBilling = calculateCartBilling(cart);
+    const invoice = generateInvoice({
+      shopName: "Wholesale Store",
+      items: cart,
+      dateTime: new Date().toISOString(),
+      deliveryCharge,
+    });
+    setLastInvoice(invoice);
+
     setTimeout(async () => {
       setIsProcessingPayment(false);
       setPaymentStep("success");
 
       const order = {
-        items: cart,
+        items: gstBilling.items,
         subtotal: totalPrice,
+        subtotalBeforeGst: gstBilling.subtotalBeforeGst,
+        totalGst: gstBilling.totalGst,
+        subtotalAfterGst: gstBilling.subtotalAfterGst,
         deliveryCharge: deliveryCharge,
-        total: totalPrice + deliveryCharge,
+        total: gstBilling.subtotalAfterGst + deliveryCharge,
+        invoice,
+        invoiceText: formatInvoiceText(invoice),
         paymentMethod,
         paymentStatus: "Completed",
         customerId: user?.id,
@@ -241,7 +257,7 @@ function Checkout() {
     }, 2000);
   };
 
-  const finalTotal = totalPrice + deliveryCharge;
+  const finalTotal = grandTotal + deliveryCharge;
 
   if (cart.length === 0 && paymentStep === "details") {
     return (
@@ -287,13 +303,21 @@ function Checkout() {
           {cart.length > 0 ? (
             <div className="summary-content">
               <div className="summary-items">
-                {cart.map((item, index) => (
-                  <div key={index} className="summary-item">
-                    <span className="item-name">{item.name}</span>
-                    <span className="item-qty">x{item.quantity}</span>
-                    <span className="item-price">₹{(item.price * item.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+                {cart.map((item, index) => {
+                  const itemSubtotal = Number(item.price || 0) * Number(item.quantity || 1);
+                  const itemGstPercent = Number(item.gstPercent || 0);
+                  const itemGstAmount = (itemSubtotal * itemGstPercent) / 100;
+                  const itemTotal = itemSubtotal + itemGstAmount;
+
+                  return (
+                    <div key={index} className="summary-item">
+                      <span className="item-name">{item.name}</span>
+                      <span className="item-qty">x{item.quantity}</span>
+                      <span className="item-price">₹{itemTotal.toFixed(2)}</span>
+                      <span className="item-price">GST {itemGstPercent}% (₹{itemGstAmount.toFixed(2)})</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="summary-divider"></div>
               
@@ -301,6 +325,14 @@ function Checkout() {
                 <div className="breakdown-row">
                   <span>Subtotal:</span>
                   <span>₹{totalPrice.toFixed(2)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>Total GST:</span>
+                  <span>₹{totalGst.toFixed(2)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>Total after GST:</span>
+                  <span>₹{grandTotal.toFixed(2)}</span>
                 </div>
                 {deliveryCharge > 0 && (
                   <div className="breakdown-row">
@@ -318,7 +350,7 @@ function Checkout() {
 
               <div className="summary-divider"></div>
               <div className="summary-total">
-                <span>Total Amount:</span>
+                <span>Final Payable Amount:</span>
                 <span className="total-price">₹{finalTotal.toFixed(2)}</span>
               </div>
               
@@ -691,6 +723,7 @@ function Checkout() {
             <div className="success-details">
               <p><strong>Payment Method:</strong> {paymentMethod.toUpperCase()}</p>
               <p><strong>Subtotal:</strong> ₹{totalPrice.toFixed(2)}</p>
+              <p><strong>Total GST:</strong> ₹{totalGst.toFixed(2)}</p>
               <p><strong>Delivery Charge:</strong> ₹{deliveryCharge.toFixed(2)}</p>
               <p><strong>Total Amount Paid:</strong> ₹{finalTotal.toFixed(2)}</p>
               <p><strong>Status:</strong> <span className="status-badge confirmed">Confirmed</span></p>
@@ -701,6 +734,21 @@ function Checkout() {
                 </p>
               )}
             </div>
+            {lastInvoice && (
+              <div className="success-details" style={{ marginTop: "1rem", textAlign: "left" }}>
+                <p><strong>Invoice:</strong> {lastInvoice.invoiceNumber}</p>
+                <p><strong>Shop Name:</strong> {lastInvoice.shopName}</p>
+                <p><strong>Date & Time:</strong> {formatDateTime(lastInvoice.dateTime)}</p>
+                {(lastInvoice.items || []).map((item, index) => (
+                  <p key={`${item.name || "item"}-${index}`}>
+                    {index + 1}. {item.name} | Qty {item.quantity} | Price ₹{item.price.toFixed(2)} | GST {item.gstPercent}% | GST Amt ₹{item.gstAmount.toFixed(2)} | Total ₹{item.total.toFixed(2)}
+                  </p>
+                ))}
+                <p><strong>Total Amount before GST:</strong> ₹{lastInvoice.totalAmountBeforeGst.toFixed(2)}</p>
+                <p><strong>Total GST:</strong> ₹{lastInvoice.totalGst.toFixed(2)}</p>
+                <p><strong>Final Payable Amount:</strong> ₹{lastInvoice.finalPayableAmount.toFixed(2)}</p>
+              </div>
+            )}
             <p className="redirecting">Redirecting to order confirmation...</p>
           </div>
         )}

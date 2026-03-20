@@ -3,8 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 
 function Cart() {
-  const { cart, removeFromCart, totalPrice, deliveryCharge, incrementQuantity, decrementQuantity } = useContext(CartContext);
+  const {
+    cart,
+    removeFromCart,
+    totalPrice,
+    deliveryCharge,
+    incrementQuantity,
+    decrementQuantity,
+    cartBilling,
+    totalGst,
+    grandTotal,
+  } = useContext(CartContext);
   const navigate = useNavigate();
+
+  const billedCartItems = cartBilling?.items || [];
 
   const handleProceedToCheckout = () => {
     if (cart.length === 0) {
@@ -48,7 +60,7 @@ function Cart() {
             <>
               <h3 className="items-header">Items ({cart.length})</h3>
               <div className="cart-items-list">
-                {cart.map((item, index) => (
+                {billedCartItems.map((item, index) => (
                   <div key={index} className="cart-item">
                     <div className="item-details">
                       <div className="item-name">{item.name}</div>
@@ -76,9 +88,14 @@ function Cart() {
                         <span className="unit-price">@ ₹{item.price.toFixed(2)} / {item.unit || "Unit"}</span>
                         <span className="bulk-pill">Auto bulk pricing</span>
                       </div>
+                      <div className="item-meta">
+                        <span>Category: {item.category || "General"}</span>
+                        <span>GST: {Number(item.gstPercent || 0)}%</span>
+                        <span>GST Amount: ₹{Number(item.gstAmount || 0).toFixed(2)}</span>
+                      </div>
                     </div>
                     <div className="item-price">
-                      <span className="price">₹{(item.price * (item.quantity || 1)).toFixed(2)}</span>
+                      <span className="price">₹{Number(item.total || 0).toFixed(2)}</span>
                     </div>
                     <button
                       onClick={() => removeFromCart(index)}
@@ -105,6 +122,10 @@ function Cart() {
                   <span>₹{totalPrice.toFixed(2)}</span>
                 </div>
                 <div className="summary-row">
+                  <span>Total GST</span>
+                  <span>₹{totalGst.toFixed(2)}</span>
+                </div>
+                <div className="summary-row">
                   <span>Delivery Charges</span>
                   {deliveryCharge > 0 ? (
                     <span>₹{deliveryCharge.toFixed(2)}</span>
@@ -122,7 +143,7 @@ function Cart() {
 
               <div className="summary-total">
                 <span>Total Amount</span>
-                <span className="total-amount">₹{(totalPrice + deliveryCharge).toFixed(2)}</span>
+                <span className="total-amount">₹{(grandTotal + deliveryCharge).toFixed(2)}</span>
               </div>
 
               <div className="summary-note">
