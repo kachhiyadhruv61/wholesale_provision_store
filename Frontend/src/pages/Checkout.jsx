@@ -175,6 +175,7 @@ function Checkout() {
         customerId: user?.id,
         customerUsername: user?.username,
         customerEmail: user?.email,
+        customerPhone: user?.phone || user?.phonenumber || "",
         customerName: formData.customerName,
         deliveryAddress: formData.deliveryAddress,
         deliveryCity: formData.deliveryCity,
@@ -192,6 +193,12 @@ function Checkout() {
       };
 
       const createdOrder = await addOrder(order);
+      if (!createdOrder) {
+        setPaymentStep("payment");
+        alert("Order could not be saved to server. Please try again.");
+        return;
+      }
+
       const orderId = createdOrder?.id ?? "new";
 
       addNotification({

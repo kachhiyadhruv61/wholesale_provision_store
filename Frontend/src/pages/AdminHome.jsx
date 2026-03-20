@@ -220,7 +220,7 @@ function AdminHome() {
   const handleLogout = () => {
     localStorage.removeItem("adminLoggedIn");
     localStorage.removeItem("adminUsername");
-    navigate("/admin");
+    navigate("/home");
   };
 
   const toggleNotifications = () => {

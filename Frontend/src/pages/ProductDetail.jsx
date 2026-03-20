@@ -8,14 +8,17 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useContext(CartContext);
-  const { products, getPriceForQuantity } = useContext(ProductContext);
+  const { products = [], getPriceForQuantity } = useContext(ProductContext);
   
   const [selectedQuantity, setSelectedQuantity] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [inputQuantity, setInputQuantity] = useState(1);
   const [toast, setToast] = useState(null);
 
-  const product = products.find(p => p.id === parseInt(id));
+  const normalizedRouteId = String(id || "").trim();
+  const product = (products || []).find(
+    (p) => String(p?.id) === normalizedRouteId || String(p?._id || "") === normalizedRouteId
+  );
 
   useEffect(() => {
     if (product) {
@@ -40,6 +43,9 @@ function ProductDetail() {
   const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
   const currentPrice = getPriceForQuantity(product.id, selectedQuantity);
   const hasDiscount = currentPrice < product.price;
+  const bulkPricing = Array.isArray(product.bulkPricing) && product.bulkPricing.length > 0
+    ? product.bulkPricing
+    : [{ quantity: Number(product.moq || 1), price: Number(product.price || 0) }];
 
   const handleAddToCart = () => {
     if (inputQuantity < product.moq) {
@@ -130,7 +136,7 @@ function ProductDetail() {
           <div className="unit-selection">
             <h3>Select Unit</h3>
             <div className="unit-options">
-              {product.bulkPricing.slice(0, 3).map((tier, idx) => {
+              {bulkPricing.slice(0, 3).map((tier, idx) => {
                 const quantity = tier.quantity;
                 const price = tier.price;
                 const isFirst = idx === 0;

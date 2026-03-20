@@ -1,22 +1,24 @@
 const { getDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
+const bcrypt = require('bcryptjs');
 
 const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const buildUserResponse = (registerUser = null, loginUser = null) => ({
-  _id: registerUser?._id || null,
+const buildUserResponse = (registerUser = null, loginUser = null, legacyUser = null) => ({
+  _id: registerUser?._id || legacyUser?._id || null,
   registerId: registerUser?._id || null,
   loginId: loginUser?._id || null,
-  username: loginUser?.username || registerUser?.username || "",
-  email: loginUser?.email || registerUser?.email || "",
-  fullname: registerUser?.fullname || "",
+  username: loginUser?.username || registerUser?.username || legacyUser?.username || "",
+  email: loginUser?.email || registerUser?.email || legacyUser?.email || "",
+  fullname: registerUser?.fullname || legacyUser?.name || "",
   shopname: registerUser?.shopname || "",
-  shopaddress: registerUser?.shopaddress || "",
-  phonenumber: registerUser?.phonenumber || "",
+  shopaddress: registerUser?.shopaddress || legacyUser?.address || "",
+  phonenumber: registerUser?.phonenumber || legacyUser?.phone || "",
   city: registerUser?.city || "",
   state: registerUser?.state || "",
-  pincode: registerUser?.pincode || "",
-  createdAt: registerUser?.createdAt || loginUser?.createdAt || new Date(),
+  pincode: registerUser?.pincode || legacyUser?.pincode || "",
+  role: legacyUser?.role || "customer",
+  createdAt: registerUser?.createdAt || loginUser?.createdAt || legacyUser?.createdAt || new Date(),
 });
 
 const upsertLoginRecord = async (db, payload = {}, filterEmail = null) => {
@@ -52,6 +54,156 @@ const findRegisterByIdentifier = async (db, identifier) => {
       { username: { $regex: `^${escapeRegExp(normalizedIdentifier)}$`, $options: "i" } },
     ],
   });
+};
+
+const normalizeRegisterPayload = (payload = {}, fallback = {}) => ({
+  username: String(payload.username ?? fallback.username ?? "").trim(),
+  fullname: String(payload.fullname ?? payload.ownerName ?? fallback.fullname ?? "").trim(),
+  shopname: String(payload.shopname ?? payload.shopName ?? fallback.shopname ?? "").trim(),
+  shopaddress: String(payload.shopaddress ?? payload.address ?? fallback.shopaddress ?? "").trim(),
+  email: String(payload.email ?? fallback.email ?? "").trim().toLowerCase(),
+  phonenumber: String(payload.phonenumber ?? payload.phone ?? fallback.phonenumber ?? "").trim(),
+  city: String(payload.city ?? fallback.city ?? "Anand").trim(),
+  state: String(payload.state ?? fallback.state ?? "Gujarat").trim(),
+  pincode: String(payload.pincode ?? fallback.pincode ?? "").trim(),
+  password: String(payload.password ?? fallback.password ?? ""),
+  confirmpassword: String(
+    payload.confirmpassword ?? payload.confirmPassword ?? fallback.confirmpassword ?? payload.password ?? fallback.password ?? ""
+  ),
+});
+
+const buildRegisterMatch = (payload = {}) => ({
+  $or: [
+    { email: { $regex: `^${escapeRegExp(payload.email || "")}$`, $options: "i" } },
+    { username: { $regex: `^${escapeRegExp(payload.username || "")}$`, $options: "i" } },
+  ],
+});
+
+const isBcryptHash = (value = "") => typeof value === "string" && value.startsWith("$2");
+
+const verifyPassword = async (plainPassword, savedPassword) => {
+  if (!savedPassword) return false;
+  if (isBcryptHash(savedPassword)) {
+    return bcrypt.compare(String(plainPassword || ""), savedPassword);
+  }
+  return String(savedPassword) === String(plainPassword || "");
+};
+
+const getRegisters = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const registers = await db.collection("registers").find().sort({ createdAt: -1 }).toArray();
+
+    res.json({ success: true, data: registers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createRegister = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const payload = normalizeRegisterPayload(req.body);
+
+    if (!payload.username || !payload.email || !payload.password) {
+      return res.status(400).json({
+        success: false,
+        message: "username, email and password are required"
+      });
+    }
+
+    if (payload.password !== payload.confirmpassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match"
+      });
+    }
+
+    const existingRegister = await db.collection("registers").findOne(buildRegisterMatch(payload));
+    if (existingRegister) {
+      return res.status(400).json({
+        success: false,
+        message: "Username or email already registered"
+      });
+    }
+
+    const registerDoc = {
+      ...payload,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const registerResult = await db.collection("registers").insertOne(registerDoc);
+    const loginRecord = await upsertLoginRecord(db, {
+      username: payload.username,
+      email: payload.email,
+      password: payload.password,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      insertedId: registerResult.insertedId,
+      data: buildUserResponse({ ...registerDoc, _id: registerResult.insertedId }, loginRecord)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateRegister = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const registerId = String(req.params.id || "").trim();
+
+    if (!ObjectId.isValid(registerId)) {
+      return res.status(400).json({ success: false, message: "Invalid register ID" });
+    }
+
+    const existingRegister = await db.collection("registers").findOne({ _id: new ObjectId(registerId) });
+    if (!existingRegister) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const payload = normalizeRegisterPayload(req.body, existingRegister);
+
+    const conflictingRegister = await db.collection("registers").findOne({
+      ...buildRegisterMatch(payload),
+      _id: { $ne: new ObjectId(registerId) },
+    });
+
+    if (conflictingRegister) {
+      return res.status(400).json({ success: false, message: "Username or email already registered" });
+    }
+
+    const updateDoc = {
+      ...payload,
+      updatedAt: new Date(),
+    };
+
+    await db.collection("registers").updateOne(
+      { _id: new ObjectId(registerId) },
+      { $set: updateDoc }
+    );
+
+    const loginRecord = await upsertLoginRecord(
+      db,
+      {
+        username: updateDoc.username,
+        email: updateDoc.email,
+        password: updateDoc.password,
+      },
+      existingRegister.email
+    );
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      data: buildUserResponse({ ...existingRegister, ...updateDoc, _id: existingRegister._id }, loginRecord)
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // ✅ GET ALL USERS
@@ -105,10 +257,32 @@ const registerLogin = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const db = getDB();
-    const { email, password } = req.body;
+    const identifier = String(req.body.identifier || req.body.email || req.body.username || "").trim();
+    const { password } = req.body;
 
-    let user = await db.collection("logins").findOne({ email });
-    let registerUser = await db.collection("registers").findOne({ email });
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        message: "Username or email is required"
+      });
+    }
+
+    const normalizedIdentifier = escapeRegExp(identifier);
+
+    let user = await db.collection("logins").findOne({
+      $or: [
+        { email: { $regex: `^${normalizedIdentifier}$`, $options: "i" } },
+        { username: { $regex: `^${normalizedIdentifier}$`, $options: "i" } },
+      ],
+    });
+    let registerUser = await findRegisterByIdentifier(db, identifier);
+
+    const legacyUser = await db.collection("users").findOne({
+      $or: [
+        { email: { $regex: `^${normalizedIdentifier}$`, $options: "i" } },
+        { username: { $regex: `^${normalizedIdentifier}$`, $options: "i" } },
+      ],
+    });
 
     if (!user && registerUser) {
       user = await upsertLoginRecord(db, {
@@ -118,16 +292,29 @@ const loginUser = async (req, res, next) => {
       });
     }
 
-    if (!user && !registerUser) {
+    if (!user && legacyUser?.email) {
+      user = await upsertLoginRecord(db, {
+        username: legacyUser.username,
+        email: legacyUser.email,
+        password: legacyUser.password,
+      });
+    }
+
+    if (!registerUser && legacyUser?.email) {
+      registerUser = await findRegisterByIdentifier(db, legacyUser.email);
+    }
+
+    if (!user && !registerUser && !legacyUser) {
       return res.status(404).json({
         success: false,
         message: "User not found"
       });
     }
 
-    const savedPassword = user?.password || registerUser?.password;
+    const savedPassword = user?.password || registerUser?.password || legacyUser?.password;
+    const isPasswordValid = await verifyPassword(password, savedPassword);
 
-    if (savedPassword !== password) {
+    if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         message: "Invalid password"
@@ -135,13 +322,15 @@ const loginUser = async (req, res, next) => {
     }
 
     if (!registerUser && user?.email) {
-      registerUser = await db.collection("registers").findOne({ email: user.email });
+      registerUser = await findRegisterByIdentifier(db, user.email);
     }
+
+    const responseData = buildUserResponse(registerUser, user, legacyUser);
 
     res.json({
       success: true,
       message: "Login successful",
-      data: buildUserResponse(registerUser, user)
+      data: responseData
     });
 
   } catch (error) {
@@ -305,6 +494,9 @@ const deleteLogin = async (req, res, next) => {
 };
 
 module.exports = {
+  getRegisters,
+  createRegister,
+  updateRegister,
   getLogins,
   registerLogin,
   loginUser,

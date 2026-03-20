@@ -17,17 +17,6 @@ const validate = require('../middleware/validationMiddleware');
  *   get:
  *     summary: Get all products
  *     tags: [Products]
- *     responses:
- *       200:
- *         description: List of products
- *       400:
- *         description: invalid request
- *       401:
- *         description: unauthorized access
- *       404:
- *         description: Product not found
- *       500:
- *         description: Internal server error
  */
 router.get('/products', productController.getProducts);
 
@@ -37,25 +26,6 @@ router.get('/products', productController.getProducts);
  *   get:
  *     summary: Get product by ID
  *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: Product ID
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Product found
- *      
- *       400:
- *         description: invalid request
- *       401:
- *         description: unauthorized access
- *       404:
- *         description: Product not found
- *       500:
- *         description: Internal server error
  */
 router.get(
   '/products/:id',
@@ -79,6 +49,7 @@ router.get(
  *             required:
  *               - name
  *               - price
+ *               - purchasePrice
  *               - moq
  *               - stock
  *             properties:
@@ -88,23 +59,15 @@ router.get(
  *               price:
  *                 type: number
  *                 example: 2500
+ *               purchasePrice:
+ *                 type: number
+ *                 example: 2000
  *               moq:
  *                 type: integer
  *                 example: 2
  *               stock:
  *                 type: integer
  *                 example: 10
- *     responses:
- *       201:
- *         description: Product created
- *       400:
- *         description: invalid request
- *       401:
- *         description: unauthorized access
- *       404:
- *         description: Product not found
- *       500:
- *         description: Internal server error
  */
 router.post(
   '/products',
@@ -115,6 +78,10 @@ router.post(
   body('price')
     .notEmpty().withMessage('Price is required')
     .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
+
+  body('purchasePrice')
+    .notEmpty().withMessage('Purchase price is required')
+    .isFloat({ gt: 0 }).withMessage('Purchase price must be greater than 0'),
 
   body('moq')
     .notEmpty().withMessage('MOQ is required')
@@ -134,38 +101,6 @@ router.post(
  *   put:
  *     summary: Update product
  *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *               moq:
- *                 type: integer
- *               stock:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Product updated
- *       400:
- *         description: invalid request
- *       401:
- *         description: unauthorized access
- *       404:
- *         description: Product not found
- *       500:
- *         description: Internal server error
  */
 router.put(
   '/products/:id',
@@ -178,6 +113,10 @@ router.put(
   body('price')
     .optional()
     .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
+
+  body('purchasePrice')
+    .optional()
+    .isFloat({ gt: 0 }).withMessage('Purchase price must be greater than 0'),
 
   body('moq')
     .optional()
@@ -197,22 +136,6 @@ router.put(
  *   delete:
  *     summary: Delete product
  *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         
- *     responses:
- *       200:
- *         description: Product deleted
- *       400:
- *         description: invalid request
- *       401:
- *         description: unauthorized access
- *       404:
- *         description: Product not found
- *       500:
- *         description: Internal server error
  */
 router.delete(
   '/products/:id',
@@ -221,7 +144,7 @@ router.delete(
   productController.deleteProduct
 );
 
-// ✅ INCREMENT STOCK — PATCH /products/:id/stock/increment
+// ✅ INCREMENT STOCK
 router.patch(
   '/products/:id/stock/increment',
   param('id').isMongoId().withMessage('Product ID must be a valid MongoDB ID'),
@@ -230,7 +153,7 @@ router.patch(
   productController.incrementStock
 );
 
-// ✅ DECREMENT STOCK — PATCH /products/:id/stock/decrement
+// ✅ DECREMENT STOCK
 router.patch(
   '/products/:id/stock/decrement',
   param('id').isMongoId().withMessage('Product ID must be a valid MongoDB ID'),

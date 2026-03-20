@@ -192,6 +192,21 @@ router.put(
   orderController.updateOrder
 );
 
+router.post(
+  '/orders/:id/dispatch-confirmation',
+  param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
+  validate,
+  orderController.sendDispatchConfirmation
+);
+
+router.post(
+  '/orders/dispatch-confirmation/reply',
+  body('orderId').isMongoId().withMessage('orderId must be a valid MongoDB ID'),
+  body('reply').notEmpty().withMessage('reply is required').isIn(['YES', 'NO', 'yes', 'no']).withMessage('reply must be YES or NO'),
+  validate,
+  orderController.recordDispatchReply
+);
+
 /**
  * @swagger
  * /orders/{id}:
