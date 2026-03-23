@@ -31,6 +31,8 @@ const validate = require('../middleware/validationMiddleware');
  */
 router.get('/deliveries', deliveryController.getDeliveries);
 
+router.get('/deliveries/check-pincode', deliveryController.checkPincodeAvailability);
+
 /**
  * @swagger
  * /deliveries/{id}:

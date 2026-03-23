@@ -8,11 +8,15 @@ import CommonTable from "../components/CommonTable";
 import { calculateDeliveryEta } from "../utils/deliveryEta";
 
 function OrderHistory() {
-  const { orders } = useContext(OrderContext);
+  const { orders, cancelOrder } = useContext(OrderContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [cancelInProgress, setCancelInProgress] = useState(false);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -93,6 +97,11 @@ function OrderHistory() {
     };
   };
 
+  const isCancellableStatus = (status) => {
+    const normalized = String(status || "").trim().toLowerCase();
+    return normalized === "pending" || normalized === "confirmed";
+  };
+
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
     { accessorKey: "quantity", header: "Quantity" },
@@ -121,6 +130,54 @@ function OrderHistory() {
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
     setShowOrderModal(true);
+  };
+
+  const openCancelModal = (order) => {
+    if (!isCancellableStatus(order?.status)) {
+      alert("Only Pending or Confirmed orders can be cancelled.");
+      return;
+    }
+    setOrderToCancel(order);
+    setCancelReason("");
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    const reason = String(cancelReason || "").trim();
+    if (!reason) {
+      alert("Please enter cancellation reason.");
+      return;
+    }
+
+    if (!orderToCancel?.id) {
+      alert("Order not found for cancellation.");
+      return;
+    }
+
+    setCancelInProgress(true);
+    const result = await cancelOrder(orderToCancel.id, reason);
+    setCancelInProgress(false);
+
+    if (!result?.success) {
+      alert(result?.message || "Unable to cancel order.");
+      return;
+    }
+
+    if (selectedOrder?.id === orderToCancel.id) {
+      setSelectedOrder(result?.data || { ...selectedOrder, status: "Cancelled", cancellationReason: reason });
+    }
+
+    setShowCancelModal(false);
+    setOrderToCancel(null);
+    setCancelReason("");
+
+    const refundStatus = result?.refund?.status;
+    if (refundStatus && String(refundStatus).toLowerCase() !== "not required") {
+      alert(`Order cancelled successfully. Refund status: ${refundStatus}`);
+      return;
+    }
+
+    alert("Order cancelled successfully.");
   };
 
   const loadImageDataUrl = (src) => new Promise((resolve) => {
@@ -309,6 +366,11 @@ function OrderHistory() {
             <button className="btn-secondary" onClick={() => handleViewOrder(row.original.rawOrder)}>
               View Details
             </button>
+            {isCancellableStatus(row.original.rawOrder?.status) && (
+              <button className="btn-close" onClick={() => openCancelModal(row.original.rawOrder)}>
+                Cancel Order
+              </button>
+            )}
             <button className="btn-success" onClick={() => handleDownloadInvoice(row.original.rawOrder)}>
               Download Invoice
             </button>
@@ -481,6 +543,18 @@ function OrderHistory() {
                     <span className="label">Payment Status:</span>
                     <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
                   </div>
+                  {selectedOrder.cancellationReason && (
+                    <div className="detail-item">
+                      <span className="label">Cancellation Reason:</span>
+                      <span className="value">{selectedOrder.cancellationReason}</span>
+                    </div>
+                  )}
+                  {selectedOrder.refund?.status && (
+                    <div className="detail-item">
+                      <span className="label">Refund Status:</span>
+                      <span className="value">{selectedOrder.refund.status}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -563,6 +637,14 @@ function OrderHistory() {
               >
                 Download Invoice
               </button>
+              {isCancellableStatus(selectedOrder.status) && (
+                <button
+                  className="btn-close"
+                  onClick={() => openCancelModal(selectedOrder)}
+                >
+                  Cancel Order
+                </button>
+              )}
               <button
                 className="btn-close"
                 onClick={() => setShowOrderModal(false)}
@@ -574,6 +656,54 @@ function OrderHistory() {
         </div>
           );
         })()
+      )}
+
+      {showCancelModal && orderToCancel && (
+        <div className="modal-overlay" onClick={() => !cancelInProgress && setShowCancelModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Cancel Order #{orderToCancel.id}</h2>
+              <button
+                className="modal-close"
+                onClick={() => !cancelInProgress && setShowCancelModal(false)}
+                disabled={cancelInProgress}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to cancel this order?</p>
+              <div className="form-group" style={{ marginTop: "12px" }}>
+                <label htmlFor="cancel-reason"><strong>Cancellation Reason</strong></label>
+                <textarea
+                  id="cancel-reason"
+                  rows={4}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Enter reason for cancelling this order"
+                  disabled={cancelInProgress}
+                  style={{ width: "100%", marginTop: "8px" }}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-close"
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelInProgress}
+              >
+                Keep Order
+              </button>
+              <button
+                className="btn-success"
+                onClick={handleConfirmCancel}
+                disabled={cancelInProgress}
+              >
+                {cancelInProgress ? "Cancelling..." : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -24,6 +24,9 @@ const normalizeOrder = (order = {}) => {
     paymentMethod: order.paymentMethod || order.payment || "cod",
     paymentStatus: order.paymentStatus || "Pending",
     status: order.status || "Pending",
+    cancellationReason: order.cancellationReason || "",
+    cancelledAt: order.cancelledAt || null,
+    refund: order.refund || null,
     customerId: order.customerId || order.userId || order.registerId || null,
     customerUsername: order.customerUsername || order.username || "",
     customerEmail: order.customerEmail || order.email || "",
@@ -155,7 +158,20 @@ export function OrderProvider({ children }) {
       };
 
       console.log("POST /orders payload:", orderPayload);
-      const response = await apiClient.post("/orders", orderPayload);
+
+      let response;
+      try {
+        response = await apiClient.post("/orders", orderPayload);
+      } catch (primaryError) {
+        const message = String(primaryError?.message || "").toLowerCase();
+        const shouldTryApiNamespace = message.includes("404") || message.includes("not found") || message.includes("cannot post");
+
+        if (!shouldTryApiNamespace) {
+          throw primaryError;
+        }
+
+        response = await apiClient.post("/api/orders", orderPayload);
+      }
 
       if (response?.success === false) {
         return null;
@@ -170,8 +186,8 @@ export function OrderProvider({ children }) {
 
       setOrders((prev) => [savedOrder, ...prev]);
       return savedOrder;
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(error?.message || "Order could not be saved to server.");
     }
   };
 
@@ -220,8 +236,50 @@ export function OrderProvider({ children }) {
     setOrders(updatedOrders);
   };
 
+  const cancelOrder = async (orderId, reason) => {
+    const orderIdString = String(orderId || "");
+    const cancelReason = String(reason || "").trim();
+
+    if (!cancelReason) {
+      return { success: false, message: "Cancellation reason is required." };
+    }
+
+    const currentOrder = orders.find((order) => order.id === orderIdString);
+    const currentStatus = String(currentOrder?.status || "").toLowerCase();
+    if (!["pending", "confirmed"].includes(currentStatus)) {
+      return { success: false, message: "Only Pending or Confirmed orders can be cancelled." };
+    }
+
+    if (!isMongoId(orderIdString)) {
+      return { success: false, message: "Invalid order id for cancellation." };
+    }
+
+    try {
+      const response = await apiClient.post(`/orders/${encodeURIComponent(orderIdString)}/cancel`, {
+        reason: cancelReason,
+      });
+
+      const updatedOrder = normalizeOrder(response?.data?.order || { ...currentOrder, status: "Cancelled", cancellationReason: cancelReason });
+
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderIdString
+            ? {
+                ...order,
+                ...updatedOrder,
+              }
+            : order
+        )
+      );
+
+      return { success: true, data: updatedOrder, refund: response?.data?.refund || null };
+    } catch (error) {
+      return { success: false, message: error?.message || "Unable to cancel order." };
+    }
+  };
+
   return (
-    <OrderContext.Provider value={{ orders, ordersLoading, ordersError, addOrder, updateOrderStatus, updateOrderPaymentStatus }}>
+    <OrderContext.Provider value={{ orders, ordersLoading, ordersError, addOrder, updateOrderStatus, updateOrderPaymentStatus, cancelOrder }}>
       {children}
     </OrderContext.Provider>
   );

@@ -24,12 +24,14 @@ app.use(express.urlencoded({ extended: true }));
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productroutes');
 const paymentRoutes = require('./routes/paymentroutes');
+const paymentConfirmationRoutes = require('./routes/paymentconformationroute');
 const orderRoutes = require('./routes/orderroutes');
 const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const authRoutes = require('./routes/authRoute');
 const plannedRoutes = require('./routes/plannedroutes');
 const contactRoutes = require('./routes/contactroutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 // Swagger Setup
 const options = {
@@ -87,8 +89,10 @@ app.use('/', orderRoutes);
 app.use('/', contactRoutes);
 app.use('/', loginRoutes);
 app.use('/', paymentRoutes);
+app.use('/', paymentConfirmationRoutes);
 app.use('/', deliveryRoutes);
 app.use('/', plannedRoutes);
+app.use('/', whatsappRoutes);
 
 // Planned API namespace
 app.use('/api', loginRoutes);
@@ -97,8 +101,10 @@ app.use('/api', productRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', contactRoutes);
 app.use('/api', paymentRoutes);
+app.use('/api', paymentConfirmationRoutes);
 app.use('/api', deliveryRoutes);
 app.use('/api', plannedRoutes);
+app.use('/api', whatsappRoutes);
 
 // Error Handler (Always keep at last)
 app.use(errorHandler);

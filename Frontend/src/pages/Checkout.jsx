@@ -8,6 +8,24 @@ import { NotificationContext } from "../context/NotificationContext";
 import { DeliveryContext } from "../context/DeliveryContext";
 import { calculateDeliveryEta } from "../utils/deliveryEta";
 import { calculateCartBilling, formatInvoiceText, generateInvoice } from "../utils/gst";
+import { getPincodeDeliveryMessage, isServiceablePincode, sanitizePincode } from "../utils/serviceablePincodes";
+import { apiClient } from "../utils/apiClient";
+
+const RAZORPAY_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_SU9OILjNd5mGst";
+
+const loadRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 
 function Checkout() {
   const navigate = useNavigate();
@@ -30,6 +48,11 @@ function Checkout() {
   const [paymentStep, setPaymentStep] = useState("details");
   const [deliveryInfo, setDeliveryInfo] = useState(null);
   const [lastInvoice, setLastInvoice] = useState(null);
+  const [pincodeStatus, setPincodeStatus] = useState({
+    checked: false,
+    isValid: false,
+    message: "",
+  });
   
   const [formData, setFormData] = useState({
     customerName: user?.username || "",
@@ -39,6 +62,8 @@ function Checkout() {
     deliveryPincode: user?.pincode || "",
     specialInstructions: "",
   });
+
+  const isUpiPayment = paymentMethod === "upi";
 
   // Auto-populate delivery details when user data is available
   useEffect(() => {
@@ -54,24 +79,36 @@ function Checkout() {
     }
   }, [user]);
 
-  const [paymentData, setPaymentData] = useState({
-    cardNumber: "",
-    cardName: "",
-    cardExpiry: "",
-    cardCVV: "",
-    upiId: "",
-    bankAccountNumber: "",
-    bankIfsc: "",
-  });
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    if (name === "deliveryPincode") {
+      const normalized = sanitizePincode(value);
+      const isValid = normalized.length === 6 && isServiceablePincode(normalized);
+      const message = normalized.length === 6 ? getPincodeDeliveryMessage(normalized) : "";
+
+      setFormData({ ...formData, [name]: normalized });
+      setPincodeStatus({
+        checked: normalized.length === 6,
+        isValid,
+        message,
+      });
+      return;
+    }
+
     setFormData({ ...formData, [name]: value });
   };
 
-  const handlePaymentInputChange = (e) => {
-    const { name, value } = e.target;
-    setPaymentData({ ...paymentData, [name]: value });
+  const handleCheckPincode = () => {
+    const normalized = sanitizePincode(formData.deliveryPincode);
+    const isValid = isServiceablePincode(normalized);
+    const message = getPincodeDeliveryMessage(normalized);
+
+    setFormData((prev) => ({ ...prev, deliveryPincode: normalized }));
+    setPincodeStatus({
+      checked: true,
+      isValid,
+      message,
+    });
   };
 
   const formatDateTime = (value) => {
@@ -93,28 +130,26 @@ function Checkout() {
       alert("Please fill all delivery details");
       return false;
     }
+
+    const normalizedPincode = sanitizePincode(formData.deliveryPincode);
+    const pincodeValid = isServiceablePincode(normalizedPincode);
+
+    setFormData((prev) => ({ ...prev, deliveryPincode: normalizedPincode }));
+    setPincodeStatus({
+      checked: true,
+      isValid: pincodeValid,
+      message: getPincodeDeliveryMessage(normalizedPincode),
+    });
+
+    if (!pincodeValid) {
+      alert("Sorry, delivery is not available in your area yet.");
+      return false;
+    }
+
     return true;
   };
 
-  const validatePaymentDetails = () => {
-    if (paymentMethod === "card") {
-      if (!paymentData.cardNumber || !paymentData.cardName || !paymentData.cardExpiry || !paymentData.cardCVV) {
-        alert("Please fill all card details");
-        return false;
-      }
-    } else if (paymentMethod === "upi") {
-      if (!paymentData.upiId) {
-        alert("Please enter your UPI ID");
-        return false;
-      }
-    } else if (paymentMethod === "bank") {
-      if (!paymentData.bankAccountNumber || !paymentData.bankIfsc) {
-        alert("Please fill bank transfer details");
-        return false;
-      }
-    }
-    return true;
-  };
+  const validatePaymentDetails = () => true;
 
   const resolveDistanceFromForm = () => {
     const city = String(formData.deliveryCity || "").trim().toLowerCase();
@@ -172,50 +207,59 @@ function Checkout() {
     });
     setLastInvoice(invoice);
 
-    setTimeout(async () => {
+    const order = {
+      items: gstBilling.items,
+      subtotal: totalPrice,
+      subtotalBeforeGst: gstBilling.subtotalBeforeGst,
+      totalGst: gstBilling.totalGst,
+      subtotalAfterGst: gstBilling.subtotalAfterGst,
+      deliveryCharge: deliveryCharge,
+      total: gstBilling.subtotalAfterGst + deliveryCharge,
+      invoice,
+      invoiceText: formatInvoiceText(invoice),
+      paymentMethod,
+      paymentStatus: paymentMethod === "cod" ? "Pending" : "Pending",
+      customerId: user?.id,
+      customerUsername: user?.username,
+      customerEmail: user?.email,
+      customerPhone: user?.phone || user?.phonenumber || "",
+      customerName: formData.customerName,
+      deliveryAddress: formData.deliveryAddress,
+      deliveryCity: formData.deliveryCity,
+      deliveryState: formData.deliveryState,
+      deliveryPincode: formData.deliveryPincode,
+      deliveryLocation: null,
+      deliveryInfo,
+      deliveryDistanceKm: deliveryInfo?.distanceKm ?? null,
+      estimatedDeliveryHours: deliveryInfo?.estimatedDeliveryHours ?? null,
+      estimatedDeliveryAt: deliveryInfo?.estimatedDeliveryAt ?? null,
+      nextDayDelivery: Boolean(deliveryInfo?.nextDayDelivery),
+      specialInstructions: formData.specialInstructions,
+      status: "Confirmed",
+      orderDate: new Date().toISOString(),
+    };
+
+    let createdOrder;
+    try {
+      createdOrder = await addOrder(order);
+    } catch (error) {
       setIsProcessingPayment(false);
+      setPaymentStep("payment");
+      alert(error?.message || "Order could not be saved to server. Please try again.");
+      return;
+    }
+
+    if (!createdOrder) {
+      setIsProcessingPayment(false);
+      setPaymentStep("payment");
+      alert("Order could not be saved to server. Please try again.");
+      return;
+    }
+
+    const orderId = createdOrder?.id ?? "new";
+
+    const finalizeSuccessFlow = () => {
       setPaymentStep("success");
-
-      const order = {
-        items: gstBilling.items,
-        subtotal: totalPrice,
-        subtotalBeforeGst: gstBilling.subtotalBeforeGst,
-        totalGst: gstBilling.totalGst,
-        subtotalAfterGst: gstBilling.subtotalAfterGst,
-        deliveryCharge: deliveryCharge,
-        total: gstBilling.subtotalAfterGst + deliveryCharge,
-        invoice,
-        invoiceText: formatInvoiceText(invoice),
-        paymentMethod,
-        paymentStatus: "Completed",
-        customerId: user?.id,
-        customerUsername: user?.username,
-        customerEmail: user?.email,
-        customerPhone: user?.phone || user?.phonenumber || "",
-        customerName: formData.customerName,
-        deliveryAddress: formData.deliveryAddress,
-        deliveryCity: formData.deliveryCity,
-        deliveryState: formData.deliveryState,
-        deliveryPincode: formData.deliveryPincode,
-        deliveryLocation: null,
-        deliveryInfo,
-        deliveryDistanceKm: deliveryInfo?.distanceKm ?? null,
-        estimatedDeliveryHours: deliveryInfo?.estimatedDeliveryHours ?? null,
-        estimatedDeliveryAt: deliveryInfo?.estimatedDeliveryAt ?? null,
-        nextDayDelivery: Boolean(deliveryInfo?.nextDayDelivery),
-        specialInstructions: formData.specialInstructions,
-        status: "Confirmed",
-        orderDate: new Date().toISOString(),
-      };
-
-      const createdOrder = await addOrder(order);
-      if (!createdOrder) {
-        setPaymentStep("payment");
-        alert("Order could not be saved to server. Please try again.");
-        return;
-      }
-
-      const orderId = createdOrder?.id ?? "new";
 
       addNotification({
         type: "order",
@@ -254,7 +298,90 @@ function Checkout() {
       setTimeout(() => {
         navigate("/order-success");
       }, 2000);
-    }, 2000);
+    };
+
+    // COD uses normal confirmation flow.
+    if (paymentMethod === "cod") {
+      setIsProcessingPayment(false);
+      finalizeSuccessFlow();
+      return;
+    }
+
+    // Online payment uses Razorpay checkout flow.
+    try {
+      const isRazorpayLoaded = await loadRazorpayScript();
+      if (!isRazorpayLoaded) {
+        throw new Error("Razorpay SDK failed to load");
+      }
+
+      const createOrderResponse = await apiClient.post("/create-order", {
+        amount: order.total,
+        currency: "INR",
+        orderId,
+      });
+
+      if (!createOrderResponse?.order_id) {
+        throw new Error("Unable to create Razorpay order");
+      }
+
+      const paymentResponse = await new Promise((resolve, reject) => {
+        const razorpayInstance = new window.Razorpay({
+          key: RAZORPAY_KEY_ID,
+          amount: createOrderResponse.amount,
+          currency: createOrderResponse.currency,
+          name: "Wholesale Store",
+          description: `Order #${orderId}`,
+          order_id: createOrderResponse.order_id,
+          prefill: {
+            name: formData.customerName || user?.username || "",
+            email: user?.email || "",
+            contact: user?.phone || user?.phonenumber || "",
+          },
+          notes: {
+            appOrderId: String(orderId),
+            paymentMethod,
+          },
+          ...(isUpiPayment
+            ? {
+                method: {
+                  upi: true,
+                  card: true,
+                  netbanking: true,
+                  wallet: true,
+                },
+              }
+            : {}),
+          handler: (response) => resolve(response),
+          modal: {
+            ondismiss: () => reject(new Error("Payment cancelled by user")),
+          },
+        });
+
+        razorpayInstance.on("payment.failed", (event) => {
+          reject(new Error(event?.error?.description || "Razorpay payment failed"));
+        });
+
+        razorpayInstance.open();
+      });
+
+      const verifyResponse = await apiClient.post("/verify-payment", {
+        orderId,
+        razorpay_order_id: paymentResponse.razorpay_order_id,
+        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+        razorpay_signature: paymentResponse.razorpay_signature,
+      });
+
+      if (!verifyResponse?.success) {
+        throw new Error("Payment verification failed");
+      }
+
+      setIsProcessingPayment(false);
+      finalizeSuccessFlow();
+    } catch (error) {
+      setIsProcessingPayment(false);
+      setPaymentStep("payment");
+      alert(error?.message || "Payment could not be completed. Please try again.");
+    }
   };
 
   const finalTotal = grandTotal + deliveryCharge;
@@ -460,9 +587,21 @@ function Checkout() {
                       placeholder="e.g., 388001"
                       value={formData.deliveryPincode}
                       onChange={handleInputChange}
+                      inputMode="numeric"
+                      maxLength={6}
                       pattern="[0-9]{6}"
                       required
                     />
+                    <div className="pincode-check-wrap">
+                      <button type="button" className="btn-back" onClick={handleCheckPincode}>
+                        Check Availability
+                      </button>
+                      {pincodeStatus.checked && (
+                        <span className={pincodeStatus.isValid ? "pincode-message success" : "pincode-message error"}>
+                          {pincodeStatus.message}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -524,44 +663,10 @@ function Checkout() {
                   onChange={(e) => setPaymentMethod(e.target.value)}
                 />
                 <span className="payment-label">
-                  <span className="payment-icon">📱</span>
-                  <span className="payment-text">
-                    <strong>UPI Payment</strong>
-                    <small>Google Pay, PhonePe, Paytm</small>
-                  </span>
-                </span>
-              </label>
-
-              <label className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="card"
-                  checked={paymentMethod === "card"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <span className="payment-label">
                   <span className="payment-icon">💳</span>
                   <span className="payment-text">
-                    <strong>Debit/Credit Card</strong>
-                    <small>Secure card payment</small>
-                  </span>
-                </span>
-              </label>
-
-              <label className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="bank"
-                  checked={paymentMethod === "bank"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <span className="payment-label">
-                  <span className="payment-icon">🏦</span>
-                  <span className="payment-text">
-                    <strong>Bank Transfer</strong>
-                    <small>Direct bank deposit / NEFT / RTGS</small>
+                    <strong>Online Payment</strong>
+                    <small>Pay with any Online app via Razorpay</small>
                   </span>
                 </span>
               </label>
@@ -581,129 +686,15 @@ function Checkout() {
               </div>
             )}
 
-            {/* UPI Form */}
+            {/* Online Payment */}
             {paymentMethod === "upi" && (
-              <form className="payment-form" onSubmit={handleProcessPayment}>
-                <h4>UPI Payment</h4>
-                <div className="form-group">
-                  <label htmlFor="upiId">UPI ID *</label>
-                  <input
-                    id="upiId"
-                    type="text"
-                    name="upiId"
-                    placeholder="yourname@upi"
-                    value={paymentData.upiId}
-                    onChange={handlePaymentInputChange}
-                    required
-                  />
-                </div>
-                <button type="submit" className="btn-confirm-payment" disabled={isProcessingPayment}>
-                  {isProcessingPayment ? "Processing Payment..." : `Pay ₹${finalTotal.toFixed(2)}`}
+              <div className="payment-form upi-info">
+                <h4>Online Payment</h4>
+                <p>You will be redirected to Razorpay secure checkout.</p>
+                <button type="button" onClick={handleProcessPayment} className="btn-confirm-payment" disabled={isProcessingPayment}>
+                  {isProcessingPayment ? "Opening Razorpay..." : `Pay ₹${finalTotal.toFixed(2)}`}
                 </button>
-              </form>
-            )}
-
-            {/* Card Form */}
-            {paymentMethod === "card" && (
-              <form className="payment-form" onSubmit={handleProcessPayment}>
-                <h4>Card Payment</h4>
-                <div className="form-group">
-                  <label htmlFor="cardNumber">Card Number *</label>
-                  <input
-                    id="cardNumber"
-                    type="text"
-                    name="cardNumber"
-                    placeholder="1234 5678 9012 3456"
-                    value={paymentData.cardNumber}
-                    onChange={handlePaymentInputChange}
-                    pattern="[0-9\s]{16,19}"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cardName">Cardholder Name *</label>
-                  <input
-                    id="cardName"
-                    type="text"
-                    name="cardName"
-                    placeholder="JOHN DOE"
-                    value={paymentData.cardName}
-                    onChange={handlePaymentInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="cardExpiry">Expiry (MM/YY) *</label>
-                    <input
-                      id="cardExpiry"
-                      type="text"
-                      name="cardExpiry"
-                      placeholder="12/25"
-                      value={paymentData.cardExpiry}
-                      onChange={handlePaymentInputChange}
-                      pattern="\d{2}/\d{2}"
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="cardCVV">CVV *</label>
-                    <input
-                      id="cardCVV"
-                      type="text"
-                      name="cardCVV"
-                      placeholder="123"
-                      value={paymentData.cardCVV}
-                      onChange={handlePaymentInputChange}
-                      pattern="\d{3,4}"
-                      required
-                    />
-                  </div>
-                </div>
-                <button type="submit" className="btn-confirm-payment" disabled={isProcessingPayment}>
-                  {isProcessingPayment ? "Processing Payment..." : `Pay ₹${finalTotal.toFixed(2)}`}
-                </button>
-              </form>
-            )}
-
-            {/* Bank Transfer */}
-            {paymentMethod === "bank" && (
-              <form className="payment-form" onSubmit={handleProcessPayment}>
-                <h4>Bank Transfer Details</h4>
-                <div className="bank-details-display">
-                  <p><strong>Account Name:</strong> DK TRADERS Wholesale</p>
-                  <p><strong>Account Number:</strong> 123456789012345</p>
-                  <p><strong>IFSC Code:</strong> SBIN0001234</p>
-                  <p><strong>Bank Name:</strong> State Bank of India</p>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="bankAccountNumber">Your Account Number *</label>
-                  <input
-                    id="bankAccountNumber"
-                    type="text"
-                    name="bankAccountNumber"
-                    placeholder="Enter your account number"
-                    value={paymentData.bankAccountNumber}
-                    onChange={handlePaymentInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="bankIfsc">Your Bank IFSC Code *</label>
-                  <input
-                    id="bankIfsc"
-                    type="text"
-                    name="bankIfsc"
-                    placeholder="SBIN0001234"
-                    value={paymentData.bankIfsc}
-                    onChange={handlePaymentInputChange}
-                    required
-                  />
-                </div>
-                <button type="submit" className="btn-confirm-payment" disabled={isProcessingPayment}>
-                  {isProcessingPayment ? "Processing..." : "Confirm Transfer"}
-                </button>
-              </form>
+              </div>
             )}
 
             <button type="button" onClick={() => setPaymentStep("details")} className="btn-back">
@@ -721,7 +712,7 @@ function Checkout() {
             <h3>Payment Successful!</h3>
             <p>Your order has been confirmed.</p>
             <div className="success-details">
-              <p><strong>Payment Method:</strong> {paymentMethod.toUpperCase()}</p>
+              <p><strong>Payment Method:</strong> {paymentMethod === "cod" ? "COD" : "Online Payment"}</p>
               <p><strong>Subtotal:</strong> ₹{totalPrice.toFixed(2)}</p>
               <p><strong>Total GST:</strong> ₹{totalGst.toFixed(2)}</p>
               <p><strong>Delivery Charge:</strong> ₹{deliveryCharge.toFixed(2)}</p>

@@ -1,5 +1,24 @@
 const { getDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
+const { getPincodeDeliveryMessage, isServiceablePincode, sanitizePincode } = require('../utils/serviceablePincodes');
+
+const checkPincodeAvailability = async (req, res, next) => {
+  try {
+    const normalizedPincode = sanitizePincode(req.query?.pincode || req.body?.pincode || '');
+    const serviceable = isServiceablePincode(normalizedPincode);
+
+    res.json({
+      success: true,
+      data: {
+        pincode: normalizedPincode,
+        serviceable,
+        message: getPincodeDeliveryMessage(normalizedPincode),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // ✅ GET ALL DELIVERIES
 const getDeliveries = async (req, res, next) => {
@@ -50,12 +69,24 @@ const createDelivery = async (req, res, next) => {
     const db = getDB();
 
     const { name, deliveryAddress, city, pincode, specialInstruction } = req.body;
+    const normalizedPincode = sanitizePincode(pincode);
+
+    if (!isServiceablePincode(normalizedPincode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sorry, delivery is not available in your area yet.',
+        data: {
+          pincode: normalizedPincode,
+          serviceable: false,
+        },
+      });
+    }
 
     const newDelivery = {
       name,
       deliveryAddress,
       city,
-      pincode,
+      pincode: normalizedPincode,
       specialInstruction,
       createdAt: new Date()
     };
@@ -86,17 +117,33 @@ const updateDelivery = async (req, res, next) => {
     }
 
     const { name, deliveryAddress, city, pincode, specialInstruction } = req.body;
+    const normalizedPincode = pincode == null ? undefined : sanitizePincode(pincode);
+
+    if (normalizedPincode != null && !isServiceablePincode(normalizedPincode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sorry, delivery is not available in your area yet.',
+        data: {
+          pincode: normalizedPincode,
+          serviceable: false,
+        },
+      });
+    }
+
+    const updatePayload = {
+      name,
+      deliveryAddress,
+      city,
+      specialInstruction,
+    };
+    if (normalizedPincode !== undefined) {
+      updatePayload.pincode = normalizedPincode;
+    }
 
     const result = await db.collection("deliveries").updateOne(
       { _id: new ObjectId(req.params.id) },
       {
-        $set: {
-          name,
-          deliveryAddress,
-          city,
-          pincode,
-          specialInstruction
-        }
+        $set: updatePayload
       }
     );
 
@@ -145,6 +192,7 @@ const deleteDelivery = async (req, res, next) => {
 };
 
 module.exports = {
+  checkPincodeAvailability,
   getDeliveries,
   getDeliveryById,
   createDelivery,

@@ -207,6 +207,14 @@ router.put(
 );
 
 router.post(
+  '/orders/:id/cancel',
+  param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
+  body('reason').notEmpty().withMessage('Cancellation reason is required').isString().withMessage('Cancellation reason must be a string'),
+  validate,
+  orderController.cancelOrder
+);
+
+router.post(
   '/orders/:id/dispatch-confirmation',
   param('id').isMongoId().withMessage('Order ID must be a valid MongoDB ID'),
   validate,

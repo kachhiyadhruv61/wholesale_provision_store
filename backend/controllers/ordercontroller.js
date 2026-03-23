@@ -1,5 +1,7 @@
 const { getDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
+const { isServiceablePincode, sanitizePincode } = require('../utils/serviceablePincodes');
+const { queueWhatsAppDeliveryConfirmation } = require('../utils/whatsappDelivery');
 
 const DISPATCH_STATUS_SET = new Set(['processing', 'shipped', 'out for delivery', 'dispatched']);
 const BUSINESS_ORDER_NUMBER = '9313616159';
@@ -95,6 +97,13 @@ const BUSINESS_SENDER_NUMBER = '+919313616159';
 const TWILIO_READY = Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN);
 
 const isDispatchLikeStatus = (value) => DISPATCH_STATUS_SET.has(String(value || '').trim().toLowerCase());
+const CANCELLABLE_STATUS_SET = new Set(['pending', 'confirmed']);
+const NON_CANCELLABLE_STATUS_SET = new Set(['shipped', 'delivered', 'cancelled']);
+
+const isOnlinePaymentMethod = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['upi', 'card', 'bank', 'net banking'].includes(normalized);
+};
 
 const resolvePhoneFromAnyRecord = (record) => {
   if (!record) return '';
@@ -469,6 +478,18 @@ const getOrderById = async (req, res, next) => {
 const createOrder = async (req, res, next) => {
   try {
     const db = getDB();
+    const normalizedPincode = sanitizePincode(req.body.pincode || req.body.deliveryPincode || '');
+
+    if (!isServiceablePincode(normalizedPincode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sorry, delivery is not available in your area yet.',
+        data: {
+          pincode: normalizedPincode,
+          serviceable: false,
+        },
+      });
+    }
 
     const rawItems = Array.isArray(req.body.items) ? req.body.items : [];
 
@@ -522,6 +543,7 @@ const createOrder = async (req, res, next) => {
       orderId: req.body.orderId,
       userId: req.body.userId,
       date: req.body.date || new Date(),
+      pincode: normalizedPincode,
       items: billing.items,
       totalAmountBeforeGst: Number(req.body.totalAmountBeforeGst || req.body.subtotal || billing.totalAmountBeforeGst),
       totalGst: Number(req.body.totalGst || billing.totalGst),
@@ -646,7 +668,28 @@ const updateOrder = async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, message: "Order updated", dispatchConfirmation });
+    // Send WhatsApp delivery confirmation when order is marked as delivered
+    let whatsappConfirmation = null;
+    const movedToDelivered = nextStatus.toLowerCase() === 'delivered' && previousStatus.toLowerCase() !== 'delivered';
+    if (movedToDelivered) {
+      const refreshedOrder = await db.collection('orders').findOne({ _id: new ObjectId(orderId) });
+      if (refreshedOrder) {
+        whatsappConfirmation = await queueWhatsAppDeliveryConfirmation({
+          db,
+          orderId: orderId,
+          order: refreshedOrder,
+          invoiceLink: refreshedOrder?.invoiceLink || `${process.env.INVOICE_LINK || 'https://wholesale-store.local/invoices'}/${orderId}`,
+        });
+        
+        if (whatsappConfirmation.queued) {
+          console.log(`WhatsApp delivery confirmation sent for order ${orderId}`);
+        } else {
+          console.warn(`Failed to send WhatsApp delivery confirmation for order ${orderId}:`, whatsappConfirmation.reason);
+        }
+      }
+    }
+
+    res.json({ success: true, message: "Order updated", dispatchConfirmation, whatsappConfirmation });
 
   } catch (error) {
     next(error);
@@ -739,6 +782,109 @@ const recordDispatchReply = async (req, res, next) => {
   }
 };
 
+const cancelOrder = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const orderId = String(req.params.id || '').trim();
+    const reason = String(req.body.reason || '').trim();
+
+    if (!ObjectId.isValid(orderId)) {
+      return res.status(400).json({ success: false, message: 'Invalid order ID' });
+    }
+
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Cancellation reason is required' });
+    }
+
+    const orderObjectId = new ObjectId(orderId);
+    const order = await db.collection('orders').findOne({ _id: orderObjectId });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const currentStatus = String(order.status || '').trim().toLowerCase();
+    if (NON_CANCELLABLE_STATUS_SET.has(currentStatus) && currentStatus !== 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order cannot be cancelled after it is shipped or delivered',
+      });
+    }
+
+    if (currentStatus === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Order is already cancelled' });
+    }
+
+    if (!CANCELLABLE_STATUS_SET.has(currentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only Pending or Confirmed orders can be cancelled',
+      });
+    }
+
+    const orderItems = Array.isArray(order.items) ? order.items : [];
+    if (!order?.stockRestoredOnCancel) {
+      for (const item of orderItems) {
+        const productId = String(item?.id || item?.productId || item?._id || '').trim();
+        const qty = Number(item?.quantity || 0);
+
+        if (!ObjectId.isValid(productId) || !Number.isFinite(qty) || qty <= 0) {
+          continue;
+        }
+
+        await db.collection('products').updateOne(
+          { _id: new ObjectId(productId) },
+          { $inc: { stock: qty }, $set: { updatedAt: new Date() } }
+        );
+      }
+    }
+
+    const now = new Date();
+    const paymentMethod = String(order.payment || order.paymentMethod || '').trim();
+    const isOnlinePayment = isOnlinePaymentMethod(paymentMethod);
+
+    const updatePayload = {
+      $set: {
+        status: 'Cancelled',
+        action: 'Cancelled',
+        cancelledAt: now,
+        cancellationReason: reason,
+        stockRestoredOnCancel: true,
+        paymentStatus: isOnlinePayment ? 'Refunded' : String(order.paymentStatus || 'Pending'),
+        refund: {
+          applicable: isOnlinePayment,
+          status: isOnlinePayment ? 'Processed' : 'Not Required',
+          processedAt: isOnlinePayment ? now : null,
+          amount: Number(order.finalPayableAmount || order.totalAmount || 0),
+          reason: isOnlinePayment ? 'Order cancelled by customer' : 'Cash on delivery order cancelled',
+        },
+      },
+      $push: {
+        statusHistory: {
+          status: 'Cancelled',
+          at: now,
+          reason,
+        },
+      },
+    };
+
+    await db.collection('orders').updateOne({ _id: orderObjectId }, updatePayload);
+    const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
+
+    res.json({
+      success: true,
+      message: isOnlinePayment
+        ? 'Order cancelled, stock restored, and refund processed'
+        : 'Order cancelled and stock restored',
+      data: {
+        order: updatedOrder,
+        refund: updatedOrder?.refund || null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ✅ DELETE ORDER
 const deleteOrder = async (req, res, next) => {
   try {
@@ -767,6 +913,7 @@ module.exports = {
   getOrderById,
   createOrder,
   updateOrder,
+  cancelOrder,
   deleteOrder,
   sendDispatchConfirmation,
   recordDispatchReply
