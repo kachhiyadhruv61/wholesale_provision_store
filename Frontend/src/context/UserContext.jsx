@@ -110,7 +110,7 @@ export function UserProvider({ children }) {
 
   const loginUser = async (identifier, password) => {
     try {
-      const response = await apiClient.post("/api/login", {
+      const response = await apiClient.post("/login", {
         identifier: String(identifier || "").trim(),
         password,
       });
