@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
@@ -19,6 +19,12 @@ function UserProfile() {
   });
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    setFormData(
+      user || { username: "", email: "", phone: "", address: "", city: "", state: "", pincode: "" }
+    );
+  }, [user]);
+
   if (!user) {
     return (
       <div className="profile-page empty">
@@ -36,8 +42,13 @@ function UserProfile() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSaveProfile = () => {
-    updateUserProfile(formData);
+  const handleSaveProfile = async () => {
+    const result = await updateUserProfile(formData);
+    if (!result?.success) {
+      setMessage(result?.message || "Unable to update profile.");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
     setMessage("Profile updated successfully!");
     setEditMode(false);
     setTimeout(() => setMessage(""), 3000);
@@ -48,12 +59,12 @@ function UserProfile() {
     setPasswordData({ ...passwordData, [name]: value });
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setMessage("New passwords do not match!");
       return;
     }
-    const result = changePassword(passwordData.oldPassword, passwordData.newPassword);
+    const result = await changePassword(passwordData.oldPassword, passwordData.newPassword);
     if (result.success) {
       setMessage("Password changed successfully!");
       setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });
@@ -80,7 +91,7 @@ function UserProfile() {
           <p className="subtitle">Wholesale Retailer • Member since {new Date(user.joinDate).toLocaleDateString()}</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => navigate("/orders")}>View Orders</button>
+          <button className="btn-secondary" onClick={() => navigate("/order-history")}>View Orders</button>
           <button className="btn-danger" onClick={handleLogout}>Logout</button>
         </div>
       </div>

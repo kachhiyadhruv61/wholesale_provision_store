@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
+import { useContext } from "react";
+import { UserContext } from "../context/UserContext";
 
 function Footer() {
+  const { user } = useContext(UserContext);
+
   return (
     <footer className="footer">
       <div className="footer-container">
@@ -26,7 +30,7 @@ function Footer() {
             <li><Link to="/">Home</Link></li>
             <li><Link to="/products">Products</Link></li>
             <li><Link to="/cart">Cart</Link></li>
-            <li><Link to="/about">About</Link></li>
+            {!user && <li><Link to="/about">About</Link></li>}
             <li><Link to="/contact">Contact</Link></li>
           </ul>
         </div>

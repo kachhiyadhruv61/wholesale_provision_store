@@ -1,4 +1,5 @@
 import { createContext, useState } from "react";
+import { calculateCartBilling, getGstRateByCategory, normalizeCategory } from "../utils/gst";
 
 export const CartContext = createContext();
 
@@ -20,27 +21,70 @@ export function CartProvider({ children }) {
   };
 
   const addToCart = (product) => {
+    let addResult = { success: true };
+
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex((item) => item.id === product.id);
       const incomingQty = product.quantity || 1;
+      const maxStock = Number(product.stock || 0);
 
       if (existingIndex !== -1) {
         const updatedCart = [...prevCart];
         const existingItem = updatedCart[existingIndex];
         const newQuantity = (existingItem.quantity || 1) + incomingQty;
+
+        if (Number.isFinite(maxStock) && maxStock >= 0 && newQuantity > maxStock) {
+          addResult = {
+            success: false,
+            reason: "insufficient_stock",
+            available: maxStock,
+            requested: newQuantity,
+            productName: product.name || existingItem.name || "Product",
+          };
+          return prevCart;
+        }
+
         const unitPrice = getBulkPrice(existingItem, newQuantity);
 
         updatedCart[existingIndex] = {
           ...existingItem,
           quantity: newQuantity,
           price: unitPrice,
+          category: normalizeCategory(existingItem.category || product.category || ""),
+          gstPercent: Number(
+            existingItem.gstPercent != null
+              ? existingItem.gstPercent
+              : getGstRateByCategory(existingItem.category || product.category)
+          ),
         };
         return updatedCart;
       }
 
+      if (Number.isFinite(maxStock) && maxStock >= 0 && incomingQty > maxStock) {
+        addResult = {
+          success: false,
+          reason: "insufficient_stock",
+          available: maxStock,
+          requested: incomingQty,
+          productName: product.name || "Product",
+        };
+        return prevCart;
+      }
+
       const unitPrice = getBulkPrice(product, incomingQty);
-      return [...prevCart, { ...product, quantity: incomingQty, price: unitPrice }];
+      return [
+        ...prevCart,
+        {
+          ...product,
+          quantity: incomingQty,
+          price: unitPrice,
+          category: normalizeCategory(product.category || ""),
+          gstPercent: getGstRateByCategory(product.category),
+        },
+      ];
     });
+
+    return addResult;
   };
 
   const incrementQuantity = (index) => {
@@ -90,6 +134,10 @@ export function CartProvider({ children }) {
     0
   );
 
+  const cartBilling = calculateCartBilling(cart);
+  const totalGst = cartBilling.totalGst;
+  const grandTotal = cartBilling.subtotalAfterGst;
+
   const deliveryCharge = totalPrice > 0 && totalPrice < 6000 ? 150 : 0;
 
   return (
@@ -99,6 +147,9 @@ export function CartProvider({ children }) {
         addToCart,
         removeFromCart,
         totalPrice,
+        totalGst,
+        grandTotal,
+        cartBilling,
         deliveryCharge,
         clearCart,
         incrementQuantity,

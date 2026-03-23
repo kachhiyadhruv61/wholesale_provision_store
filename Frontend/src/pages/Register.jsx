@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { apiClient } from "../utils/apiClient";
 
 function Register() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ function Register() {
     });
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match!");
@@ -33,9 +34,24 @@ function Register() {
       alert("Please accept the terms and conditions");
       return;
     }
-    // For demo purposes, just navigate to login
-    alert("Registration successful! Please login to continue.");
-    navigate("/login");
+
+    try {
+      await apiClient.post("/registers", {
+        username: formData.username.trim(),
+        fullname: formData.ownerName.trim(),
+        shopname: formData.shopName.trim(),
+        shopaddress: formData.shopAddress.trim(),
+        email: formData.email.trim(),
+        phonenumber: formData.phone.replace(/\D/g, "").slice(-10),
+        password: formData.password,
+        confirmpassword: formData.confirmPassword,
+      });
+
+      alert("Registration successful! Please login to continue.");
+      navigate("/login");
+    } catch (error) {
+      alert(error.message || "Unable to register right now.");
+    }
   };
 
   return (

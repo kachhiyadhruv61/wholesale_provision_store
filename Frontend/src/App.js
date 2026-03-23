@@ -1,5 +1,6 @@
 import "./App.css";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { useContext } from "react";
 
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -30,11 +31,14 @@ import { PaymentProvider } from "./context/PaymentContext";
 import { UserProvider } from "./context/UserContext";
 import { DeliveryProvider } from "./context/DeliveryContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { ContactProvider } from "./context/ContactContext";
+import { UserContext } from "./context/UserContext";
 import OrderHistory from "./pages/OrderHistory";
 
 // Handles routing while conditionally hiding global chrome on admin pages
 function AppShell() {
   const location = useLocation();
+  const { user } = useContext(UserContext);
   const hideChrome = location.pathname.startsWith("/admin");
 
   return (
@@ -49,7 +53,7 @@ function AppShell() {
         <Route path="/register" element={<Register />} />
         <Route path="/products" element={<Products />} />
         <Route path="/product/:id" element={<ProductDetail />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/about" element={user ? <Navigate to="/" replace /> : <About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/faqs" element={<FAQs />} />
         <Route path="/cart" element={<Cart />} />
@@ -93,9 +97,11 @@ function App() {
             <NotificationProvider>
               <UserProvider>
                 <DeliveryProvider>
-                  <BrowserRouter>
-                    <AppShell />
-                  </BrowserRouter>
+                  <ContactProvider>
+                    <BrowserRouter>
+                      <AppShell />
+                    </BrowserRouter>
+                  </ContactProvider>
                 </DeliveryProvider>
               </UserProvider>
             </NotificationProvider>

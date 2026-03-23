@@ -73,7 +73,7 @@ function ForgotPassword() {
     setOtpMeta({ ...otpMeta, error: "Invalid OTP. Please try again." });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!otpMeta.sent) {
@@ -98,7 +98,7 @@ function ForgotPassword() {
       return;
     }
 
-    const result = resetPassword(formData.identifier.trim(), formData.newPassword);
+    const result = await resetPassword(formData.identifier.trim(), formData.newPassword);
     if (!result.success) {
       setIsError(true);
       setMessage(result.message || "Unable to reset password.");

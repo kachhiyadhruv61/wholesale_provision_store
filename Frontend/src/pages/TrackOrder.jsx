@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./TrackOrder.module.css";
+import { apiClient } from "../utils/apiClient";
 
 const TIMELINE_STEPS = [
   { key: "Pending", title: "Order Placed" },
@@ -11,6 +12,7 @@ const TIMELINE_STEPS = [
 ];
 
 const VALID_TRACKING_ID = /^[A-Za-z0-9_-]{4,40}$/;
+const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
 
 function normalizeStatus(status) {
   const normalized = String(status || "Pending").trim().toLowerCase();
@@ -71,6 +73,26 @@ function getStatusHeadline(status) {
   return "Order has been placed";
 }
 
+function mapOrderToTrackingData(order, fallbackTrackingId) {
+  const source = order?.data || order || {};
+  const currentStatus = normalizeStatus(source.status || source.currentStatus);
+  return {
+    trackingId: source.orderId || source._id || source.id || fallbackTrackingId,
+    currentStatus,
+    orderDate: source.orderDate || source.date || source.createdAt || null,
+    estimatedDelivery:
+      source.estimatedDelivery ||
+      source.estimatedDeliveryAt ||
+      source.estimatedDeliveryDate ||
+      source.expectedDelivery ||
+      source.expectedDeliveryAt ||
+      source.eta ||
+      null,
+    statusUpdatedAt: source.statusUpdatedAt || source.updatedAt || source.lastUpdated || null,
+    stepDates: getStepDates(source),
+  };
+}
+
 function TrackOrder() {
   const [trackingId, setTrackingId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -117,33 +139,27 @@ function TrackOrder() {
     setTrackingData(null);
 
     try {
-      const response = await fetch(`/api/tracking/${encodeURIComponent(cleanTrackingId)}`);
+      let orderData;
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Tracking ID not found. Please check and try again.");
-        }
-        throw new Error("Unable to fetch tracking details right now.");
+      if (MONGO_ID_REGEX.test(cleanTrackingId)) {
+        const response = await apiClient.get(`/api/orders/${encodeURIComponent(cleanTrackingId)}`);
+        orderData = response?.data || response;
+      } else {
+        const response = await apiClient.get("/api/orders");
+        const allOrders = Array.isArray(response?.data) ? response.data : [];
+        orderData = allOrders.find((entry) => {
+          const orderId = String(entry?.orderId || "").trim().toLowerCase();
+          const mongoId = String(entry?._id || entry?.id || "").trim().toLowerCase();
+          const lookup = cleanTrackingId.toLowerCase();
+          return orderId === lookup || mongoId === lookup;
+        });
       }
 
-      const data = await response.json();
-      const currentStatus = normalizeStatus(data.currentStatus || data.status);
+      if (!orderData) {
+        throw new Error("Tracking ID not found. Please check and try again.");
+      }
 
-      setTrackingData({
-        trackingId: data.trackingId || cleanTrackingId,
-        currentStatus,
-        orderDate: data.orderDate || data.date || data.createdAt || null,
-        estimatedDelivery:
-          data.estimatedDelivery ||
-          data.estimatedDeliveryAt ||
-          data.estimatedDeliveryDate ||
-          data.expectedDelivery ||
-          data.expectedDeliveryAt ||
-          data.eta ||
-          null,
-        statusUpdatedAt: data.statusUpdatedAt || data.updatedAt || data.lastUpdated || null,
-        stepDates: getStepDates(data),
-      });
+      setTrackingData(mapOrderToTrackingData(orderData, cleanTrackingId));
     } catch (fetchError) {
       setError(fetchError.message || "Something went wrong while tracking your order.");
     } finally {

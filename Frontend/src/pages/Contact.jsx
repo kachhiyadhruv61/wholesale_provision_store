@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { apiClient } from "../utils/apiClient";
 
 const supportPhone = "+919313616159";
 const supportWhatsApp = "919313616159";
@@ -68,7 +69,7 @@ function Contact() {
   const { user } = useContext(UserContext);
   const { addNotification } = useContext(NotificationContext);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!user) {
@@ -80,21 +81,38 @@ function Contact() {
     const name = (formData.get("name") || "").toString().trim();
     const email = (formData.get("email") || "").toString().trim();
     const phone = (formData.get("phone") || "").toString().trim();
+    const phoneNumber = phone.replace(/\D/g, "").slice(-10);
     const message = (formData.get("message") || "").toString().trim();
 
-    addNotification({
-      type: "contact",
-      title: "New contact message",
-      message: message || "No message provided.",
-      meta: {
+    if (phoneNumber.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
+    try {
+      await apiClient.post("/api/contacts", {
         name,
         email,
-        phone,
-      },
-    });
+        phoneNumber,
+        message,
+      });
 
-    event.target.reset();
-    alert("Thanks! Your message has been sent.");
+      addNotification({
+        type: "contact",
+        title: "New contact message",
+        message: message || "No message provided.",
+        meta: {
+          name,
+          email,
+          phone,
+        },
+      });
+
+      event.target.reset();
+      alert("Thanks! Your message has been sent.");
+    } catch (error) {
+      alert(error.message || "Unable to send message right now. Please try again.");
+    }
   };
 
   return (
@@ -214,8 +232,8 @@ function Contact() {
           </div>
           <div className="form-row">
             <label>
-              Phone (optional)
-              <input name="phone" type="tel" placeholder="+91 90000 00000" />
+              Phone
+              <input name="phone" type="tel" placeholder="10-digit phone number" required />
             </label>
           </div>
           <label>
