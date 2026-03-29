@@ -96,6 +96,7 @@ app.use('/', whatsappRoutes);
 
 // Planned API namespace
 app.use('/api', loginRoutes);
+app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', productRoutes);
 app.use('/api', orderRoutes);

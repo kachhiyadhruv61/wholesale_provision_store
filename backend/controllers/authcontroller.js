@@ -3,6 +3,8 @@ const { getDB } = require('../config/db');
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt");
 const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
+const generateOTP = require("../utils/otp");
+const sendEmail = require("../utils/sendEmail");
 
 const loginUser = async (req, res, next) => {
   try {
@@ -70,7 +72,7 @@ const createRegister = async (req, res, next) => {
       email,
       phonenumber,
       password,
-      confirmpassword
+      // confirmpassword
     } = req.body;
 
     const existingUsername = await db.collection("users").findOne({ username });
@@ -82,7 +84,7 @@ const createRegister = async (req, res, next) => {
       });
     }
 
-    const existingEmail = await db.collection("users").findOne({ email });
+    const existingEmail = await db.collection("users").findOne({ email,status: "Active" });
 
     if (existingEmail) {
       return res.status(400).json({
@@ -92,7 +94,8 @@ const createRegister = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
+    const otp = generateOTP();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const newRegister = {
       name: fullname,
       username,
@@ -102,18 +105,192 @@ const createRegister = async (req, res, next) => {
       phone: phonenumber,
       shopname,
       address: shopaddress,
-      status: "Active",
+      otp: otp,
+      otpExpiresAt,
+      status: "Inactive",
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     await db.collection("users").insertOne(newRegister);
+    await sendEmail(
+ email,
+  "Verify Your Email 🔐",
+  `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>Email Verification</h2>
+
+      <p>Hello ${fullname},</p>
+
+      <p>Your OTP for verification is:</p>
+
+      <h1 style="
+        letter-spacing: 5px;
+        color: #2c3e50;
+        background: #f4f4f4;
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 8px;
+      ">
+        ${otp}
+      </h1>
+
+      <p>This OTP is valid for <b>5 minutes</b>.</p>
+
+      <p>If you did not request this, please ignore this email.</p>
+
+      <br/>
+      <p>Thanks,<br/>Your Team</p>
+    </div>
+  `
+);
 
     res.status(201).json({
       success: true,
-      message: "User registered successfully"
+      message: "User registered successfully. Please verify OTP to activate account.",
+      data: {
+        email,
+        username,
+      }
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifyRegisterOtp = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required"
+      });
+    }
+
+    const user = await db.collection("users").findOne({
+      email: { $regex: `^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: "i" }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    if (String(user.status || "").toLowerCase() === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Account is already active"
+      });
+    }
+
+    if (!user.otp || String(user.otp) !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP"
+      });
+    }
+
+    if (user.otpExpiresAt && new Date(user.otpExpiresAt).getTime() < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please register again to get a new OTP"
+      });
+    }
+
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          status: "Active",
+          updatedAt: new Date(),
+        },
+        $unset: {
+          otp: "",
+          otpExpiresAt: "",
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "OTP verified successfully. Your account is now active."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resendRegisterOtp = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const email = String(req.body.email || "").trim().toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
+
+    const user = await db.collection("users").findOne({
+      email: { $regex: `^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: "i" }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    if (String(user.status || "").toLowerCase() === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Account already active. Please login."
+      });
+    }
+
+    const otp = generateOTP();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          otp,
+          otpExpiresAt,
+          updatedAt: new Date(),
+        }
+      }
+    );
+
+    await sendEmail(
+      user.email,
+      "Resend OTP - Verify Your Email",
+      `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Email Verification OTP</h2>
+        <p>Hello ${user.name || user.username || "User"},</p>
+        <p>Your new OTP is:</p>
+        <h1 style="letter-spacing: 5px; color: #2c3e50; background: #f4f4f4; display: inline-block; padding: 10px 20px; border-radius: 8px;">
+          ${otp}
+        </h1>
+        <p>This OTP is valid for <b>5 minutes</b>.</p>
+      </div>
+      `
+    );
+
+    res.json({
+      success: true,
+      message: "New OTP sent successfully"
+    });
   } catch (error) {
     next(error);
   }
@@ -164,5 +341,7 @@ const refreshToken = async (req, res) => {
 module.exports = {
   createRegister,
   loginUser,
-  refreshToken
+  refreshToken,
+  verifyRegisterOtp,
+  resendRegisterOtp,
 };

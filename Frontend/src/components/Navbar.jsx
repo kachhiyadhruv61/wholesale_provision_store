@@ -40,9 +40,11 @@ function Navbar() {
       </button>
 
       <div className={`nav-links ${isMenuOpen ? "active" : ""}`}>
-        <Link to="/" onClick={() => setIsMenuOpen(false)}>
-          Home
-        </Link>
+        {!user && (
+          <Link to="/" onClick={() => setIsMenuOpen(false)}>
+            Home
+          </Link>
+        )}
         {!user && (
           <Link to="/about" onClick={() => setIsMenuOpen(false)}>
             About

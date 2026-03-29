@@ -56,6 +56,55 @@ const findRegisterByIdentifier = async (db, identifier) => {
   });
 };
 
+const ensureRegisterForIdentity = async (db, options = {}) => {
+  const {
+    identifier = "",
+    email = "",
+    loginUser = null,
+    legacyUser = null,
+  } = options;
+
+  const normalizedIdentifier = String(identifier || "").trim();
+  const normalizedEmail = String(email || loginUser?.email || legacyUser?.email || "").trim().toLowerCase();
+
+  if (!normalizedEmail && !normalizedIdentifier) {
+    return null;
+  }
+
+  const existingRegister = await findRegisterByIdentifier(db, normalizedEmail || normalizedIdentifier);
+  if (existingRegister) {
+    return existingRegister;
+  }
+
+  const username = String(
+    loginUser?.username || legacyUser?.username || legacyUser?.name || normalizedIdentifier || normalizedEmail
+  ).trim();
+  const password = String(loginUser?.password || legacyUser?.password || "").trim();
+
+  const registerDoc = {
+    username,
+    fullname: String(legacyUser?.name || "").trim(),
+    shopname: String(legacyUser?.shopname || "").trim(),
+    shopaddress: String(legacyUser?.address || "").trim(),
+    email: normalizedEmail,
+    phonenumber: String(legacyUser?.phone || "").trim(),
+    city: String(legacyUser?.city || "Anand").trim(),
+    state: String(legacyUser?.state || "Gujarat").trim(),
+    pincode: String(legacyUser?.pincode || "").trim(),
+    password,
+    confirmpassword: password,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  if (!registerDoc.username || !registerDoc.email || !registerDoc.password) {
+    return null;
+  }
+
+  const insertResult = await db.collection("registers").insertOne(registerDoc);
+  return db.collection("registers").findOne({ _id: insertResult.insertedId });
+};
+
 const normalizeRegisterPayload = (payload = {}, fallback = {}) => ({
   username: String(payload.username ?? fallback.username ?? "").trim(),
   fullname: String(payload.fullname ?? payload.ownerName ?? fallback.fullname ?? "").trim(),
@@ -155,21 +204,99 @@ const updateRegister = async (req, res, next) => {
   try {
     const db = getDB();
     const registerId = String(req.params.id || "").trim();
+    const requestEmail = String(req.body?.email || "").trim();
+    const requestUsername = String(req.body?.username || "").trim();
 
     if (!ObjectId.isValid(registerId)) {
       return res.status(400).json({ success: false, message: "Invalid register ID" });
     }
 
-    const existingRegister = await db.collection("registers").findOne({ _id: new ObjectId(registerId) });
+    let existingRegister = await db.collection("registers").findOne({ _id: new ObjectId(registerId) });
+
+    if (!existingRegister && (requestEmail || requestUsername)) {
+      const fallbackIdentifier = requestEmail || requestUsername;
+      existingRegister = await findRegisterByIdentifier(db, fallbackIdentifier);
+
+      if (!existingRegister) {
+        const normalizedFallback = escapeRegExp(fallbackIdentifier);
+        const loginUserRecord = await db.collection("logins").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+        const legacyUserRecord = await db.collection("users").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+
+        existingRegister = await ensureRegisterForIdentity(db, {
+          identifier: fallbackIdentifier,
+          email: requestEmail,
+          loginUser: loginUserRecord,
+          legacyUser: legacyUserRecord,
+        });
+      }
+    }
+
+    if (!existingRegister) {
+      const fallbackIdentifier = String(requestEmail || requestUsername || "").trim();
+      if (fallbackIdentifier) {
+        const normalizedFallback = escapeRegExp(fallbackIdentifier);
+        const loginUserRecord = await db.collection("logins").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+        const legacyUserRecord = await db.collection("users").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+
+        if (loginUserRecord?.email && loginUserRecord?.password) {
+          const seedPayload = normalizeRegisterPayload(
+            {
+              username: requestUsername || loginUserRecord.username || legacyUserRecord?.username,
+              email: requestEmail || loginUserRecord.email,
+              fullname: legacyUserRecord?.name || "",
+              shopaddress: legacyUserRecord?.address || "",
+              phonenumber: legacyUserRecord?.phone || "",
+              city: legacyUserRecord?.city || "Anand",
+              state: legacyUserRecord?.state || "Gujarat",
+              pincode: legacyUserRecord?.pincode || "",
+              password: loginUserRecord.password,
+              confirmpassword: loginUserRecord.password,
+            },
+            {}
+          );
+
+          const insertResult = await db.collection("registers").insertOne({
+            ...seedPayload,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+          existingRegister = await db.collection("registers").findOne({ _id: insertResult.insertedId });
+        }
+      }
+    }
+
     if (!existingRegister) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+
+    const targetRegisterId = existingRegister._id;
 
     const payload = normalizeRegisterPayload(req.body, existingRegister);
 
     const conflictingRegister = await db.collection("registers").findOne({
       ...buildRegisterMatch(payload),
-      _id: { $ne: new ObjectId(registerId) },
+      _id: { $ne: targetRegisterId },
     });
 
     if (conflictingRegister) {
@@ -182,7 +309,7 @@ const updateRegister = async (req, res, next) => {
     };
 
     await db.collection("registers").updateOne(
-      { _id: new ObjectId(registerId) },
+      { _id: targetRegisterId },
       { $set: updateDoc }
     );
 
@@ -199,7 +326,7 @@ const updateRegister = async (req, res, next) => {
     res.json({
       success: true,
       message: "Profile updated successfully",
-      data: buildUserResponse({ ...existingRegister, ...updateDoc, _id: existingRegister._id }, loginRecord)
+      data: buildUserResponse({ ...existingRegister, ...updateDoc, _id: targetRegisterId }, loginRecord)
     });
   } catch (error) {
     next(error);
@@ -284,6 +411,13 @@ const loginUser = async (req, res, next) => {
       ],
     });
 
+    if (legacyUser && String(legacyUser.status || "").toLowerCase() !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify OTP first. Your account is not active yet."
+      });
+    }
+
     if (!user && registerUser) {
       user = await upsertLoginRecord(db, {
         username: registerUser.username,
@@ -325,6 +459,15 @@ const loginUser = async (req, res, next) => {
       registerUser = await findRegisterByIdentifier(db, user.email);
     }
 
+    if (!registerUser) {
+      registerUser = await ensureRegisterForIdentity(db, {
+        identifier,
+        email: user?.email || legacyUser?.email,
+        loginUser: user,
+        legacyUser,
+      });
+    }
+
     const responseData = buildUserResponse(registerUser, user, legacyUser);
 
     res.json({
@@ -342,7 +485,7 @@ const loginUser = async (req, res, next) => {
 const changePassword = async (req, res, next) => {
   try {
     const db = getDB();
-    const { userId, email, oldPassword, newPassword } = req.body;
+    const { userId, email, identifier, oldPassword, newPassword } = req.body;
 
     if (!newPassword || String(newPassword).length < 6) {
       return res.status(400).json({
@@ -360,7 +503,88 @@ const changePassword = async (req, res, next) => {
     }
 
     if (!registerUser && email) {
-      registerUser = await db.collection("registers").findOne({ email });
+      registerUser = await db.collection("registers").findOne({
+        email: { $regex: `^${escapeRegExp(String(email).trim())}$`, $options: "i" },
+      });
+    }
+
+    if (!registerUser && identifier) {
+      registerUser = await findRegisterByIdentifier(db, identifier);
+    }
+
+    if (!registerUser) {
+      const fallbackIdentifier = String(identifier || email || "").trim();
+      const normalizedFallback = escapeRegExp(fallbackIdentifier);
+
+      let loginUserRecord = null;
+      let legacyUserRecord = null;
+
+      if (fallbackIdentifier) {
+        loginUserRecord = await db.collection("logins").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+        legacyUserRecord = await db.collection("users").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+      }
+
+      registerUser = await ensureRegisterForIdentity(db, {
+        identifier: fallbackIdentifier,
+        email,
+        loginUser: loginUserRecord,
+        legacyUser: legacyUserRecord,
+      });
+    }
+
+    if (!registerUser) {
+      const fallbackIdentifier = String(identifier || email || "").trim();
+      if (fallbackIdentifier) {
+        const normalizedFallback = escapeRegExp(fallbackIdentifier);
+        const loginUserRecord = await db.collection("logins").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+        const legacyUserRecord = await db.collection("users").findOne({
+          $or: [
+            { email: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+            { username: { $regex: `^${normalizedFallback}$`, $options: "i" } },
+          ],
+        });
+
+        if (loginUserRecord?.email && loginUserRecord?.password) {
+          const seedPayload = normalizeRegisterPayload(
+            {
+              username: loginUserRecord.username || legacyUserRecord?.username || fallbackIdentifier,
+              email: loginUserRecord.email,
+              fullname: legacyUserRecord?.name || "",
+              shopaddress: legacyUserRecord?.address || "",
+              phonenumber: legacyUserRecord?.phone || "",
+              city: legacyUserRecord?.city || "Anand",
+              state: legacyUserRecord?.state || "Gujarat",
+              pincode: legacyUserRecord?.pincode || "",
+              password: loginUserRecord.password,
+              confirmpassword: loginUserRecord.password,
+            },
+            {}
+          );
+
+          const insertResult = await db.collection("registers").insertOne({
+            ...seedPayload,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+          registerUser = await db.collection("registers").findOne({ _id: insertResult.insertedId });
+        }
+      }
     }
 
     if (!registerUser) {
@@ -373,7 +597,8 @@ const changePassword = async (req, res, next) => {
     const loginUserRecord = await db.collection("logins").findOne({ email: registerUser.email });
     const savedPassword = loginUserRecord?.password || registerUser.password;
 
-    if (savedPassword !== oldPassword) {
+    const oldPasswordMatch = await verifyPassword(oldPassword, savedPassword);
+    if (!oldPasswordMatch) {
       return res.status(401).json({
         success: false,
         message: "Incorrect old password"

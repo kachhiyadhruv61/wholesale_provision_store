@@ -10,13 +10,13 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import Register from "./pages/Register";
+import VerifyRegistrationOtp from "./pages/VerifyRegistrationOtp";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminHome from "./pages/AdminHome";
-import AdminLoginPage from "./pages/AdminLoginPage";
 import OrderSuccess from "./pages/OrderSuccess";
 import UserProfile from "./pages/UserProfile";
 import About from "./pages/About";
@@ -51,6 +51,7 @@ function AppShell() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-registration-otp" element={<VerifyRegistrationOtp />} />
         <Route path="/products" element={<Products />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/about" element={user ? <Navigate to="/" replace /> : <About />} />
@@ -62,8 +63,8 @@ function AppShell() {
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/profile" element={<UserProfile />} />
-        {/* Admin Routes - Dedicated admin login page */}
-        <Route path="/admin" element={<AdminLoginPage />} />
+        {/* Admin route now uses shared login page */}
+        <Route path="/admin" element={<Login />} />
         <Route
           path="/admin-home"
           element={

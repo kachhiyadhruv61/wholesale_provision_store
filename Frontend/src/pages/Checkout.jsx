@@ -31,7 +31,7 @@ function Checkout() {
   const navigate = useNavigate();
   const { user } = useContext(UserContext);
   const { cart, totalPrice, deliveryCharge, clearCart, totalGst, grandTotal } = useContext(CartContext);
-  const { addOrder } = useContext(OrderContext);
+  const { addOrder, updateOrderPaymentDetails } = useContext(OrderContext);
   const { deductStockForOrder, validateStockForOrder, products } = useContext(ProductContext);
   const { addNotification } = useContext(NotificationContext);
   const { deliveryLocations } = useContext(DeliveryContext);
@@ -56,6 +56,7 @@ function Checkout() {
   
   const [formData, setFormData] = useState({
     customerName: user?.username || "",
+    shopName: user?.shopName || user?.shopname || "",
     deliveryAddress: user?.address || "",
     deliveryCity: user?.city || "",
     deliveryState: user?.state || "",
@@ -70,6 +71,7 @@ function Checkout() {
     if (user) {
       setFormData({
         customerName: user.username || "",
+        shopName: user.shopName || user.shopname || "",
         deliveryAddress: user.address || "",
         deliveryCity: user.city || "",
         deliveryState: user.state || "",
@@ -77,6 +79,72 @@ function Checkout() {
         specialInstructions: "",
       });
     }
+  }, [user]);
+
+  // Fetch latest profile details from register data and prefill checkout form.
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateProfileFromRegister = async () => {
+      if (!user) return;
+
+      const email = String(user.email || "").trim().toLowerCase();
+      const username = String(user.username || "").trim().toLowerCase();
+      if (!email && !username) return;
+
+      try {
+        const response = await apiClient.get("/api/register");
+        const registers = Array.isArray(response?.data) ? response.data : [];
+        const matched = registers.find((entry) => {
+          const entryEmail = String(entry?.email || "").trim().toLowerCase();
+          const entryUsername = String(entry?.username || "").trim().toLowerCase();
+          return (email && entryEmail === email) || (username && entryUsername === username);
+        });
+
+        if (!isMounted) return;
+
+        const resolvedProfile = {
+          customerName: String(matched?.fullname || matched?.username || user?.username || "").trim(),
+          shopName: String(matched?.shopname || matched?.shopName || user?.shopName || user?.shopname || "").trim(),
+          deliveryAddress: String(matched?.shopaddress || user?.address || "").trim(),
+          deliveryCity: String(matched?.city || user?.city || "").trim(),
+          deliveryState: String(matched?.state || user?.state || "").trim(),
+          deliveryPincode: sanitizePincode(String(matched?.pincode || user?.pincode || "")),
+        };
+
+        setFormData((prev) => {
+          const hasChanged =
+            String(prev.customerName || "") !== resolvedProfile.customerName ||
+            String(prev.shopName || "") !== resolvedProfile.shopName ||
+            String(prev.deliveryAddress || "") !== resolvedProfile.deliveryAddress ||
+            String(prev.deliveryCity || "") !== resolvedProfile.deliveryCity ||
+            String(prev.deliveryState || "") !== resolvedProfile.deliveryState ||
+            String(prev.deliveryPincode || "") !== resolvedProfile.deliveryPincode;
+
+          if (!hasChanged) return prev;
+          return { ...prev, ...resolvedProfile };
+        });
+
+        const resolvedPincodeValid =
+          resolvedProfile.deliveryPincode.length === 6 && isServiceablePincode(resolvedProfile.deliveryPincode);
+        setPincodeStatus({
+          checked: resolvedProfile.deliveryPincode.length === 6,
+          isValid: resolvedPincodeValid,
+          message:
+            resolvedProfile.deliveryPincode.length === 6
+              ? getPincodeDeliveryMessage(resolvedProfile.deliveryPincode)
+              : "",
+        });
+      } catch {
+        // Silent fallback to locally available user data.
+      }
+    };
+
+    hydrateProfileFromRegister();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   const handleInputChange = (e) => {
@@ -126,7 +194,7 @@ function Checkout() {
   };
 
   const validateDeliveryDetails = () => {
-    if (!formData.customerName || !formData.deliveryAddress || !formData.deliveryCity || !formData.deliveryState || !formData.deliveryPincode) {
+    if (!formData.customerName || !formData.shopName || !formData.deliveryAddress || !formData.deliveryCity || !formData.deliveryState || !formData.deliveryPincode) {
       alert("Please fill all delivery details");
       return false;
     }
@@ -219,11 +287,13 @@ function Checkout() {
       invoiceText: formatInvoiceText(invoice),
       paymentMethod,
       paymentStatus: paymentMethod === "cod" ? "Pending" : "Pending",
+      transactionId: "",
       customerId: user?.id,
       customerUsername: user?.username,
       customerEmail: user?.email,
       customerPhone: user?.phone || user?.phonenumber || "",
       customerName: formData.customerName,
+      customerShopName: formData.shopName,
       deliveryAddress: formData.deliveryAddress,
       deliveryCity: formData.deliveryCity,
       deliveryState: formData.deliveryState,
@@ -374,6 +444,12 @@ function Checkout() {
       if (!verifyResponse?.success) {
         throw new Error("Payment verification failed");
       }
+
+      updateOrderPaymentDetails(orderId, {
+        paymentStatus: verifyResponse?.data?.paymentStatus || "Paid",
+        transactionId: verifyResponse?.data?.transactionId || paymentResponse?.razorpay_payment_id || "",
+        razorpayOrderId: verifyResponse?.data?.razorpayOrderId || paymentResponse?.razorpay_order_id || "",
+      });
 
       setIsProcessingPayment(false);
       finalizeSuccessFlow();
@@ -603,6 +679,22 @@ function Checkout() {
                       )}
                     </div>
                   </div>
+
+                  <div className="form-group">
+                    <label htmlFor="shopName">
+                      <span className="form-icon">🏪</span>
+                      Shop Name *
+                    </label>
+                    <input
+                      id="shopName"
+                      type="text"
+                      name="shopName"
+                      placeholder="Enter shop name"
+                      value={formData.shopName}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -709,8 +801,12 @@ function Checkout() {
             <div className="success-animation">
               <div className="success-icon">✓</div>
             </div>
-            <h3>Payment Successful!</h3>
-            <p>Your order has been confirmed.</p>
+            <h3>{paymentMethod === "cod" ? "Order Confirmed, Payment on Delivery." : "Payment Successful."}</h3>
+            <p>
+              {paymentMethod === "cod"
+                ? "Your order has been confirmed. Please pay on delivery."
+                : "Your order has been confirmed and payment is successful."}
+            </p>
             <div className="success-details">
               <p><strong>Payment Method:</strong> {paymentMethod === "cod" ? "COD" : "Online Payment"}</p>
               <p><strong>Subtotal:</strong> ₹{totalPrice.toFixed(2)}</p>

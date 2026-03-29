@@ -1,7 +1,9 @@
 const { getDB } = require('../config/db');
 const { ObjectId } = require('mongodb');
+const crypto = require('crypto');
 const { isServiceablePincode, sanitizePincode } = require('../utils/serviceablePincodes');
 const { queueWhatsAppDeliveryConfirmation } = require('../utils/whatsappDelivery');
+const sendEmail = require('../utils/sendEmail');
 
 const DISPATCH_STATUS_SET = new Set(['processing', 'shipped', 'out for delivery', 'dispatched']);
 const BUSINESS_ORDER_NUMBER = '9313616159';
@@ -9,6 +11,7 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM || '';
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || '';
+const ORDER_CONFIRM_BASE_URL = process.env.ORDER_CONFIRM_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
 
 const GST_RULES = {
   Grocery: 5,
@@ -173,6 +176,84 @@ const extractCustomerPhone = async (db, order) => {
     );
     const normalizedLoginByEmail = resolvePhoneFromAnyRecord(loginByEmail);
     if (normalizedLoginByEmail) return normalizedLoginByEmail;
+  }
+
+  return '';
+};
+
+const resolveEmailFromAnyRecord = (record) => {
+  return String(record?.email || '').trim().toLowerCase();
+};
+
+const extractCustomerEmail = async (db, order) => {
+  const directEmail = String(order?.customerEmail || order?.email || '').trim().toLowerCase();
+  if (directEmail) return directEmail;
+
+  const userIdRaw = String(order?.userId || order?.customerId || '').trim();
+  if (userIdRaw.includes('@')) {
+    return userIdRaw.toLowerCase();
+  }
+
+  if (ObjectId.isValid(userIdRaw)) {
+    const userById = await db.collection('users').findOne(
+      { _id: new ObjectId(userIdRaw) },
+      { projection: { email: 1 } }
+    );
+    const emailById = resolveEmailFromAnyRecord(userById);
+    if (emailById) return emailById;
+
+    const registerById = await db.collection('registers').findOne(
+      { _id: new ObjectId(userIdRaw) },
+      { projection: { email: 1 } }
+    );
+    const registerEmailById = resolveEmailFromAnyRecord(registerById);
+    if (registerEmailById) return registerEmailById;
+
+    const loginById = await db.collection('logins').findOne(
+      { _id: new ObjectId(userIdRaw) },
+      { projection: { email: 1 } }
+    );
+    const loginEmailById = resolveEmailFromAnyRecord(loginById);
+    if (loginEmailById) return loginEmailById;
+  }
+
+  if (userIdRaw) {
+    const escapedUserId = userIdRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const userByUsername = await db.collection('users').findOne(
+      {
+        $or: [
+          { username: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+          { email: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+        ],
+      },
+      { projection: { email: 1 } }
+    );
+    const userNameEmail = resolveEmailFromAnyRecord(userByUsername);
+    if (userNameEmail) return userNameEmail;
+
+    const registerByUsername = await db.collection('registers').findOne(
+      {
+        $or: [
+          { username: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+          { email: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+        ],
+      },
+      { projection: { email: 1 } }
+    );
+    const registerUserEmail = resolveEmailFromAnyRecord(registerByUsername);
+    if (registerUserEmail) return registerUserEmail;
+
+    const loginByUsername = await db.collection('logins').findOne(
+      {
+        $or: [
+          { username: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+          { email: { $regex: `^${escapedUserId}$`, $options: 'i' } },
+        ],
+      },
+      { projection: { email: 1 } }
+    );
+    const loginUserEmail = resolveEmailFromAnyRecord(loginByUsername);
+    if (loginUserEmail) return loginUserEmail;
   }
 
   return '';
@@ -360,6 +441,215 @@ const createOrderInvoice = async (db, orderDoc) => {
 
   await db.collection('invoices').insertOne(invoice);
   return invoice;
+};
+
+const getOrCreateInvoiceForOrder = async (db, orderDoc) => {
+  const existingInvoice = await db.collection('invoices').findOne({
+    orderId: String(orderDoc._id),
+  });
+
+  if (existingInvoice) {
+    return existingInvoice;
+  }
+
+  return createOrderInvoice(db, orderDoc);
+};
+
+const sendConfirmedOrderInvoiceEmail = async ({ db, orderDoc }) => {
+  const email = await extractCustomerEmail(db, orderDoc);
+  if (!email) {
+    return { sent: false, reason: 'email-not-found' };
+  }
+
+  const invoice = await getOrCreateInvoiceForOrder(db, orderDoc);
+  const amount = Number(orderDoc.finalPayableAmount || orderDoc.totalAmount || invoice?.totalAmount || 0).toFixed(2);
+  const orderRef = String(orderDoc.orderId || orderDoc._id || 'N/A');
+  const customerName = String(orderDoc.name || orderDoc.customerName || 'Customer');
+  const confirmationToken = crypto.randomBytes(20).toString('hex');
+  const orderObjectId = new ObjectId(String(orderDoc._id));
+  const yesLink = `${ORDER_CONFIRM_BASE_URL}/orders/${String(orderDoc._id)}/email-confirmation?reply=YES&token=${confirmationToken}`;
+  const noLink = `${ORDER_CONFIRM_BASE_URL}/orders/${String(orderDoc._id)}/email-confirmation?reply=NO&token=${confirmationToken}`;
+
+  const itemRows = Array.isArray(invoice?.items)
+    ? invoice.items.map((item) => {
+      const lineTotal = Number(item?.total || 0).toFixed(2);
+      return `<tr>
+        <td style="padding:8px;border:1px solid #e5e7eb;">${String(item?.name || '')}</td>
+        <td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">${Number(item?.quantity || 0)}</td>
+        <td style="padding:8px;border:1px solid #e5e7eb;text-align:right;">Rs ${lineTotal}</td>
+      </tr>`;
+    }).join('')
+    : '';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+      <h2 style="margin-bottom: 8px;">Order Confirmed</h2>
+      <p>Hello ${customerName},</p>
+      <p>Your order has been confirmed. Please find your invoice details below.</p>
+
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:14px 0;">
+        <p style="margin:4px 0;"><strong>Order ID:</strong> ${orderRef}</p>
+        <p style="margin:4px 0;"><strong>Invoice ID:</strong> ${String(invoice?.invoiceId || 'N/A')}</p>
+        <p style="margin:4px 0;"><strong>Final Amount:</strong> Rs ${amount}</p>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin:12px 0 16px;">
+        <thead>
+          <tr>
+            <th style="padding:8px;border:1px solid #e5e7eb;text-align:left;background:#f3f4f6;">Item</th>
+            <th style="padding:8px;border:1px solid #e5e7eb;text-align:center;background:#f3f4f6;">Qty</th>
+            <th style="padding:8px;border:1px solid #e5e7eb;text-align:right;background:#f3f4f6;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows || '<tr><td colspan="3" style="padding:8px;border:1px solid #e5e7eb;">Invoice items will be shared soon.</td></tr>'}
+        </tbody>
+      </table>
+
+      <p style="margin: 0 0 8px;"><strong>Order Received:</strong> please confirm below.</p>
+      <div style="margin: 8px 0 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="${yesLink}" style="display:inline-block;padding:10px 16px;background:#16a34a;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">YES, Received</a>
+        <a href="${noLink}" style="display:inline-block;padding:10px 16px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">NO, Not Received</a>
+      </div>
+      <p style="margin: 0 0 8px;">If buttons do not work, reply to this email with <strong>YES</strong> or <strong>NO</strong>.</p>
+
+      <p style="color:#6b7280;font-size:13px;">For support, call ${BUSINESS_ORDER_NUMBER}</p>
+    </div>
+  `;
+
+  await sendEmail(email, `Order Confirmed - Invoice ${String(invoice?.invoiceId || '')}`, html);
+
+  const now = new Date();
+  await db.collection('orders').updateOne(
+    { _id: orderObjectId },
+    {
+      $set: {
+        customerEmail: email,
+        invoiceId: String(invoice?.invoiceId || orderDoc.invoiceId || ''),
+        invoiceGeneratedAt: invoice?.generatedAt || orderDoc.invoiceGeneratedAt || now,
+        confirmationEmailSentAt: now,
+        confirmationEmailToken: confirmationToken,
+      },
+      $push: {
+        statusHistory: {
+          status: 'Confirmation Email Sent',
+          at: now,
+        },
+      },
+    }
+  );
+
+  return { sent: true, email, invoiceId: String(invoice?.invoiceId || '') };
+};
+
+const renderEmailReplyHtml = ({ title, message, isSuccess }) => {
+  const color = isSuccess ? '#166534' : '#991b1b';
+  const bg = isSuccess ? '#ecfdf3' : '#fef2f2';
+  const border = isSuccess ? '#bbf7d0' : '#fecaca';
+  return `
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>${title}</title>
+    </head>
+    <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
+      <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;">
+        <h2 style="margin:0 0 8px;color:#111827;">${title}</h2>
+        <p style="margin:0;padding:10px 12px;border-radius:8px;background:${bg};color:${color};border:1px solid ${border};">${message}</p>
+      </div>
+    </body>
+  </html>`;
+};
+
+const recordEmailOrderReply = async (req, res, next) => {
+  try {
+    const db = getDB();
+    const orderId = String(req.params.id || '').trim();
+    const reply = String(req.query.reply || '').trim().toUpperCase();
+    const token = String(req.query.token || '').trim();
+
+    if (!ObjectId.isValid(orderId)) {
+      return res.status(400).send(renderEmailReplyHtml({
+        title: 'Invalid Link',
+        message: 'Order ID is invalid.',
+        isSuccess: false,
+      }));
+    }
+
+    if (!['YES', 'NO'].includes(reply)) {
+      return res.status(400).send(renderEmailReplyHtml({
+        title: 'Invalid Response',
+        message: 'Reply must be YES or NO.',
+        isSuccess: false,
+      }));
+    }
+
+    const orderObjectId = new ObjectId(orderId);
+    const order = await db.collection('orders').findOne({ _id: orderObjectId });
+    if (!order) {
+      return res.status(404).send(renderEmailReplyHtml({
+        title: 'Order Not Found',
+        message: 'This order does not exist.',
+        isSuccess: false,
+      }));
+    }
+
+    if (!token || token !== String(order.confirmationEmailToken || '')) {
+      return res.status(401).send(renderEmailReplyHtml({
+        title: 'Unauthorized',
+        message: 'This confirmation link is invalid or expired.',
+        isSuccess: false,
+      }));
+    }
+
+    const isReceived = reply === 'YES';
+    const now = new Date();
+    const updatePayload = {
+      $set: {
+        orderReceivedConfirmation: {
+          source: 'email-link',
+          reply,
+          received: isReceived,
+          repliedAt: now,
+        },
+        'dispatchConfirmation.deliveryConfirmed': isReceived,
+        'dispatchConfirmation.replyText': reply,
+        'dispatchConfirmation.repliedAt': now,
+      },
+      $push: {
+        statusHistory: {
+          status: isReceived ? 'Order Received Confirmed (Email)' : 'Order Not Received (Email)',
+          at: now,
+        },
+      },
+    };
+
+    if (!isReceived) {
+      updatePayload.$set.status = 'Issue Reported';
+      updatePayload.$set.action = 'Customer marked not received via email';
+      await db.collection('notifications').insertOne({
+        channel: 'internal',
+        type: 'order_received_email_escalation',
+        orderId,
+        message: 'Customer clicked NO on order received email confirmation.',
+        status: 'queued',
+        createdAt: now,
+      });
+    }
+
+    await db.collection('orders').updateOne({ _id: orderObjectId }, updatePayload);
+
+    return res.status(200).send(renderEmailReplyHtml({
+      title: 'Thank You',
+      message: isReceived
+        ? 'We have recorded your YES response. Thank you for confirming delivery.'
+        : 'We have recorded your NO response. Our team will contact you shortly.',
+      isSuccess: true,
+    }));
+  } catch (error) {
+    next(error);
+  }
 };
 
 const queueOrderPlacedMessageAndInvoice = async ({ db, orderDoc, invoice, destinationPhone }) => {
@@ -552,6 +842,8 @@ const createOrder = async (req, res, next) => {
       finalPayableAmount: Number(req.body.finalPayableAmount || req.body.totalAmount || req.body.total || billing.finalPayableAmount),
       totalAmount: Number(req.body.totalAmount || req.body.total || req.body.finalPayableAmount || billing.finalPayableAmount),
       payment: req.body.payment,
+      paymentStatus: req.body.paymentStatus || 'Pending',
+      transactionId: String(req.body.transactionId || ''),
       status: req.body.status,
       action: req.body.action
     };
@@ -657,6 +949,21 @@ const updateOrder = async (req, res, next) => {
       });
     }
 
+    let confirmationEmail = null;
+    const movedToConfirmed = nextStatus.toLowerCase() === 'confirmed' && previousStatus.toLowerCase() !== 'confirmed';
+    const movedToDelivered = nextStatus.toLowerCase() === 'delivered' && previousStatus.toLowerCase() !== 'delivered';
+    const shouldSendConfirmationEmail = movedToConfirmed || (movedToDelivered && !existingOrder?.confirmationEmailSentAt);
+    if (shouldSendConfirmationEmail) {
+      const refreshedOrder = await db.collection('orders').findOne({ _id: new ObjectId(orderId) });
+      if (refreshedOrder) {
+        try {
+          confirmationEmail = await sendConfirmedOrderInvoiceEmail({ db, orderDoc: refreshedOrder });
+        } catch (emailError) {
+          confirmationEmail = { sent: false, reason: emailError.message || 'email-send-failed' };
+        }
+      }
+    }
+
     let dispatchConfirmation = null;
     const movedToDispatch = isDispatchLikeStatus(nextStatus) && !isDispatchLikeStatus(previousStatus);
     if (movedToDispatch) {
@@ -670,7 +977,6 @@ const updateOrder = async (req, res, next) => {
 
     // Send WhatsApp delivery confirmation when order is marked as delivered
     let whatsappConfirmation = null;
-    const movedToDelivered = nextStatus.toLowerCase() === 'delivered' && previousStatus.toLowerCase() !== 'delivered';
     if (movedToDelivered) {
       const refreshedOrder = await db.collection('orders').findOne({ _id: new ObjectId(orderId) });
       if (refreshedOrder) {
@@ -689,7 +995,7 @@ const updateOrder = async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, message: "Order updated", dispatchConfirmation, whatsappConfirmation });
+    res.json({ success: true, message: "Order updated", confirmationEmail, dispatchConfirmation, whatsappConfirmation });
 
   } catch (error) {
     next(error);
@@ -916,5 +1222,6 @@ module.exports = {
   cancelOrder,
   deleteOrder,
   sendDispatchConfirmation,
-  recordDispatchReply
+  recordDispatchReply,
+  recordEmailOrderReply,
 };

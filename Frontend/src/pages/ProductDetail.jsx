@@ -22,8 +22,9 @@ function ProductDetail() {
 
   useEffect(() => {
     if (product) {
-      setSelectedQuantity(product.moq);
-      setInputQuantity(product.moq);
+      const normalizedMOQ = Math.max(1, Number(product.moq || product.MOQ || 1));
+      setSelectedQuantity(normalizedMOQ);
+      setInputQuantity(normalizedMOQ);
     }
   }, [product]);
 
@@ -41,16 +42,32 @@ function ProductDetail() {
   }
 
   const displayCategory = (category) => (category === "Grains" ? "Grocery" : category);
-  const currentPrice = getPriceForQuantity(product.id, selectedQuantity);
+  const productMOQ = Math.max(1, Number(product.moq || product.MOQ || 1));
+  const currentPrice = getPriceForQuantity(product.id, selectedQuantity || productMOQ);
   const hasDiscount = currentPrice < product.price;
-  const bulkPricing = Array.isArray(product.bulkPricing) && product.bulkPricing.length > 0
+  const fallbackPrice = Number(getPriceForQuantity(product.id, productMOQ) || product.price || 0);
+  const normalizedBulkPricing = Array.isArray(product.bulkPricing)
     ? product.bulkPricing
-    : [{ quantity: Number(product.moq || 1), price: Number(product.price || 0) }];
+        .map((tier) => ({
+          quantity: Number(tier?.quantity || 0),
+          price: Number(tier?.price || 0),
+        }))
+        .filter((tier) => Number.isFinite(tier.quantity) && tier.quantity > 0 && Number.isFinite(tier.price) && tier.price >= 0)
+        .sort((a, b) => a.quantity - b.quantity)
+    : [];
+
+  const moqTierExists = normalizedBulkPricing.some((tier) => tier.quantity === productMOQ);
+  const unitOptions = [
+    ...(moqTierExists ? [] : [{ quantity: productMOQ, price: fallbackPrice }]),
+    ...normalizedBulkPricing.filter((tier) => tier.quantity >= productMOQ),
+  ]
+    .sort((a, b) => a.quantity - b.quantity)
+    .slice(0, 3);
 
   const handleAddToCart = () => {
-    if (inputQuantity < product.moq) {
+    if (inputQuantity < productMOQ) {
       setToast({
-        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${product.moq} ${product.unit}(s)`,
+        message: `Minimum Order Quantity (MOQ) for ${product.name} is ${productMOQ} ${product.unit}(s)`,
         type: "warning"
       });
       return;
@@ -136,7 +153,7 @@ function ProductDetail() {
           <div className="unit-selection">
             <h3>Select Unit</h3>
             <div className="unit-options">
-              {bulkPricing.slice(0, 3).map((tier, idx) => {
+              {unitOptions.map((tier, idx) => {
                 const quantity = tier.quantity;
                 const price = tier.price;
                 const isFirst = idx === 0;
@@ -192,13 +209,13 @@ function ProductDetail() {
 
           {/* Custom Quantity Input */}
           <div className="custom-quantity-section">
-            <label htmlFor="quantity">Custom Quantity (Min: {product.moq} {product.unit})</label>
+            <label htmlFor="quantity">Custom Quantity (Min: {productMOQ} {product.unit})</label>
             <input
               id="quantity"
               type="number"
-              min={product.moq}
+              min={productMOQ}
               value={inputQuantity}
-              onChange={(e) => setInputQuantity(parseInt(e.target.value) || product.moq)}
+              onChange={(e) => setInputQuantity(parseInt(e.target.value, 10) || productMOQ)}
               className="custom-quantity-input"
             />
           </div>
@@ -264,7 +281,7 @@ function ProductDetail() {
             </div>
             <div className="detail-row">
               <span className="detail-label">Minimum Order:</span>
-              <span className="detail-value">{product.moq} {product.unit}(s)</span>
+              <span className="detail-value">{productMOQ} {product.unit}(s)</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Stock Available:</span>

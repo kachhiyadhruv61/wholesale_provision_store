@@ -229,6 +229,11 @@ router.post(
   orderController.recordDispatchReply
 );
 
+router.get(
+  '/orders/:id/email-confirmation',
+  orderController.recordEmailOrderReply
+);
+
 /**
  * @swagger
  * /orders/{id}:

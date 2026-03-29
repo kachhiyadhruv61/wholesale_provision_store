@@ -129,6 +129,10 @@ router.post(
     .isIn(['Pending', 'Completed', 'Paid', 'Failed', 'Refunded'])
     .withMessage('Status must be Pending, Completed, Paid, Failed or Refunded'),
 
+  body('transactionId')
+    .optional()
+    .isString().withMessage('Transaction ID must be a string'),
+
   body('date')
     .notEmpty().withMessage('Date is required')
     .isISO8601().withMessage('Date must be valid format (YYYY-MM-DD)'),
@@ -181,6 +185,10 @@ router.put(
     .optional()
     .isIn(['Pending', 'Completed', 'Paid', 'Failed', 'Refunded'])
     .withMessage('Status must be Pending, Completed, Paid, Failed or Refunded'),
+
+  body('transactionId')
+    .optional()
+    .isString().withMessage('Transaction ID must be a string'),
 
   body('date')
     .optional()

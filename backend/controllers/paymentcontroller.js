@@ -44,6 +44,7 @@ const createPayment = async (req, res, next) => {
     const paymentData = {
       ...req.body,
       orderId: req.body.orderId,
+      transactionId: String(req.body.transactionId || ''),
       amount: Number(req.body.amount || 0),
       method: req.body.method,
       status: req.body.status,

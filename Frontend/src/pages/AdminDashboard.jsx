@@ -1037,6 +1037,7 @@ function AdminDashboard() {
             title="Update Status"
           >
             <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
             <option value="Processing">Processing</option>
             <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
@@ -1812,8 +1813,8 @@ function AdminDashboard() {
                           <span className="value">{selectedOrder.paymentMethod === "cod" ? "Cash on Delivery" : "Online"}</span>
                         </div>
                         <div className="detail-item">
-                          <span className="label">Payment Status:</span>
-                          <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
+                          <span className="label">Transaction ID:</span>
+                          <span className="value">{selectedOrder.transactionId || "N/A"}</span>
                         </div>
                         <div className="detail-item">
                           <span className="label">Invoice ID:</span>

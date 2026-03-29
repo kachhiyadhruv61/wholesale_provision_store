@@ -259,7 +259,7 @@ function OrderHistory() {
     doc.text(`Customer: ${order?.customerName || user?.username || "Customer"}`, 120, 32);
     doc.text(`Email: ${order?.customerEmail || user?.email || "N/A"}`, 120, 38);
     doc.text(`Payment: ${paymentMethodText(order?.paymentMethod)}`, 120, 44);
-    doc.text(`Status: ${order?.paymentStatus || "Pending"}`, 120, 50);
+    doc.text(`Transaction ID: ${order?.transactionId || "N/A"}`, 120, 50);
 
     const tableRows = orderItems.map((item, index) => {
       const qty = Number(item?.quantity || 0);
@@ -540,8 +540,8 @@ function OrderHistory() {
                     <span className="value">{paymentMethodText(selectedOrder.paymentMethod)}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="label">Payment Status:</span>
-                    <span className="value">{selectedOrder.paymentStatus || "Pending"}</span>
+                    <span className="label">Transaction ID:</span>
+                    <span className="value">{selectedOrder.transactionId || "N/A"}</span>
                   </div>
                   {selectedOrder.cancellationReason && (
                     <div className="detail-item">

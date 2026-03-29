@@ -5,6 +5,14 @@ const razorpay = require('../middleware/razorpay');
 
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'JwAYo6QQvvn0NRDV4vehC52U';
 
+const normalizePaymentMethod = (value) => {
+  const method = String(value || '').trim().toLowerCase();
+  if (method === 'upi') return 'UPI';
+  if (method === 'card') return 'Card';
+  if (method === 'bank' || method === 'net banking') return 'Net Banking';
+  return 'Cash';
+};
+
 // ✅ CREATE RAZORPAY ORDER
 const createRazorpayOrder = async (req, res, next) => {
   try {
@@ -87,11 +95,13 @@ const verifyPaymentStatus = async (req, res, next) => {
 
     const db = getDB();
     const now = new Date();
+    const orderObjectId = new ObjectId(String(orderId));
     const result = await db.collection('orders').updateOne(
-      { _id: new ObjectId(String(orderId)) },
+      { _id: orderObjectId },
       {
         $set: {
           paymentStatus: 'Paid',
+          transactionId: razorpay_payment_id,
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
           razorpaySignature: razorpay_signature,
@@ -111,7 +121,52 @@ const verifyPaymentStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    return res.json({ success: true, message: 'Payment verified and order marked as paid' });
+    const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
+    const paymentMethod = normalizePaymentMethod(
+      updatedOrder?.paymentMethod || updatedOrder?.payment || ''
+    );
+
+    await db.collection('payments').updateOne(
+      { orderId: String(orderId) },
+      {
+        $set: {
+          orderId: String(orderId),
+          transactionId: razorpay_payment_id,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          amount: Number(
+            updatedOrder?.finalPayableAmount ||
+              updatedOrder?.totalAmount ||
+              updatedOrder?.total ||
+              0
+          ),
+          method: paymentMethod,
+          paymentMethod,
+          status: 'Completed',
+          customerName: String(updatedOrder?.customerName || updatedOrder?.name || ''),
+          customerEmail: String(updatedOrder?.customerEmail || updatedOrder?.email || ''),
+          customerPhone: String(updatedOrder?.customerPhone || ''),
+          date: updatedOrder?.date || now,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          createdAt: now,
+        },
+      },
+      { upsert: true }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Payment verified and order marked as paid',
+      data: {
+        orderId: String(orderId),
+        paymentStatus: 'Paid',
+        transactionId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+      },
+    });
   } catch (error) {
     next(error);
   }

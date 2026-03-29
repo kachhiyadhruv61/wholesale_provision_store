@@ -111,6 +111,7 @@ export function PaymentProvider({ children }) {
     try {
       const response = await apiClient.post("/api/payments", {
         orderId: newPayment.orderId,
+        transactionId: newPayment.transactionId || "",
         amount: Number(newPayment.amount || 0),
         method: toBackendMethod(newPayment.method),
         paymentMethod: toBackendMethod(newPayment.method),

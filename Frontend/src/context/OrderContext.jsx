@@ -23,6 +23,7 @@ const normalizeOrder = (order = {}) => {
     finalPayableAmount: Number(order.finalPayableAmount ?? order.total ?? order.totalAmount ?? 0),
     paymentMethod: order.paymentMethod || order.payment || "cod",
     paymentStatus: order.paymentStatus || "Pending",
+    transactionId: order.transactionId || order.razorpayPaymentId || "",
     status: order.status || "Pending",
     cancellationReason: order.cancellationReason || "",
     cancelledAt: order.cancelledAt || null,
@@ -31,6 +32,7 @@ const normalizeOrder = (order = {}) => {
     customerUsername: order.customerUsername || order.username || "",
     customerEmail: order.customerEmail || order.email || "",
     customerName: order.customerName || order.name || order.fullname || order?.delivery?.name || "",
+    customerShopName: order.customerShopName || order.shopName || order.shopname || "",
     deliveryAddress: order.deliveryAddress || order?.delivery?.deliveryAddress || "",
     deliveryCity: order.deliveryCity || order.city || order?.delivery?.city || "",
     deliveryState: order.deliveryState || order.state || "",
@@ -131,9 +133,11 @@ export function OrderProvider({ children }) {
         subtotalAfterGst: Number(order.subtotalAfterGst || order.total || 0),
         finalPayableAmount: Number(order.total || 0),
         payment: toBackendPayment(order.paymentMethod),
+        transactionId: String(order.transactionId || ""),
         status: backendStatus,
         action: backendStatus === "Pending" ? "Pending" : "Processing",
         name: order.customerName || order.customerUsername || "Customer",
+        shopName: order.customerShopName || order.shopName || "",
         email: order.customerEmail || "",
         customerPhone: order.customerPhone || "",
         deliveryAddress: order.deliveryAddress || "",
@@ -236,6 +240,24 @@ export function OrderProvider({ children }) {
     setOrders(updatedOrders);
   };
 
+  const updateOrderPaymentDetails = (orderId, details = {}) => {
+    const orderIdString = String(orderId || "");
+    if (!orderIdString) return;
+
+    setOrders((prevOrders) =>
+      prevOrders.map((order) => {
+        if (order.id !== orderIdString) return order;
+        return {
+          ...order,
+          paymentStatus: details.paymentStatus || order.paymentStatus || "Pending",
+          transactionId: details.transactionId || order.transactionId || "",
+          razorpayOrderId: details.razorpayOrderId || order.razorpayOrderId || "",
+          statusUpdatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
   const cancelOrder = async (orderId, reason) => {
     const orderIdString = String(orderId || "");
     const cancelReason = String(reason || "").trim();
@@ -279,7 +301,7 @@ export function OrderProvider({ children }) {
   };
 
   return (
-    <OrderContext.Provider value={{ orders, ordersLoading, ordersError, addOrder, updateOrderStatus, updateOrderPaymentStatus, cancelOrder }}>
+    <OrderContext.Provider value={{ orders, ordersLoading, ordersError, addOrder, updateOrderStatus, updateOrderPaymentStatus, updateOrderPaymentDetails, cancelOrder }}>
       {children}
     </OrderContext.Provider>
   );

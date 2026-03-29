@@ -47,8 +47,12 @@ function Register() {
         confirmpassword: formData.confirmPassword,
       });
 
-      alert("Registration successful! Please login to continue.");
-      navigate("/login");
+      navigate("/verify-registration-otp", {
+        state: {
+          email: formData.email.trim(),
+          fullname: formData.ownerName.trim(),
+        },
+      });
     } catch (error) {
       alert(error.message || "Unable to register right now.");
     }
