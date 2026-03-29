@@ -6,6 +6,9 @@ import { CartContext } from "../context/CartContext";
 import { UserContext } from "../context/UserContext";
 import { NotificationContext } from "../context/NotificationContext";
 import CommonTable from "../components/CommonTable";
+import { apiFetch } from "../utils/apiFetch";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import {
   ResponsiveContainer,
   LineChart,
@@ -20,10 +23,21 @@ import {
   Cell,
 } from "recharts";
 
+const toMoney = (value) => Number(Number(value || 0).toFixed(2));
+
+const parseJsonOrThrow = async (response) => {
+  const contentType = response?.headers?.get?.("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("API returned non-JSON response");
+  }
+  return response.json();
+};
+
 function AdminHome() {
   const navigate = useNavigate();
   const [adminUsername] = useState(localStorage.getItem("adminUsername") || "Admin");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const notificationPanelRef = useRef(null);
   const notificationButtonRef = useRef(null);
   const analyticsSectionRef = useRef(null);
@@ -32,6 +46,7 @@ function AdminHome() {
   const { cart } = useContext(CartContext);
   const { user } = useContext(UserContext);
   const [range, setRange] = useState("7d");
+  const [expenses, setExpenses] = useState([]);
   const {
     notifications,
     markNotificationRead,
@@ -44,9 +59,58 @@ function AdminHome() {
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
     const activeUsers = user ? 1 : 0; // Count of logged in users
+    const productCostById = new Map();
+    const productCostByName = new Map();
+
+    products.forEach((product) => {
+      const unitCost = Number(product?.purchaseCost ?? product?.purchasePrice ?? product?.wholesalePrice ?? product?.price ?? 0);
+      const idKey = String(product?.id || product?._id || "").trim().toLowerCase();
+      const nameKey = String(product?.name || "").trim().toLowerCase();
+      if (idKey) productCostById.set(idKey, unitCost);
+      if (nameKey) productCostByName.set(nameKey, unitCost);
+    });
+
+    const grossProfit = orders.reduce((sum, order) => {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      const orderRevenue = Number(order?.total || order?.finalPayableAmount || 0);
+
+      const costFromItems = items.reduce((itemSum, item) => {
+        const qty = Number(item?.quantity || 1);
+        const idKey = String(item?.id || item?._id || item?.productId || "").trim().toLowerCase();
+        const nameKey = String(item?.name || "").trim().toLowerCase();
+
+        const unitCost =
+          productCostById.get(idKey) ??
+          productCostByName.get(nameKey) ??
+          Number(item?.purchasePrice ?? item?.costPrice ?? item?.wholesalePrice ?? item?.price ?? 0);
+
+        return itemSum + (Number.isFinite(unitCost) ? unitCost : 0) * qty;
+      }, 0);
+
+      const effectiveOrderCost = items.length > 0 ? costFromItems : orderRevenue;
+      return sum + (orderRevenue - effectiveOrderCost);
+    }, 0);
+
+    const totalExpenses = (expenses || []).reduce((sum, expense) => {
+      if (Number.isFinite(Number(expense?.total_expense))) {
+        return sum + Number(expense.total_expense);
+      }
+
+      const fallbackTotal =
+        Number(expense?.transportation_loading || 0) +
+        Number(expense?.shop_warehouse_expenses || 0) +
+        Number(expense?.staff_salary || 0) +
+        Number(expense?.damages_wastage || 0) +
+        Number(expense?.financial_charges || 0) +
+        Number(expense?.taxes || 0) +
+        Number(expense?.other_charges || 0);
+      return sum + fallbackTotal;
+    }, 0);
+
+    const netProfit = grossProfit - totalExpenses;
     
-    return { totalOrders, totalRevenue, activeUsers };
-  }, [orders, user]);
+    return { totalOrders, totalRevenue, activeUsers, grossProfit, totalExpenses, netProfit };
+  }, [orders, user, products, expenses]);
 
   const analyticsColors = ["#667eea", "#764ba2", "#28a745", "#ff9f43", "#e74c3c", "#17a2b8"];
 
@@ -86,11 +150,61 @@ function AdminHome() {
     });
   }, [orders, startDate, range]);
 
+  const normalizedExpenses = useMemo(
+    () =>
+      (expenses || []).map((expense) => {
+        const fallbackTotal =
+          Number(expense?.transportation_loading || 0) +
+          Number(expense?.shop_warehouse_expenses || 0) +
+          Number(expense?.staff_salary || 0) +
+          Number(expense?.damages_wastage || 0) +
+          Number(expense?.financial_charges || 0) +
+          Number(expense?.taxes || 0) +
+          Number(expense?.other_charges || 0);
+
+        return {
+          ...expense,
+          parsedDate: new Date(expense?.date || expense?.created_at || Date.now()),
+          totalExpenseValue: Number.isFinite(Number(expense?.total_expense))
+            ? Number(expense.total_expense)
+            : fallbackTotal,
+        };
+      }),
+    [expenses]
+  );
+
+  const filteredExpenses = useMemo(
+    () => normalizedExpenses.filter((expense) => expense.parsedDate >= startDate),
+    [normalizedExpenses, startDate]
+  );
+
+  const prevFilteredExpenses = useMemo(() => {
+    if (range === "all") return [];
+    const size = range === "7d" ? 7 : 30;
+    const endPrev = new Date(startDate);
+    endPrev.setDate(endPrev.getDate() - 1);
+    const startPrev = new Date(endPrev);
+    startPrev.setDate(startPrev.getDate() - (size - 1));
+    startPrev.setHours(0, 0, 0, 0);
+
+    return normalizedExpenses.filter((expense) => expense.parsedDate >= startPrev && expense.parsedDate <= endPrev);
+  }, [normalizedExpenses, startDate, range]);
+
   const analytics = useMemo(() => {
     const list = filteredOrders;
     const totalOrders = list.length;
     const totalRevenue = list.reduce((sum, order) => sum + (order.total || 0), 0);
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const productCostById = new Map();
+    const productCostByName = new Map();
+
+    products.forEach((product) => {
+      const unitCost = Number(product?.purchaseCost ?? product?.purchasePrice ?? product?.wholesalePrice ?? product?.price ?? 0);
+      const idKey = String(product?.id || product?._id || "").trim().toLowerCase();
+      const nameKey = String(product?.name || "").trim().toLowerCase();
+      if (idKey) productCostById.set(idKey, unitCost);
+      if (nameKey) productCostByName.set(nameKey, unitCost);
+    });
 
     const ordersByCategory = {};
     products.forEach((product) => {
@@ -112,7 +226,43 @@ function AdminHome() {
 
     const productSales = {};
     const productRevenue = {};
+    let totalCost = 0;
+    let profitableOrders = 0;
+    let lossOrders = 0;
+    const daysMap = new Map();
+
     list.forEach((order) => {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      const orderRevenue = Number(order.total || 0);
+      const orderCost = items.reduce((itemCostSum, item) => {
+        const qty = Number(item.quantity || 1);
+        const idKey = String(item?.id || item?._id || item?.productId || "").trim().toLowerCase();
+        const nameKey = String(item?.name || "").trim().toLowerCase();
+        const unitCost =
+          productCostById.get(idKey) ??
+          productCostByName.get(nameKey) ??
+          Number(item?.purchasePrice ?? item?.costPrice ?? item?.wholesalePrice ?? item?.price ?? 0);
+
+        return itemCostSum + (Number.isFinite(unitCost) ? unitCost : 0) * qty;
+      }, 0);
+
+      const effectiveOrderCost = items.length > 0 ? orderCost : orderRevenue;
+      const orderProfit = orderRevenue - effectiveOrderCost;
+      totalCost += effectiveOrderCost;
+      if (orderProfit >= 0) {
+        profitableOrders += 1;
+      } else {
+        lossOrders += 1;
+      }
+
+      const dateKey = new Date(order.date).toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+      const previousEntry = daysMap.get(dateKey) || { date: dateKey, revenue: 0, cost: 0, profit: 0, orders: 0 };
+      previousEntry.revenue += orderRevenue;
+      previousEntry.cost += effectiveOrderCost;
+      previousEntry.profit += orderProfit;
+      previousEntry.orders += 1;
+      daysMap.set(dateKey, previousEntry);
+
       order.items.forEach((item) => {
         const key = item.id ?? item.name;
         const qty = Number(item.quantity || 1);
@@ -124,6 +274,15 @@ function AdminHome() {
       });
     });
 
+    const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + Number(expense.totalExpenseValue || 0), 0);
+    const prevExpenses = prevFilteredExpenses.reduce((sum, expense) => sum + Number(expense.totalExpenseValue || 0), 0);
+
+    const grossProfit = totalRevenue - totalCost;
+    const netProfit = grossProfit - totalExpenses;
+    const netLoss = netProfit < 0 ? Math.abs(netProfit) : 0;
+    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+    const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
     const topProducts = Object.entries(productSales)
       .map(([key, units]) => {
         const name = products.find((p) => p.id === Number(key))?.name || key;
@@ -134,36 +293,93 @@ function AdminHome() {
 
     const recentOrders = list.slice(0, 10);
 
-    const dayKey = (d) => d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
-    const daysMap = new Map();
-    list.forEach((order) => {
-      const d = new Date(order.date);
-      const key = dayKey(d);
-      const prev = daysMap.get(key) || { date: key, revenue: 0, orders: 0 };
-      prev.revenue += order.total || 0;
-      prev.orders += 1;
-      daysMap.set(key, prev);
-    });
-
     const prevRevenue = prevFilteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
     const prevOrders = prevFilteredOrders.length;
+    const prevGrossProfit = prevFilteredOrders.reduce((sum, order) => {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      const orderRevenue = Number(order?.total || 0);
+      const orderCost = items.reduce((itemCostSum, item) => {
+        const qty = Number(item.quantity || 1);
+        const idKey = String(item?.id || item?._id || item?.productId || "").trim().toLowerCase();
+        const nameKey = String(item?.name || "").trim().toLowerCase();
+        const unitCost =
+          productCostById.get(idKey) ??
+          productCostByName.get(nameKey) ??
+          Number(item?.purchasePrice ?? item?.costPrice ?? item?.wholesalePrice ?? item?.price ?? 0);
+        return itemCostSum + (Number.isFinite(unitCost) ? unitCost : 0) * qty;
+      }, 0);
+      const effectiveOrderCost = items.length > 0 ? orderCost : orderRevenue;
+      return sum + (orderRevenue - effectiveOrderCost);
+    }, 0);
+
+    const prevNetProfit = prevGrossProfit - prevExpenses;
+
     const revDeltaPct = prevRevenue === 0 ? 100 : ((totalRevenue - prevRevenue) / prevRevenue) * 100;
     const ordDeltaPct = prevOrders === 0 ? 100 : ((totalOrders - prevOrders) / prevOrders) * 100;
+    const netDeltaPct = prevNetProfit === 0 ? 100 : ((netProfit - prevNetProfit) / Math.abs(prevNetProfit)) * 100;
 
     return {
       totalOrders,
       totalRevenue,
       averageOrderValue,
+      totalCost,
+      totalExpenses,
+      grossProfit,
+      netProfit,
+      netLoss,
+      grossMargin,
+      netMargin,
+      profitableOrders,
+      lossOrders,
       ordersByCategory,
       topProducts,
       recentOrders,
       totalProducts: products.length,
       cartItems: cart.length,
-      dailySeries: Array.from(daysMap.values()),
+      dailySeries: Array.from(daysMap.values()).map((entry) => ({
+        ...entry,
+        revenue: toMoney(entry.revenue),
+        cost: toMoney(entry.cost),
+        profit: toMoney(entry.profit),
+      })),
       revDeltaPct,
       ordDeltaPct,
+      netDeltaPct,
     };
-  }, [filteredOrders, prevFilteredOrders, products, cart]);
+  }, [filteredOrders, prevFilteredOrders, filteredExpenses, prevFilteredExpenses, products, cart]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadExpenses = async () => {
+      try {
+        let response = await apiFetch("/expenses", { method: "GET" });
+        if (!response?.ok) {
+          response = await apiFetch("/api/expenses", { method: "GET" });
+        }
+
+        if (!response?.ok) {
+          throw new Error("Unable to load expenses");
+        }
+
+        const payload = await parseJsonOrThrow(response);
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        if (isMounted) {
+          setExpenses(rows);
+        }
+      } catch {
+        if (isMounted) {
+          setExpenses([]);
+        }
+      }
+    };
+
+    loadExpenses();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const topProductsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product Name" },
@@ -277,6 +493,95 @@ function AdminHome() {
     if (type === "order") return "🧾";
     if (type === "stock") return "📦";
     return "🔔";
+  };
+
+  const handleExportAnalyticsPdf = async () => {
+    if (exportingPdf) return;
+
+    const analyticsNode = analyticsSectionRef.current;
+    if (!analyticsNode) {
+      alert("Analytics section not available for export.");
+      return;
+    }
+
+    setExportingPdf(true);
+
+    try {
+      const generatedAt = new Date();
+      const dateStamp = generatedAt.toISOString().slice(0, 10);
+      const rangeLabel = range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "All Time";
+      const generatedAtLabel = generatedAt.toLocaleString("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const canvas = await html2canvas(analyticsNode, {
+        backgroundColor: "#f5f7fa",
+        scale: 2,
+        useCORS: true,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        ignoreElements: (element) => element?.classList?.contains("no-pdf"),
+      });
+
+      const imageData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const headerHeight = 24;
+      const footerHeight = 8;
+      const printableWidth = pageWidth - margin * 2;
+      const printableHeight = pageHeight - margin - headerHeight - footerHeight;
+      const imageHeight = (canvas.height * printableWidth) / canvas.width;
+      const totalPages = Math.max(1, Math.ceil(imageHeight / printableHeight));
+
+      const drawHeader = () => {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(14);
+        pdf.text("Wholesale Store - Admin Analytics Report", margin, margin + 6);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text(`Range: ${rangeLabel}`, margin, margin + 12);
+        pdf.text(`Generated At: ${generatedAtLabel}`, margin, margin + 17);
+        pdf.text(`Generated By: ${adminUsername}`, margin, margin + 22);
+
+        pdf.setDrawColor(210, 210, 210);
+        pdf.line(margin, margin + headerHeight, pageWidth - margin, margin + headerHeight);
+      };
+
+      const drawFooter = (pageIndex) => {
+        const pageText = `Page ${pageIndex + 1} of ${totalPages}`;
+        pdf.setDrawColor(230, 230, 230);
+        pdf.line(margin, pageHeight - margin - footerHeight + 1, pageWidth - margin, pageHeight - margin - footerHeight + 1);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(pageText, pageWidth - margin, pageHeight - margin - 1, { align: "right" });
+        pdf.setTextColor(0, 0, 0);
+      };
+
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        drawHeader();
+        const imageY = margin + headerHeight - pageIndex * printableHeight;
+        pdf.addImage(imageData, "PNG", margin, imageY, printableWidth, imageHeight, undefined, "FAST");
+        drawFooter(pageIndex);
+      }
+
+      pdf.save(`admin-analytics-${range}-${dateStamp}.pdf`);
+    } catch (error) {
+      alert(error?.message || "Unable to export analytics PDF.");
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   return (
@@ -417,6 +722,24 @@ function AdminHome() {
               <div className="stat-label">Active Users</div>
               <div className="stat-value">{stats.activeUsers}</div>
             </div>
+            <div className="stat-item">
+              <div className="stat-label">Gross Profit / Loss</div>
+              <div className={`stat-value ${stats.grossProfit >= 0 ? "profit-positive" : "profit-negative"}`}>
+                {stats.grossProfit >= 0 ? "+" : "-"}₹{Math.abs(stats.grossProfit).toLocaleString()}
+              </div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-label">Total Expenses</div>
+              <div className="stat-value profit-negative">
+                -₹{Math.abs(stats.totalExpenses).toLocaleString()}
+              </div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-label">Net Profit / Loss (After Expenses)</div>
+              <div className={`stat-value ${stats.netProfit >= 0 ? "profit-positive" : "profit-negative"}`}>
+                {stats.netProfit >= 0 ? "+" : "-"}₹{Math.abs(stats.netProfit).toLocaleString()}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -428,6 +751,13 @@ function AdminHome() {
               <button className={`filter-btn ${range === "7d" ? "active" : ""}`} onClick={() => setRange("7d")}>7 Days</button>
               <button className={`filter-btn ${range === "30d" ? "active" : ""}`} onClick={() => setRange("30d")}>30 Days</button>
               <button className={`filter-btn ${range === "all" ? "active" : ""}`} onClick={() => setRange("all")}>All Time</button>
+              <button
+                className="filter-btn export-pdf-btn no-pdf"
+                onClick={handleExportAnalyticsPdf}
+                disabled={exportingPdf}
+              >
+                {exportingPdf ? "Exporting..." : "Export PDF"}
+              </button>
             </div>
           </div>
 
@@ -453,6 +783,18 @@ function AdminHome() {
               </div>
             </div>
             <div className="kpi-card">
+              <div className="kpi-icon">📉</div>
+              <div className="kpi-content">
+                <h4>Gross Profit / Loss</h4>
+                <p className={`kpi-value ${analytics.grossProfit >= 0 ? "profit-positive" : "profit-negative"}`}>
+                  {analytics.grossProfit >= 0 ? "+" : "-"}₹{Math.abs(analytics.grossProfit).toFixed(2)}
+                </p>
+                <span className={`trend ${analytics.grossMargin >= 0 ? "up" : "down"}`}>
+                  Margin {analytics.grossMargin >= 0 ? "▲" : "▼"} {Math.abs(analytics.grossMargin).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div className="kpi-card">
               <div className="kpi-icon">📦</div>
               <div className="kpi-content">
                 <h4>Avg Order Value</h4>
@@ -461,6 +803,25 @@ function AdminHome() {
             </div>
             <div className="kpi-card">
               <div className="kpi-icon">🧾</div>
+              <div className="kpi-content">
+                <h4>Total Expenses</h4>
+                <p className="kpi-value profit-negative">₹{analytics.totalExpenses.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-icon">⚖️</div>
+              <div className="kpi-content">
+                <h4>Net Profit / Loss</h4>
+                <p className={`kpi-value ${analytics.netProfit >= 0 ? "profit-positive" : "profit-negative"}`}>
+                  {analytics.netProfit >= 0 ? "+" : "-"}₹{Math.abs(analytics.netProfit).toFixed(2)}
+                </p>
+                <span className={`trend ${analytics.netMargin >= 0 ? "up" : "down"}`}>
+                  Margin {analytics.netMargin >= 0 ? "▲" : "▼"} {Math.abs(analytics.netMargin).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-icon">📚</div>
               <div className="kpi-content">
                 <h4>Total Products</h4>
                 <p className="kpi-value">{analytics.totalProducts}</p>
@@ -516,6 +877,61 @@ function AdminHome() {
                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
                   </PieChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="analytics-card">
+              <h3>Gross Profit vs Cost Trend</h3>
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={analytics.dailySeries} margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#6c757d" />
+                    <YAxis tick={{ fontSize: 12 }} stroke="#6c757d" />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ paddingTop: "10px" }} iconType="line" />
+                    <Line type="monotone" dataKey="cost" name="Cost (₹)" stroke="#ef4444" strokeWidth={3} dot={{ fill: "#ef4444", r: 3 }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="profit" name="Gross Profit/Loss (₹)" stroke="#16a34a" strokeWidth={3} dot={{ fill: "#16a34a", r: 3 }} activeDot={{ r: 5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="analytics-section profit-loss-summary">
+            <h3>Profit & Loss Snapshot</h3>
+            <div className="pl-strip">
+              <div className="pl-pill">
+                <span>Total Cost</span>
+                <strong>₹{analytics.totalCost.toFixed(2)}</strong>
+              </div>
+              <div className="pl-pill">
+                <span>Total Expenses</span>
+                <strong className="profit-negative">₹{analytics.totalExpenses.toFixed(2)}</strong>
+              </div>
+              <div className="pl-pill">
+                <span>Gross Profit / Loss</span>
+                <strong className={analytics.grossProfit >= 0 ? "profit-positive" : "profit-negative"}>
+                  {analytics.grossProfit >= 0 ? "+" : "-"}₹{Math.abs(analytics.grossProfit).toFixed(2)}
+                </strong>
+              </div>
+              <div className="pl-pill">
+                <span>Net Profit / Loss</span>
+                <strong className={analytics.netProfit >= 0 ? "profit-positive" : "profit-negative"}>
+                  {analytics.netProfit >= 0 ? "+" : "-"}₹{Math.abs(analytics.netProfit).toFixed(2)}
+                </strong>
+              </div>
+              <div className="pl-pill">
+                <span>Profitable Orders</span>
+                <strong>{analytics.profitableOrders}</strong>
+              </div>
+              <div className="pl-pill">
+                <span>Loss Orders</span>
+                <strong>{analytics.lossOrders}</strong>
+              </div>
+              <div className="pl-pill">
+                <span>Net Loss</span>
+                <strong className="profit-negative">₹{analytics.netLoss.toFixed(2)}</strong>
               </div>
             </div>
           </div>

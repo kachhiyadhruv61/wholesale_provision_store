@@ -28,6 +28,17 @@ const getPreferredCustomerName = (candidate = {}) => {
   return matched ? String(matched).trim() : "Customer";
 };
 
+const parseJsonOrThrow = async (response) => {
+  const contentType = response?.headers?.get?.('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const body = await response.text();
+    const preview = String(body || '').slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(`API returned non-JSON response${preview ? `: ${preview}` : ''}`);
+  }
+
+  return response.json();
+};
+
 function AdminDashboard() {
   const {
     products = [],
@@ -59,6 +70,21 @@ function AdminDashboard() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
   const [showAddPaymentForm, setShowAddPaymentForm] = useState(false);
+  const [expenses, setExpenses] = useState([]);
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expensesError, setExpensesError] = useState("");
+  const [showAddExpenseForm, setShowAddExpenseForm] = useState(false);
+  const [expenseFormData, setExpenseFormData] = useState({
+    date: "",
+    transportation_loading: "",
+    shop_warehouse_expenses: "",
+    staff_salary: "",
+    damages_wastage: "",
+    financial_charges: "",
+    taxes: "",
+    other_charges: "",
+    notes: "",
+  });
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedStockProduct, setSelectedStockProduct] = useState(null);
   const [stockFormData, setStockFormData] = useState({
@@ -136,6 +162,51 @@ function AdminDashboard() {
     };
 
     loadRegisteredUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadExpenses = async () => {
+      if (isMounted) {
+        setExpensesLoading(true);
+        setExpensesError("");
+      }
+
+      try {
+        let response = await apiFetch('/expenses', { method: 'GET' });
+        if (!response?.ok) {
+          response = await apiFetch('/api/expenses', { method: 'GET' });
+        }
+
+        if (!response?.ok) {
+          throw new Error('Unable to load expenses');
+        }
+
+        const payload = await parseJsonOrThrow(response);
+        const expenseRows = Array.isArray(payload?.data) ? payload.data : [];
+
+        if (isMounted) {
+          setExpenses(expenseRows);
+          setExpensesError("");
+        }
+      } catch (error) {
+        if (isMounted) {
+          setExpenses([]);
+          setExpensesError(error?.message || 'Unable to load expenses.');
+        }
+      } finally {
+        if (isMounted) {
+          setExpensesLoading(false);
+        }
+      }
+    };
+
+    loadExpenses();
 
     return () => {
       isMounted = false;
@@ -444,6 +515,10 @@ function AdminDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("adminLoggedIn");
     navigate("/");
+  };
+
+  const handleAdminHome = () => {
+    window.location.href = "http://localhost:3000/admin-home";
   };
 
   const getLowStockProducts = () => {
@@ -780,6 +855,103 @@ function AdminDashboard() {
     }
   };
 
+  const handleExpenseInputChange = (e) => {
+    const { name, value } = e.target;
+    setExpenseFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const resetExpenseForm = () => {
+    setExpenseFormData({
+      date: "",
+      transportation_loading: "",
+      shop_warehouse_expenses: "",
+      staff_salary: "",
+      damages_wastage: "",
+      financial_charges: "",
+      taxes: "",
+      other_charges: "",
+      notes: "",
+    });
+    setShowAddExpenseForm(false);
+  };
+
+  const handleAddExpense = async () => {
+    if (!expenseFormData.date) {
+      alert('Date is required');
+      return;
+    }
+
+    const numericFields = [
+      'transportation_loading',
+      'shop_warehouse_expenses',
+      'staff_salary',
+      'damages_wastage',
+      'financial_charges',
+      'taxes',
+      'other_charges',
+    ];
+
+    const hasInvalid = numericFields.some((field) => {
+      const parsed = Number(expenseFormData[field]);
+      return !Number.isFinite(parsed) || parsed < 0;
+    });
+
+    if (hasInvalid) {
+      alert('Please enter valid non-negative values for all numeric expense fields.');
+      return;
+    }
+
+    const payload = {
+      date: expenseFormData.date,
+      transportation_loading: Number(expenseFormData.transportation_loading),
+      shop_warehouse_expenses: Number(expenseFormData.shop_warehouse_expenses),
+      staff_salary: Number(expenseFormData.staff_salary),
+      damages_wastage: Number(expenseFormData.damages_wastage),
+      financial_charges: Number(expenseFormData.financial_charges),
+      taxes: Number(expenseFormData.taxes),
+      other_charges: Number(expenseFormData.other_charges),
+      notes: expenseFormData.notes,
+    };
+
+    try {
+      let response = await apiFetch('/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response?.ok) {
+        response = await apiFetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const result = await parseJsonOrThrow(response);
+
+      if (!response?.ok || result?.success === false) {
+        const fallbackError = Array.isArray(result?.errors)
+          ? result.errors.map((entry) => entry?.msg).filter(Boolean).join(', ')
+          : '';
+        throw new Error(result?.message || fallbackError || 'Unable to add expense');
+      }
+
+      const createdExpense = result?.data;
+      if (createdExpense) {
+        setExpenses((prev) => [createdExpense, ...prev]);
+      }
+
+      alert('Expense added successfully');
+      resetExpenseForm();
+    } catch (error) {
+      alert(error?.message || 'Unable to add expense.');
+    }
+  };
+
   const resetPaymentForm = () => {
     setPaymentFormData({
       orderId: "",
@@ -883,6 +1055,23 @@ function AdminDashboard() {
       };
     }),
     [products]
+  );
+
+  const expenseTableData = useMemo(
+    () => (expenses || []).map((expense) => ({
+      ...expense,
+      dateDisplay: expense?.date ? formatDate(expense.date) : 'N/A',
+      totalExpenseValue: Number(expense?.total_expense || 0),
+      transportation_loading: Number(expense?.transportation_loading || 0),
+      shop_warehouse_expenses: Number(expense?.shop_warehouse_expenses || 0),
+      staff_salary: Number(expense?.staff_salary || 0),
+      damages_wastage: Number(expense?.damages_wastage || 0),
+      financial_charges: Number(expense?.financial_charges || 0),
+      taxes: Number(expense?.taxes || 0),
+      other_charges: Number(expense?.other_charges || 0),
+      notes: expense?.notes || '-',
+    })),
+    [expenses]
   );
 
   const productColumns = useMemo(() => [
@@ -1159,6 +1348,56 @@ function AdminDashboard() {
     }
   ], [handleEditClick]);
 
+  const expenseColumns = useMemo(() => [
+    {
+      accessorKey: 'id',
+      header: 'Expense ID',
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>,
+    },
+    { accessorKey: 'dateDisplay', header: 'Date' },
+    {
+      accessorKey: 'transportation_loading',
+      header: 'Transport/Loading',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'shop_warehouse_expenses',
+      header: 'Shop/Warehouse',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'staff_salary',
+      header: 'Staff Salary',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'damages_wastage',
+      header: 'Damages/Wastage',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'financial_charges',
+      header: 'Financial Charges',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'taxes',
+      header: 'Taxes',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'other_charges',
+      header: 'Other Charges',
+      Cell: ({ cell }) => `₹${Number(cell.getValue() || 0).toLocaleString()}`,
+    },
+    {
+      accessorKey: 'totalExpenseValue',
+      header: 'Total Expense',
+      Cell: ({ cell }) => <span className="amount">₹{Number(cell.getValue() || 0).toLocaleString()}</span>,
+    },
+    { accessorKey: 'notes', header: 'Notes' },
+  ], []);
+
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -1228,6 +1467,15 @@ function AdminDashboard() {
           >
             Pricing
           </button>
+          <button
+            className={activeTab === "expenses" ? "active" : ""}
+            onClick={() => setActiveTab("expenses")}
+          >
+            Expenses
+          </button>
+          <button onClick={handleAdminHome}>
+            Admin Home
+          </button>
           <button onClick={handleLogout} className="logout-btn">
             Logout
           </button>
@@ -1244,6 +1492,7 @@ function AdminDashboard() {
             {activeTab === "customers" && "Customer Management Dashboard"}
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
+            {activeTab === "expenses" && "Expenses Management"}
           </h1>
           {(activeTab === "products" || activeTab === "stock") && productsLoading && (
             <div className="admin-alert">
@@ -1328,6 +1577,20 @@ function AdminDashboard() {
                 <div className="stat-card">
                   <span className="stat-label">Failed Payments</span>
                   <span className="stat-value" style={{color: '#ef4444'}}>{getPaymentStats().failedPayments}</span>
+                </div>
+              </>
+            )}
+            {activeTab === "expenses" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Total Expenses</span>
+                  <span className="stat-value">{expenses.length}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Total Expense Amount</span>
+                  <span className="stat-value warning">
+                    ₹{expenses.reduce((sum, item) => sum + Number(item?.total_expense || 0), 0).toLocaleString()}
+                  </span>
                 </div>
               </>
             )}
@@ -1709,6 +1972,89 @@ function AdminDashboard() {
                 data={pricingTableData}
                 fileName="pricing"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Expenses Tab */}
+        {activeTab === "expenses" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Expense Management</h2>
+              {!showAddExpenseForm && (
+                <button className="btn-add" onClick={() => setShowAddExpenseForm(true)}>
+                  ➕ Add Expense
+                </button>
+              )}
+            </div>
+
+            {showAddExpenseForm && (
+              <div className="product-form-card">
+                <h3>Add Expense</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Date *</label>
+                    <input type="date" name="date" value={expenseFormData.date} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Transportation/Loading *</label>
+                    <input type="number" min="0" step="0.01" name="transportation_loading" value={expenseFormData.transportation_loading} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Shop/Warehouse Expenses *</label>
+                    <input type="number" min="0" step="0.01" name="shop_warehouse_expenses" value={expenseFormData.shop_warehouse_expenses} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Staff Salary *</label>
+                    <input type="number" min="0" step="0.01" name="staff_salary" value={expenseFormData.staff_salary} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Damages/Wastage *</label>
+                    <input type="number" min="0" step="0.01" name="damages_wastage" value={expenseFormData.damages_wastage} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Financial Charges *</label>
+                    <input type="number" min="0" step="0.01" name="financial_charges" value={expenseFormData.financial_charges} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Taxes *</label>
+                    <input type="number" min="0" step="0.01" name="taxes" value={expenseFormData.taxes} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>Other Charges *</label>
+                    <input type="number" min="0" step="0.01" name="other_charges" value={expenseFormData.other_charges} onChange={handleExpenseInputChange} />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Notes</label>
+                    <textarea name="notes" value={expenseFormData.notes} onChange={handleExpenseInputChange} rows="3" placeholder="Optional notes" />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn-save" onClick={handleAddExpense}>
+                    ✅ Save Expense
+                  </button>
+                  <button className="btn-cancel" onClick={resetExpenseForm}>
+                    ❌ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {expensesError && (
+              <div className="admin-alert warning" style={{ marginBottom: '12px' }}>
+                <strong>Expense API Error:</strong> {expensesError}
+              </div>
+            )}
+
+            <div className="products-table">
+              {expensesLoading ? (
+                <div className="empty-state">
+                  <p>Loading expenses...</p>
+                </div>
+              ) : (
+                <CommonTable columns={expenseColumns} data={expenseTableData} fileName="expenses" />
+              )}
             </div>
           </div>
         )}

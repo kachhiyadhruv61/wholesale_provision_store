@@ -29,6 +29,7 @@ const orderRoutes = require('./routes/orderroutes');
 const deliveryRoutes = require('./routes/deliveryroutes');
 const loginRoutes = require('./routes/loginroutes');
 const authRoutes = require('./routes/authRoute');
+const expenseRoutes = require('./routes/expensesroutes');
 const plannedRoutes = require('./routes/plannedroutes');
 const contactRoutes = require('./routes/contactroutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
@@ -84,6 +85,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOpti
 // Use Routes
 app.use('/', userRoutes);
 app.use('/', authRoutes);
+app.use('/', expenseRoutes);
 app.use('/', productRoutes);
 app.use('/', orderRoutes);
 app.use('/', contactRoutes);
@@ -97,6 +99,7 @@ app.use('/', whatsappRoutes);
 // Planned API namespace
 app.use('/api', loginRoutes);
 app.use('/api', authRoutes);
+app.use('/api', expenseRoutes);
 app.use('/api', userRoutes);
 app.use('/api', productRoutes);
 app.use('/api', orderRoutes);
