@@ -74,6 +74,20 @@ function AdminDashboard() {
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [expensesError, setExpensesError] = useState("");
   const [showAddExpenseForm, setShowAddExpenseForm] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [vendorsLoading, setVendorsLoading] = useState(false);
+  const [vendorsError, setVendorsError] = useState("");
+  const [showAddVendorForm, setShowAddVendorForm] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [vendorFormData, setVendorFormData] = useState({
+    vendorName: "",
+    companyName: "",
+    mobileNumber: "",
+    gstNumber: "",
+    email: "",
+    productCategory: "Other",
+    notes: "",
+  });
   const [expenseFormData, setExpenseFormData] = useState({
     date: "",
     transportation_loading: "",
@@ -125,6 +139,16 @@ function AdminDashboard() {
     return Array.from(unique);
   }, [products]);
   const units = ["bag", "box", "bottle", "kg", "litre"];
+  const vendorCategoryOptions = [
+    "Other",
+    "Grocery",
+    "Masala Spices",
+    "Pan Center",
+    "Daily Used Product",
+    "Snacks",
+    "Biscuit",
+    "Chocolates",
+  ];
 
   useEffect(() => {
     let isMounted = true;
@@ -162,6 +186,51 @@ function AdminDashboard() {
     };
 
     loadRegisteredUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadVendors = async () => {
+      if (isMounted) {
+        setVendorsLoading(true);
+        setVendorsError("");
+      }
+
+      try {
+        let response = await apiFetch('/vendors', { method: 'GET' });
+        if (!response?.ok) {
+          response = await apiFetch('/api/vendors', { method: 'GET' });
+        }
+
+        if (!response?.ok) {
+          throw new Error('Unable to load vendors');
+        }
+
+        const payload = await parseJsonOrThrow(response);
+        const vendorRows = Array.isArray(payload?.data) ? payload.data : [];
+
+        if (isMounted) {
+          setVendors(vendorRows);
+          setVendorsError("");
+        }
+      } catch (error) {
+        if (isMounted) {
+          setVendors([]);
+          setVendorsError(error?.message || 'Unable to load vendors.');
+        }
+      } finally {
+        if (isMounted) {
+          setVendorsLoading(false);
+        }
+      }
+    };
+
+    loadVendors();
 
     return () => {
       isMounted = false;
@@ -863,6 +932,14 @@ function AdminDashboard() {
     }));
   };
 
+  const handleVendorInputChange = (e) => {
+    const { name, value } = e.target;
+    setVendorFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const resetExpenseForm = () => {
     setExpenseFormData({
       date: "",
@@ -949,6 +1026,197 @@ function AdminDashboard() {
       resetExpenseForm();
     } catch (error) {
       alert(error?.message || 'Unable to add expense.');
+    }
+  };
+
+  const resetVendorForm = () => {
+    setVendorFormData({
+      vendorName: "",
+      companyName: "",
+      mobileNumber: "",
+      gstNumber: "",
+      email: "",
+      productCategory: "Other",
+      notes: "",
+    });
+    setEditingVendor(null);
+    setShowAddVendorForm(false);
+  };
+
+  const handleEditVendor = (vendor) => {
+    setEditingVendor(vendor);
+    setVendorFormData({
+      vendorName: String(vendor?.vendorName || ''),
+      companyName: String(vendor?.companyName || ''),
+      mobileNumber: String(vendor?.mobileNumber || ''),
+      gstNumber: String(vendor?.gstNumber || ''),
+      email: String(vendor?.email || ''),
+      productCategory: String(vendor?.productCategory || 'Other'),
+      notes: String(vendor?.notes || ''),
+    });
+    setShowAddVendorForm(true);
+  };
+
+  const handleAddVendor = async () => {
+    const requiredFields = ["vendorName", "companyName", "mobileNumber", "gstNumber", "productCategory"];
+    const hasEmptyRequiredField = requiredFields.some((field) => !String(vendorFormData[field] || "").trim());
+
+    if (hasEmptyRequiredField) {
+      alert("Please fill all required vendor fields.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(String(vendorFormData.mobileNumber || "").trim())) {
+      alert("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
+    const payload = {
+      vendorName: String(vendorFormData.vendorName || "").trim(),
+      companyName: String(vendorFormData.companyName || "").trim(),
+      mobileNumber: String(vendorFormData.mobileNumber || "").trim(),
+      gstNumber: String(vendorFormData.gstNumber || "").trim().toUpperCase(),
+      email: String(vendorFormData.email || "").trim(),
+      productCategory: String(vendorFormData.productCategory || "").trim(),
+      notes: String(vendorFormData.notes || "").trim(),
+    };
+
+    try {
+      let response = await apiFetch('/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response?.ok) {
+        response = await apiFetch('/api/vendors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const result = await parseJsonOrThrow(response);
+
+      if (!response?.ok || result?.success === false) {
+        const fallbackError = Array.isArray(result?.errors)
+          ? result.errors.map((entry) => entry?.msg).filter(Boolean).join(', ')
+          : '';
+        throw new Error(result?.message || fallbackError || 'Unable to add vendor');
+      }
+
+      const createdVendor = result?.data;
+      if (createdVendor) {
+        setVendors((prev) => [createdVendor, ...prev]);
+      }
+
+      alert('Vendor added successfully');
+      resetVendorForm();
+    } catch (error) {
+      alert(error?.message || 'Unable to add vendor.');
+    }
+  };
+
+  const handleUpdateVendor = async () => {
+    if (!editingVendor) return;
+
+    const requiredFields = ["vendorName", "companyName", "mobileNumber", "gstNumber", "productCategory"];
+    const hasEmptyRequiredField = requiredFields.some((field) => !String(vendorFormData[field] || "").trim());
+
+    if (hasEmptyRequiredField) {
+      alert("Please fill all required vendor fields.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(String(vendorFormData.mobileNumber || "").trim())) {
+      alert("Mobile number must be exactly 10 digits.");
+      return;
+    }
+
+    const payload = {
+      vendorName: String(vendorFormData.vendorName || "").trim(),
+      companyName: String(vendorFormData.companyName || "").trim(),
+      mobileNumber: String(vendorFormData.mobileNumber || "").trim(),
+      gstNumber: String(vendorFormData.gstNumber || "").trim().toUpperCase(),
+      email: String(vendorFormData.email || "").trim(),
+      productCategory: String(vendorFormData.productCategory || "").trim(),
+      notes: String(vendorFormData.notes || "").trim(),
+    };
+
+    const vendorId = editingVendor?._id || editingVendor?.id;
+
+    try {
+      let response = await apiFetch(`/vendors/${encodeURIComponent(vendorId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response?.ok) {
+        response = await apiFetch(`/api/vendors/${encodeURIComponent(vendorId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const result = await parseJsonOrThrow(response);
+
+      if (!response?.ok || result?.success === false) {
+        const fallbackError = Array.isArray(result?.errors)
+          ? result.errors.map((entry) => entry?.msg).filter(Boolean).join(', ')
+          : '';
+        throw new Error(result?.message || fallbackError || 'Unable to update vendor');
+      }
+
+      const updatedVendor = result?.data;
+      if (updatedVendor) {
+        setVendors((prev) => prev.map((vendor) => {
+          const currentId = vendor?._id || vendor?.id;
+          const updatedId = updatedVendor?._id || updatedVendor?.id;
+          return String(currentId) === String(updatedId) ? updatedVendor : vendor;
+        }));
+      }
+
+      alert('Vendor updated successfully');
+      resetVendorForm();
+    } catch (error) {
+      alert(error?.message || 'Unable to update vendor.');
+    }
+  };
+
+  const handleDeleteVendor = async (vendor) => {
+    const vendorId = vendor?._id || vendor?.id;
+    const vendorName = vendor?.vendorName || 'vendor';
+
+    if (!window.confirm(`Are you sure you want to delete "${vendorName}"?`)) {
+      return;
+    }
+
+    try {
+      let response = await apiFetch(`/vendors/${encodeURIComponent(vendorId)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response?.ok) {
+        response = await apiFetch(`/api/vendors/${encodeURIComponent(vendorId)}`, {
+          method: 'DELETE',
+        });
+      }
+
+      const result = await parseJsonOrThrow(response);
+
+      if (!response?.ok || result?.success === false) {
+        throw new Error(result?.message || 'Unable to delete vendor');
+      }
+
+      setVendors((prev) => prev.filter((entry) => {
+        const entryId = entry?._id || entry?.id;
+        return String(entryId) !== String(vendorId);
+      }));
+      alert('Vendor deleted successfully');
+    } catch (error) {
+      alert(error?.message || 'Unable to delete vendor.');
     }
   };
 
@@ -1072,6 +1340,15 @@ function AdminDashboard() {
       notes: expense?.notes || '-',
     })),
     [expenses]
+  );
+
+  const vendorTableData = useMemo(
+    () => (vendors || []).map((vendor) => ({
+      ...vendor,
+      emailDisplay: vendor?.email || 'N/A',
+      createdDateDisplay: vendor?.created_at ? formatDate(vendor.created_at) : 'N/A',
+    })),
+    [vendors]
   );
 
   const productColumns = useMemo(() => [
@@ -1398,6 +1675,48 @@ function AdminDashboard() {
     { accessorKey: 'notes', header: 'Notes' },
   ], []);
 
+  const vendorColumns = useMemo(() => [
+    {
+      accessorKey: 'id',
+      header: 'Vendor ID',
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>,
+    },
+    {
+      accessorKey: 'vendorName',
+      header: 'Vendor Name',
+      Cell: ({ cell }) => <strong>{cell.getValue()}</strong>,
+    },
+    { accessorKey: 'companyName', header: 'Shop / Company' },
+    { accessorKey: 'mobileNumber', header: 'Mobile Number' },
+    { accessorKey: 'gstNumber', header: 'GST Number' },
+    { accessorKey: 'emailDisplay', header: 'Email' },
+    { accessorKey: 'productCategory', header: 'Product Category' },
+    { accessorKey: 'notes', header: 'Notes' },
+    { accessorKey: 'createdDateDisplay', header: 'Created On' },
+    {
+      accessorKey: 'actions',
+      header: 'Actions',
+      Cell: ({ row }) => (
+        <div className="actions">
+          <button
+            className="btn-edit"
+            onClick={() => handleEditVendor(row.original)}
+            title="Edit"
+          >
+            ✏️
+          </button>
+          <button
+            className="btn-delete"
+            onClick={() => handleDeleteVendor(row.original)}
+            title="Delete"
+          >
+            🗑️
+          </button>
+        </div>
+      ),
+    },
+  ], [handleDeleteVendor]);
+
 
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
@@ -1455,6 +1774,12 @@ function AdminDashboard() {
           >
             Customers
           </button>
+          <button
+            className={activeTab === "vendors" ? "active" : ""}
+            onClick={() => setActiveTab("vendors")}
+          >
+            Vendors
+          </button>
           <button 
             className={activeTab === "stock" ? "active" : ""} 
             onClick={() => setActiveTab("stock")}
@@ -1490,6 +1815,7 @@ function AdminDashboard() {
             {activeTab === "orders" && "Order Management Dashboard"}
             {activeTab === "payments" && "Payment Management Dashboard"}
             {activeTab === "customers" && "Customer Management Dashboard"}
+            {activeTab === "vendors" && "Vendor Management Dashboard"}
             {activeTab === "stock" && "Stock Management Dashboard"}
             {activeTab === "pricing" && "Pricing Management"}
             {activeTab === "expenses" && "Expenses Management"}
@@ -1591,6 +1917,22 @@ function AdminDashboard() {
                   <span className="stat-value warning">
                     ₹{expenses.reduce((sum, item) => sum + Number(item?.total_expense || 0), 0).toLocaleString()}
                   </span>
+                </div>
+              </>
+            )}
+            {activeTab === "vendors" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Total Vendors</span>
+                  <span className="stat-value">{vendors.length}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">With Email</span>
+                  <span className="stat-value">{vendors.filter((vendor) => String(vendor?.email || '').trim()).length}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">With GST Number</span>
+                  <span className="stat-value success">{vendors.filter((vendor) => String(vendor?.gstNumber || '').trim()).length}</span>
                 </div>
               </>
             )}
@@ -1800,6 +2142,134 @@ function AdminDashboard() {
                   data={customerTableData}
                   fileName="customers"
                 />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Vendors Tab */}
+        {activeTab === "vendors" && (
+          <div className="admin-section">
+            <div className="section-header">
+              <h2>Vendor Directory</h2>
+              {!showAddVendorForm && (
+                <button className="btn-add" onClick={() => setShowAddVendorForm(true)}>
+                  ➕ Add Vendor
+                </button>
+              )}
+            </div>
+
+            {showAddVendorForm && (
+              <div className="product-form-card">
+                <h3>{editingVendor ? 'Edit Vendor' : 'Add Vendor'}</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Vendor Name *</label>
+                    <input
+                      type="text"
+                      name="vendorName"
+                      value={vendorFormData.vendorName}
+                      onChange={handleVendorInputChange}
+                      placeholder="Vendor full name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Shop / Company Name *</label>
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={vendorFormData.companyName}
+                      onChange={handleVendorInputChange}
+                      placeholder="Company name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Mobile Number *</label>
+                    <input
+                      type="tel"
+                      name="mobileNumber"
+                      value={vendorFormData.mobileNumber}
+                      onChange={handleVendorInputChange}
+                      placeholder="10 digit number"
+                      maxLength={10}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>GST Number *</label>
+                    <input
+                      type="text"
+                      name="gstNumber"
+                      value={vendorFormData.gstNumber}
+                      onChange={handleVendorInputChange}
+                      placeholder="GSTIN"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email ID (Optional)</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={vendorFormData.email}
+                      onChange={handleVendorInputChange}
+                      placeholder="vendor@example.com"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Product Category *</label>
+                    <select
+                      name="productCategory"
+                      value={vendorFormData.productCategory}
+                      onChange={handleVendorInputChange}
+                    >
+                      {vendorCategoryOptions.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Notes</label>
+                    <textarea
+                      name="notes"
+                      value={vendorFormData.notes}
+                      onChange={handleVendorInputChange}
+                      rows="3"
+                      placeholder="Optional notes"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  {editingVendor ? (
+                    <button className="btn-update" onClick={handleUpdateVendor}>
+                      💾 Update Vendor
+                    </button>
+                  ) : (
+                    <button className="btn-save" onClick={handleAddVendor}>
+                      ✅ Save Vendor
+                    </button>
+                  )}
+                  <button className="btn-cancel" onClick={resetVendorForm}>
+                    ❌ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {vendorsError && (
+              <div className="admin-alert warning" style={{ marginBottom: '12px' }}>
+                <strong>Vendor API Error:</strong> {vendorsError}
+              </div>
+            )}
+
+            <div className="products-table">
+              {vendorsLoading ? (
+                <div className="empty-state">
+                  <p>Loading vendors...</p>
+                </div>
+              ) : (
+                <CommonTable columns={vendorColumns} data={vendorTableData} fileName="vendors" />
               )}
             </div>
           </div>

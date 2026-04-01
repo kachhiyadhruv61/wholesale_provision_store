@@ -7521,6 +7521,90 @@ h2 {
   margin: 0 auto 60px;
 }
 
+/* Leadership Section */
+.about-owner {
+  max-width: 1200px;
+  margin: 0 auto 60px;
+}
+
+.about-owner-header {
+  text-align: center;
+  max-width: 860px;
+  margin: 0 auto 28px;
+}
+
+.about-owner-header h2 {
+  margin: 0 0 8px;
+  font-size: 46px;
+  line-height: 1.15;
+  color: #1f2937;
+  font-weight: 800;
+}
+
+.about-owner-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.leadership-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 560px);
+  justify-content: center;
+}
+
+.leader-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 26px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+  padding: 30px 26px 28px;
+  text-align: center;
+}
+
+.leader-photo-ring {
+  width: 232px;
+  height: 232px;
+  margin: 0 auto 20px;
+  border-radius: 999px;
+  padding: 7px;
+  background: linear-gradient(135deg, #f59e0b, #ec4899, #7c3aed);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 14px 30px rgba(124, 58, 237, 0.2);
+}
+
+.leader-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 7px solid #ffffff;
+}
+
+.leader-card h3 {
+  margin: 2px 0 2px;
+  font-size: 52px;
+  line-height: 1.1;
+  color: #111827;
+  font-weight: 800;
+}
+
+.leader-role {
+  margin: 0 0 14px;
+  color: #14b8a6;
+  font-size: 33px;
+  font-weight: 700;
+}
+
+.leader-bio {
+  margin: 0;
+  color: #4b5563;
+  font-size: 29px;
+  line-height: 1.6;
+}
+
 .story-content {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -7702,6 +7786,36 @@ h2 {
 
   .story-icon {
     font-size: 60px;
+  }
+
+  .about-owner-header h2 {
+    font-size: 34px;
+  }
+
+  .about-owner-header p {
+    font-size: 18px;
+  }
+
+  .leader-card {
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .leader-photo-ring {
+    width: 188px;
+    height: 188px;
+  }
+
+  .leader-card h3 {
+    font-size: 33px;
+  }
+
+  .leader-role {
+    font-size: 23px;
+  }
+
+  .leader-bio {
+    font-size: 19px;
   }
 
   .why-icons-grid,

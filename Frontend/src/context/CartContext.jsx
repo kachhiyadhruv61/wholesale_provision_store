@@ -138,7 +138,7 @@ export function CartProvider({ children }) {
   const totalGst = cartBilling.totalGst;
   const grandTotal = cartBilling.subtotalAfterGst;
 
-  const deliveryCharge = totalPrice > 0 && totalPrice < 6000 ? 150 : 0;
+  const deliveryCharge = grandTotal > 0 && grandTotal < 6000 ? 150 : 0;
 
   return (
     <CartContext.Provider

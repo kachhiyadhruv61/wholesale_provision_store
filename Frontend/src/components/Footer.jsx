@@ -59,7 +59,7 @@ function Footer() {
       <div className="footer-divider"></div>
 
       <div className="footer-bottom">
-        <p className="footer-credit">© 2026 DK TRADERS. All rights reserved. | Built with React & modern web tech</p>
+        <p className="footer-credit">© 2026 DK TRADERS. All rights reserved. | GSTIN: 24ZPHBLBAQVW1Z | Built with React & modern web tech</p>
         <div className="footer-badges">
           <span className="badge">React 19</span>
           <span className="badge">Context API</span>

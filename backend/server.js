@@ -32,6 +32,7 @@ const authRoutes = require('./routes/authRoute');
 const expenseRoutes = require('./routes/expensesroutes');
 const plannedRoutes = require('./routes/plannedroutes');
 const contactRoutes = require('./routes/contactroutes');
+const vendorRoutes = require('./routes/vendorroutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 
 // Swagger Setup
@@ -89,6 +90,7 @@ app.use('/', expenseRoutes);
 app.use('/', productRoutes);
 app.use('/', orderRoutes);
 app.use('/', contactRoutes);
+app.use('/', vendorRoutes);
 app.use('/', loginRoutes);
 app.use('/', paymentRoutes);
 app.use('/', paymentConfirmationRoutes);
@@ -104,6 +106,7 @@ app.use('/api', userRoutes);
 app.use('/api', productRoutes);
 app.use('/api', orderRoutes);
 app.use('/api', contactRoutes);
+app.use('/api', vendorRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', paymentConfirmationRoutes);
 app.use('/api', deliveryRoutes);
