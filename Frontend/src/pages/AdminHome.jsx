@@ -33,11 +33,66 @@ const parseJsonOrThrow = async (response) => {
   return response.json();
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const toDateInputValue = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const startOfLocalDay = (date) => {
+  const day = new Date(date);
+  day.setHours(0, 0, 0, 0);
+  return day;
+};
+
+const endOfLocalDay = (date) => {
+  const day = new Date(date);
+  day.setHours(23, 59, 59, 999);
+  return day;
+};
+
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const formatDateRangeLabel = (startDate, endDate) => {
+  if (!startDate || !endDate) return "Custom Range";
+
+  return `${startDate.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })} - ${endDate.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}`;
+};
+
 function AdminHome() {
   const navigate = useNavigate();
   const [adminUsername] = useState(localStorage.getItem("adminUsername") || "Admin");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState(() => toDateInputValue(addDays(new Date(), -6)));
+  const [customEndDate, setCustomEndDate] = useState(() => toDateInputValue(new Date()));
   const notificationPanelRef = useRef(null);
   const notificationButtonRef = useRef(null);
   const analyticsSectionRef = useRef(null);
@@ -114,41 +169,74 @@ function AdminHome() {
 
   const analyticsColors = ["#667eea", "#764ba2", "#28a745", "#ff9f43", "#e74c3c", "#17a2b8"];
 
-  const startDate = useMemo(() => {
+  const dateWindow = useMemo(() => {
     const now = new Date();
+
     if (range === "7d") {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 6);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      return {
+        start: startOfLocalDay(addDays(now, -6)),
+        end: endOfLocalDay(now),
+      };
     }
+
     if (range === "30d") {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 29);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      return {
+        start: startOfLocalDay(addDays(now, -29)),
+        end: endOfLocalDay(now),
+      };
     }
-    return new Date(0);
-  }, [range]);
+
+    if (range === "custom") {
+      const start = parseDateValue(customStartDate);
+      const end = parseDateValue(customEndDate);
+
+      if (!start || !end) {
+        return { start: null, end: null };
+      }
+
+      const startDate = start <= end ? start : end;
+      const endDate = start <= end ? end : start;
+
+      return {
+        start: startOfLocalDay(startDate),
+        end: endOfLocalDay(endDate),
+      };
+    }
+
+    return { start: null, end: null };
+  }, [range, customStartDate, customEndDate]);
+
+  const selectedRangeLabel = useMemo(() => {
+    if (range === "7d") return "Last 7 days";
+    if (range === "30d") return "Last 30 days";
+    if (range === "custom") return formatDateRangeLabel(dateWindow.start, dateWindow.end);
+    return "All time";
+  }, [range, dateWindow.start, dateWindow.end]);
 
   const filteredOrders = useMemo(
-    () => orders.filter((order) => new Date(order.date) >= startDate),
-    [orders, startDate]
+    () =>
+      orders.filter((order) => {
+        const orderDate = parseDateValue(order?.date);
+        if (!orderDate) return false;
+        if (range === "custom" && (!dateWindow.start || !dateWindow.end)) return false;
+        if (!dateWindow.start || !dateWindow.end) return true;
+        return orderDate >= dateWindow.start && orderDate <= dateWindow.end;
+      }),
+    [orders, dateWindow.start, dateWindow.end, range]
   );
 
   const prevFilteredOrders = useMemo(() => {
-    if (range === "all") return [];
-    const size = range === "7d" ? 7 : 30;
-    const endPrev = new Date(startDate);
-    endPrev.setDate(endPrev.getDate() - 1);
-    const startPrev = new Date(endPrev);
-    startPrev.setDate(startPrev.getDate() - (size - 1));
-    startPrev.setHours(0, 0, 0, 0);
+    if (range === "all" || !dateWindow.start || !dateWindow.end) return [];
+
+    const days = Math.max(1, Math.round((dateWindow.end.getTime() - dateWindow.start.getTime()) / MS_PER_DAY) + 1);
+    const endPrev = endOfLocalDay(addDays(dateWindow.start, -1));
+    const startPrev = startOfLocalDay(addDays(endPrev, -(days - 1)));
+
     return orders.filter((order) => {
-      const d = new Date(order.date);
-      return d >= startPrev && d <= endPrev;
+      const orderDate = parseDateValue(order?.date);
+      return !!orderDate && orderDate >= startPrev && orderDate <= endPrev;
     });
-  }, [orders, startDate, range]);
+  }, [orders, dateWindow.end, dateWindow.start, range]);
 
   const normalizedExpenses = useMemo(
     () =>
@@ -174,24 +262,31 @@ function AdminHome() {
   );
 
   const filteredExpenses = useMemo(
-    () => normalizedExpenses.filter((expense) => expense.parsedDate >= startDate),
-    [normalizedExpenses, startDate]
+    () =>
+      normalizedExpenses.filter((expense) => {
+        if (range === "custom" && (!dateWindow.start || !dateWindow.end)) return false;
+        if (!dateWindow.start || !dateWindow.end) return true;
+        return expense.parsedDate >= dateWindow.start && expense.parsedDate <= dateWindow.end;
+      }),
+    [normalizedExpenses, dateWindow.start, dateWindow.end, range]
   );
 
   const prevFilteredExpenses = useMemo(() => {
-    if (range === "all") return [];
-    const size = range === "7d" ? 7 : 30;
-    const endPrev = new Date(startDate);
-    endPrev.setDate(endPrev.getDate() - 1);
-    const startPrev = new Date(endPrev);
-    startPrev.setDate(startPrev.getDate() - (size - 1));
-    startPrev.setHours(0, 0, 0, 0);
+    if (range === "all" || !dateWindow.start || !dateWindow.end) return [];
+
+    const days = Math.max(1, Math.round((dateWindow.end.getTime() - dateWindow.start.getTime()) / MS_PER_DAY) + 1);
+    const endPrev = endOfLocalDay(addDays(dateWindow.start, -1));
+    const startPrev = startOfLocalDay(addDays(endPrev, -(days - 1)));
 
     return normalizedExpenses.filter((expense) => expense.parsedDate >= startPrev && expense.parsedDate <= endPrev);
-  }, [normalizedExpenses, startDate, range]);
+  }, [normalizedExpenses, dateWindow.end, dateWindow.start, range]);
 
   const analytics = useMemo(() => {
-    const list = filteredOrders;
+    const list = [...filteredOrders].sort((left, right) => {
+      const leftDate = parseDateValue(left?.date)?.getTime() || 0;
+      const rightDate = parseDateValue(right?.date)?.getTime() || 0;
+      return rightDate - leftDate;
+    });
     const totalOrders = list.length;
     const totalRevenue = list.reduce((sum, order) => sum + (order.total || 0), 0);
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -234,6 +329,7 @@ function AdminHome() {
     list.forEach((order) => {
       const items = Array.isArray(order?.items) ? order.items : [];
       const orderRevenue = Number(order.total || 0);
+      const orderDate = parseDateValue(order?.date) || new Date();
       const orderCost = items.reduce((itemCostSum, item) => {
         const qty = Number(item.quantity || 1);
         const idKey = String(item?.id || item?._id || item?.productId || "").trim().toLowerCase();
@@ -255,8 +351,9 @@ function AdminHome() {
         lossOrders += 1;
       }
 
-      const dateKey = new Date(order.date).toLocaleDateString(undefined, { month: "short", day: "2-digit" });
-      const previousEntry = daysMap.get(dateKey) || { date: dateKey, revenue: 0, cost: 0, profit: 0, orders: 0 };
+      const dateKey = orderDate.toISOString().slice(0, 10);
+      const dateLabel = orderDate.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+      const previousEntry = daysMap.get(dateKey) || { date: dateLabel, sortKey: orderDate.getTime(), revenue: 0, cost: 0, profit: 0, orders: 0 };
       previousEntry.revenue += orderRevenue;
       previousEntry.cost += effectiveOrderCost;
       previousEntry.profit += orderProfit;
@@ -336,12 +433,14 @@ function AdminHome() {
       recentOrders,
       totalProducts: products.length,
       cartItems: cart.length,
-      dailySeries: Array.from(daysMap.values()).map((entry) => ({
-        ...entry,
-        revenue: toMoney(entry.revenue),
-        cost: toMoney(entry.cost),
-        profit: toMoney(entry.profit),
-      })),
+      dailySeries: Array.from(daysMap.values())
+        .sort((left, right) => left.sortKey - right.sortKey)
+        .map((entry) => ({
+          ...entry,
+          revenue: toMoney(entry.revenue),
+          cost: toMoney(entry.cost),
+          profit: toMoney(entry.profit),
+        })),
       revDeltaPct,
       ordDeltaPct,
       netDeltaPct,
@@ -509,7 +608,7 @@ function AdminHome() {
     try {
       const generatedAt = new Date();
       const dateStamp = generatedAt.toISOString().slice(0, 10);
-      const rangeLabel = range === "7d" ? "7 Days" : range === "30d" ? "30 Days" : "All Time";
+      const rangeLabel = selectedRangeLabel;
       const generatedAtLabel = generatedAt.toLocaleString("en-IN", {
         year: "numeric",
         month: "short",
@@ -750,6 +849,7 @@ function AdminHome() {
               <span>Range:</span>
               <button className={`filter-btn ${range === "7d" ? "active" : ""}`} onClick={() => setRange("7d")}>7 Days</button>
               <button className={`filter-btn ${range === "30d" ? "active" : ""}`} onClick={() => setRange("30d")}>30 Days</button>
+              <button className={`filter-btn ${range === "custom" ? "active" : ""}`} onClick={() => setRange("custom")}>Date Wise</button>
               <button className={`filter-btn ${range === "all" ? "active" : ""}`} onClick={() => setRange("all")}>All Time</button>
               <button
                 className="filter-btn export-pdf-btn no-pdf"
@@ -760,6 +860,33 @@ function AdminHome() {
               </button>
             </div>
           </div>
+
+          {range === "custom" && (
+            <div className="date-range-picker no-pdf">
+              <div className="date-range-field">
+                <label htmlFor="admin-analytics-start-date">From</label>
+                <input
+                  id="admin-analytics-start-date"
+                  type="date"
+                  value={customStartDate}
+                  onChange={(event) => setCustomStartDate(event.target.value)}
+                />
+              </div>
+              <div className="date-range-field">
+                <label htmlFor="admin-analytics-end-date">To</label>
+                <input
+                  id="admin-analytics-end-date"
+                  type="date"
+                  value={customEndDate}
+                  onChange={(event) => setCustomEndDate(event.target.value)}
+                />
+              </div>
+              <div className="date-range-summary">
+                <span>Selected:</span>
+                <strong>{selectedRangeLabel}</strong>
+              </div>
+            </div>
+          )}
 
           <div className="kpi-grid">
             <div className="kpi-card">

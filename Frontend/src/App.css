@@ -1448,10 +1448,92 @@ h2 {
 .filter-bar { display: flex; align-items: center; gap: 8px; }
 .filter-btn { padding: 6px 12px; border-radius: 20px; background: #f0f4ff; color: #3f51b5; border: 1px solid #e6e9f5; cursor: pointer; font-weight: 700; }
 .filter-btn.active { background: #667eea; color: white; border-color: #667eea; }
+.date-range-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 12px 0 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.18);
+}
+
+.date-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 170px;
+}
+
+.date-range-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3f51b5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.date-range-field input {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #d9e0f5;
+  background: #ffffff;
+  color: #2c3e50;
+  font-weight: 600;
+  outline: none;
+}
+
+.date-range-field input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.date-range-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  color: #334155;
+}
+
+.date-range-summary span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.date-range-summary strong {
+  font-size: 14px;
+  color: #1e293b;
+}
 .export-pdf-btn {
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   color: #ffffff;
   border-color: #1d4ed8;
+}
+
+@media (max-width: 768px) {
+  .analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+
+  .date-range-picker {
+    align-items: stretch;
+  }
+
+  .date-range-field {
+    min-width: 100%;
+  }
 }
 
 .export-pdf-btn:hover {
