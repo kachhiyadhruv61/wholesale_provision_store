@@ -1,9 +1,4 @@
 {
-  "version": 2,
-  "installCommand": "npm install --prefix Frontend",
-  "buildCommand": "npm run build --prefix Frontend",
-  "outputDirectory": "Frontend/build",
-  "routes": [
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  "buildCommand": "cd Frontend && npm install && npm run build",
+  "outputDirectory": "Frontend/build"
 }

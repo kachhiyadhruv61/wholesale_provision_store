@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
 
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+
 const generateAccessToken = (user) => {
   return jwt.sign(
     {
@@ -7,7 +9,7 @@ const generateAccessToken = (user) => {
       email: user.email,
       role: user.role
     },
-    "qweuansdasdg123123",
+    JWT_SECRET,
     { expiresIn: "15m" }
   );
 };
@@ -17,7 +19,7 @@ const generateRefreshToken = (user) => {
     {
       id: user._id
     },
-    "qweuansdasdg123123",
+    JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
