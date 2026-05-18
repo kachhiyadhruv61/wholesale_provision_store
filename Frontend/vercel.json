@@ -2,7 +2,7 @@
   "env": {
     "CI": "false"
   },
-  "installCommand": "npm install",
+  "installCommand": "npm ci --legacy-peer-deps",
   "buildCommand": "npm run build",
   "outputDirectory": "build"
 }
