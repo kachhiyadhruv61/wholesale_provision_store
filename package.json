@@ -2,7 +2,11 @@
   "dependencies": {
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
-    "@mantine/styles": "^6.0.22"
+    "@mantine/core": "^9.2.1",
+    "@mantine/dates": "^9.2.1",
+    "@mantine/hooks": "^9.2.1",
+    "@mantine/styles": "^6.0.22",
+    "dayjs": "^1.11.20"
   },
   "scripts": {
     "build": "npm ci --prefix Frontend --legacy-peer-deps && npm run build --prefix Frontend"
