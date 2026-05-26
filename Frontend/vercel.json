@@ -2,7 +2,7 @@
   "env": {
     "CI": "false"
   },
-  "installCommand": "npm ci --legacy-peer-deps",
-  "buildCommand": "npm run build",
-  "outputDirectory": "build"
+  "installCommand": "cd Frontend && npm install",
+  "buildCommand": "cd Frontend && npm run build",
+  "outputDirectory": "Frontend/build"
 }
