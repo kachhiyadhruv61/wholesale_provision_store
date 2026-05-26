@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { apiClient } from "../utils/apiClient";
 
 export const ProductContext = createContext();
@@ -19,54 +19,6 @@ const normalizeProductCosts = (product) => {
 const MONGO_ID_REGEX = /^[a-f\d]{24}$/i;
 
 const isMongoId = (value) => MONGO_ID_REGEX.test(String(value || ""));
-
-const normalizeKey = (value) => String(value || "").trim().toLowerCase();
-
-const mergeProductLists = (baseProducts = [], remoteProducts = []) => {
-  const merged = new Map();
-
-  baseProducts.forEach((product) => {
-    const idKey = normalizeKey(product._id || product.id);
-    const nameKey = normalizeKey(product.name);
-    if (idKey) merged.set(`id:${idKey}`, product);
-    if (nameKey) merged.set(`name:${nameKey}`, product);
-  });
-
-  remoteProducts.forEach((product) => {
-    const idKey = normalizeKey(product._id || product.id);
-    const nameKey = normalizeKey(product.name);
-
-    if (idKey && merged.has(`id:${idKey}`)) {
-      const existing = merged.get(`id:${idKey}`);
-      const next = { ...existing, ...product };
-      merged.set(`id:${idKey}`, next);
-      if (nameKey) merged.set(`name:${nameKey}`, next);
-      return;
-    }
-
-    if (nameKey && merged.has(`name:${nameKey}`)) {
-      const existing = merged.get(`name:${nameKey}`);
-      const next = { ...existing, ...product };
-      if (idKey) merged.set(`id:${idKey}`, next);
-      merged.set(`name:${nameKey}`, next);
-      return;
-    }
-
-    if (idKey) merged.set(`id:${idKey}`, product);
-    if (nameKey) merged.set(`name:${nameKey}`, product);
-  });
-
-  const unique = [];
-  const seen = new Set();
-  merged.forEach((product) => {
-    const key = normalizeKey(product._id || product.id || product.name);
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    unique.push(product);
-  });
-
-  return unique;
-};
 
 const normalizeProductShape = (product = {}) => {
   const mappedId = product.id || product._id || Date.now().toString();
@@ -1397,7 +1349,7 @@ export function ProductProvider({ children }) {
     },
   ];
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(initialProducts);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
@@ -1411,7 +1363,7 @@ export function ProductProvider({ children }) {
     return list.map(normalizeProductShape).map(normalizeProductCosts);
   };
 
-  const fetchProducts = async ({ silent = false } = {}) => {
+  const fetchProducts = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setProductsLoading(true);
     }
@@ -1433,11 +1385,11 @@ export function ProductProvider({ children }) {
         setProductsLoading(false);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const addProduct = async (product) => {
     setProductsLoading(true);

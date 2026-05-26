@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
 
 export const ContactContext = createContext();
@@ -23,7 +23,7 @@ export function ContactProvider({ children }) {
   };
 
   // Load contacts from API
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     setLoading(true);
     try {
       const payload = await apiRequest("/api/contacts");
@@ -35,11 +35,11 @@ export function ContactProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadContacts();
-  }, []);
+  }, [loadContacts]);
 
   // Get single contact by ID
   const getContactById = async (contactId) => {

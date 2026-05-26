@@ -1,5 +1,5 @@
 
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useContext, useState, useRef } from "react";
 import { ProductContext } from "../context/ProductContext";
 import { CartContext } from "../context/CartContext";
@@ -7,13 +7,12 @@ import { UserContext } from "../context/UserContext";
 import Toast from "../components/Toast";
 
 function Home() {
-  const navigate = useNavigate();
   const { products } = useContext(ProductContext);
   const { addToCart } = useContext(CartContext);
   const { user } = useContext(UserContext);
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const sliderRef = useRef(null);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [, setCurrentSlide] = useState(0);
   
   // Get first 8 products for home page slider
   const featuredProducts = products.slice(0, 8);

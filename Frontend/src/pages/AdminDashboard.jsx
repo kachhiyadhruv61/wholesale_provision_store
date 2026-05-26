@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo, useEffect } from "react";
+import { useState, useContext, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProductContext } from "../context/ProductContext";
 import { OrderContext } from "../context/OrderContext";
@@ -39,6 +39,87 @@ const parseJsonOrThrow = async (response) => {
   return response.json();
 };
 
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const formatDateTime = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const normalizePaymentStatus = (status) => {
+  if (!status) return "Pending";
+  if (status === "Completed") return "Paid";
+  return status;
+};
+
+const normalizePaymentMethod = (method) => {
+  if (!method) return "COD";
+  const normalized = method.toLowerCase();
+  if (normalized === "cod") return "COD";
+  if (normalized === "upi") return "UPI";
+  if (normalized === "card") return "Card";
+  if (normalized === "bank") return "Net Banking";
+  return method;
+};
+
+const normalizeOrderStatus = (status) => {
+  const value = String(status || "").trim().toLowerCase();
+  if (!value) return "Pending";
+  if (value === "canceled") return "Cancelled";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const getStatusBadge = (status) => {
+  const statusMap = {
+    Pending: "Pending",
+    Processing: "Processing",
+    Delivered: "Delivered",
+    Cancelled: "Cancelled"
+  };
+  return statusMap[normalizeOrderStatus(status)] || "Unknown";
+};
+
+const getPaymentMethodIcon = (method) => {
+  const methodMap = {
+    UPI: "UPI",
+    "Debit Card": "Card",
+    "Credit Card": "Card",
+    "Net Banking": "Banking",
+    COD: "COD"
+  };
+  return methodMap[method] || "Card";
+};
+
+const getPaymentStatusColor = (status) => {
+  const statusMap = {
+    Paid: "Paid",
+    Pending: "Pending",
+    Failed: "Failed",
+    Refunded: "Refunded"
+  };
+  return statusMap[status] || "Unknown";
+};
+
+const getCustomerStatus = (customer) => {
+  if (customer.paidCount > 0) return { label: "Active", className: "status-paid" };
+  if (customer.pendingCount > 0) return { label: "Pending", className: "status-pending" };
+  if (customer.failedCount > 0) return { label: "Attention", className: "status-failed" };
+  return { label: "New", className: "status-pending" };
+};
+
 function AdminDashboard() {
   const {
     products = [],
@@ -58,11 +139,6 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("products");
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingPrice, setEditingPrice] = useState(null);
-  const [priceFormData, setPriceFormData] = useState({
-    retailPrice: "",
-    wholesalePrice: ""
-  });
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -304,7 +380,7 @@ function AdminDashboard() {
     return lookup;
   }, [registeredUsers]);
 
-  const resolveCustomerDetails = (record = {}, fallbackRecord = null) => {
+  const resolveCustomerDetails = useCallback((record = {}, fallbackRecord = null) => {
     const candidates = [record, fallbackRecord].filter(Boolean);
     const lookupMatch = candidates
       .flatMap((entry) => [entry.customerId, entry.userId, entry.customerEmail, entry.email, entry.customerUsername, entry.username])
@@ -324,14 +400,14 @@ function AdminDashboard() {
       customerId: merged.customerId || merged.userId || lookupMatch?._id || lookupMatch?.id || null,
       customerUsername: merged.customerUsername || merged.username || lookupMatch?.username || "",
     };
-  };
+  }, [registeredUserLookup]);
 
   const enrichedOrders = useMemo(
     () => orders.map((order) => ({
       ...order,
       ...resolveCustomerDetails(order),
     })),
-    [orders, registeredUserLookup]
+    [orders, resolveCustomerDetails]
   );
 
   const orderLookup = useMemo(() => {
@@ -465,7 +541,7 @@ function AdminDashboard() {
     resetForm();
   };
 
-  const handleEditClick = (product) => {
+  const handleEditClick = useCallback((product) => {
     setActiveTab("products");
     setEditingProduct(product);
     setFormData({
@@ -483,9 +559,9 @@ function AdminDashboard() {
     });
     setImagePreview(product.image || null);
     setShowAddForm(true);
-  };
+  }, []);
 
-  const handleDeleteProduct = async (id, name) => {
+  const handleDeleteProduct = useCallback(async (id, name) => {
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       const result = await deleteProduct(id);
       if (result?.success === false) {
@@ -494,7 +570,7 @@ function AdminDashboard() {
       }
       alert("Product Deleted Successfully!");
     }
-  };
+  }, [deleteProduct]);
 
   const openStockModal = (product) => {
     const currentStock = Number(product?.stock || 0);
@@ -590,11 +666,11 @@ function AdminDashboard() {
     window.location.href = "http://localhost:3000/admin-home";
   };
 
-  const getLowStockProducts = () => {
+  const getLowStockProducts = useCallback(() => {
     return products.filter(p => p.stock < 50);
-  };
+  }, [products]);
 
-  const lowStockProducts = useMemo(() => getLowStockProducts(), [products]);
+  const lowStockProducts = useMemo(() => getLowStockProducts(), [getLowStockProducts]);
 
   const previewStock = Number(stockFormData.stock || 0);
   const previewPurchasePrice = Number(stockFormData.purchasePrice || 0);
@@ -611,29 +687,6 @@ function AdminDashboard() {
     )
     : previewCurrentAvg;
 
-
-  const normalizePaymentStatus = (status) => {
-    if (!status) return "Pending";
-    if (status === "Completed") return "Paid";
-    return status;
-  };
-
-  const normalizePaymentMethod = (method) => {
-    if (!method) return "COD";
-    const normalized = method.toLowerCase();
-    if (normalized === "cod") return "COD";
-    if (normalized === "upi") return "UPI";
-    if (normalized === "card") return "Card";
-    if (normalized === "bank") return "Net Banking";
-    return method;
-  };
-
-  const normalizeOrderStatus = (status) => {
-    const value = String(status || "").trim().toLowerCase();
-    if (!value) return "Pending";
-    if (value === "canceled") return "Cancelled";
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  };
 
   const paymentsFromOrders = useMemo(() => (
     enrichedOrders.map(order => ({
@@ -654,8 +707,6 @@ function AdminDashboard() {
     }))
   ), [enrichedOrders]);
 
-  const manualPayments = payments;
-
   const displayPayments = useMemo(() => {
     const orderIds = new Set(paymentsFromOrders.map(p => p.orderId?.toString()));
     const extraPayments = (payments || [])
@@ -668,7 +719,7 @@ function AdminDashboard() {
         };
       });
     return [...paymentsFromOrders, ...extraPayments];
-  }, [paymentsFromOrders, payments, orderLookup, registeredUserLookup]);
+  }, [paymentsFromOrders, payments, orderLookup, resolveCustomerDetails]);
 
   const getTotalInventoryValue = () => {
     return products.reduce((total, p) => total + (p.price * p.stock), 0);
@@ -684,17 +735,7 @@ function AdminDashboard() {
     return { totalOrders, pendingOrders, deliveredOrders, totalRevenue };
   };
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      "Pending": "Pending",
-      "Processing": "Processing",
-      "Delivered": "Delivered",
-      "Cancelled": "Cancelled"
-    };
-    return statusMap[normalizeOrderStatus(status)] || "Unknown";
-  };
-
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+  const handleUpdateOrderStatus = useCallback(async (orderId, newStatus) => {
     if (updateOrderStatus) {
       const result = await updateOrderStatus(orderId, newStatus);
       if (result?.success === false) {
@@ -707,30 +748,21 @@ function AdminDashboard() {
       );
       localStorage.setItem("orders", JSON.stringify(updatedOrders));
     }
-  };
+  }, [orders, updateOrderStatus]);
 
-  const handleViewOrder = (order) => {
+  const handleViewOrder = useCallback((order) => {
     setSelectedOrder(order);
     setShowOrderModal(true);
-  };
+  }, []);
 
-  const getFilteredOrders = () => {
+  const getFilteredOrders = useCallback(() => {
     if (statusFilter === "all") return enrichedOrders;
     return enrichedOrders.filter(o => normalizeOrderStatus(o.status) === statusFilter);
-  };
+  }, [enrichedOrders, statusFilter]);
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const getCustomerName = (order) => {
+  const getCustomerName = useCallback((order) => {
     return resolveCustomerDetails(order).customerName;
-  };
+  }, [resolveCustomerDetails]);
 
   // Payment Management Functions
   const getPaymentStats = () => {
@@ -742,27 +774,6 @@ function AdminDashboard() {
     const failedPayments = displayPayments.filter(p => p.status === "Failed").length;
 
     return { totalPayments, paidAmount, pendingPayments, failedPayments };
-  };
-
-  const getPaymentMethodIcon = (method) => {
-    const methodMap = {
-      "UPI": "UPI",
-      "Debit Card": "Card",
-      "Credit Card": "Card",
-      "Net Banking": "Banking",
-      "COD": "COD"
-    };
-    return methodMap[method] || "Card";
-  };
-
-  const getPaymentStatusColor = (status) => {
-    const statusMap = {
-      "Paid": "Paid",
-      "Pending": "Pending",
-      "Failed": "Failed",
-      "Refunded": "Refunded"
-    };
-    return statusMap[status] || "Unknown";
   };
 
   const getCustomers = () => {
@@ -867,14 +878,7 @@ function AdminDashboard() {
     }));
   };
 
-  const getCustomerStatus = (customer) => {
-    if (customer.paidCount > 0) return { label: "Active", className: "status-paid" };
-    if (customer.pendingCount > 0) return { label: "Pending", className: "status-pending" };
-    if (customer.failedCount > 0) return { label: "Attention", className: "status-failed" };
-    return { label: "New", className: "status-pending" };
-  };
-
-  const handleUpdatePaymentStatus = (payment, newStatus) => {
+  const handleUpdatePaymentStatus = useCallback((payment, newStatus) => {
     if (payment?.source === "order" && updateOrderPaymentStatus) {
       updateOrderPaymentStatus(payment.orderNumericId, newStatus);
       return;
@@ -882,28 +886,17 @@ function AdminDashboard() {
     if (updatePaymentStatus) {
       updatePaymentStatus(payment.id, newStatus);
     }
-  };
+  }, [updateOrderPaymentStatus, updatePaymentStatus]);
 
-  const handleViewPayment = (payment) => {
+  const handleViewPayment = useCallback((payment) => {
     setSelectedPayment(payment);
     setShowPaymentModal(true);
-  };
+  }, []);
 
-  const getFilteredPayments = () => {
+  const getFilteredPayments = useCallback(() => {
     if (paymentStatusFilter === "all") return displayPayments;
     return displayPayments.filter(p => p.status === paymentStatusFilter);
-  };
-
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  }, [displayPayments, paymentStatusFilter]);
 
   // Payment Form Handlers
   const handlePaymentInputChange = (e) => {
@@ -1185,7 +1178,7 @@ function AdminDashboard() {
     }
   };
 
-  const handleDeleteVendor = async (vendor) => {
+  const handleDeleteVendor = useCallback(async (vendor) => {
     const vendorId = vendor?._id || vendor?.id;
     const vendorName = vendor?.vendorName || 'vendor';
 
@@ -1218,7 +1211,7 @@ function AdminDashboard() {
     } catch (error) {
       alert(error?.message || 'Unable to delete vendor.');
     }
-  };
+  }, []);
 
   const resetPaymentForm = () => {
     setPaymentFormData({
@@ -1277,7 +1270,7 @@ function AdminDashboard() {
         statusClass: status.className
       };
     }),
-    [customers, getCustomerStatus]
+    [customers]
   );
 
   const orderTableData = useMemo(
@@ -1292,7 +1285,7 @@ function AdminDashboard() {
       invoiceDisplay: order.invoiceId || "No Invoice",
       actions: ""
     })),
-    [getFilteredOrders, getCustomerName, formatDate]
+    [getFilteredOrders, getCustomerName]
   );
 
   const paymentTableData = useMemo(
@@ -1304,7 +1297,7 @@ function AdminDashboard() {
       statusLabel: payment.status || "Pending",
       actions: ""
     })),
-    [getFilteredPayments, formatDate, getPaymentMethodIcon]
+    [getFilteredPayments]
   );
 
   const pricingTableData = useMemo(
@@ -1441,7 +1434,7 @@ function AdminDashboard() {
         </span>
       )
     }
-  ], [formatDate]);
+  ], []);
 
   const orderColumns = useMemo(() => [
     {
@@ -1511,7 +1504,7 @@ function AdminDashboard() {
         </div>
       )
     }
-  ], [handleUpdateOrderStatus, handleViewOrder, getStatusBadge]);
+  ], [handleUpdateOrderStatus, handleViewOrder]);
 
   const paymentColumns = useMemo(() => [
     {
@@ -1567,7 +1560,7 @@ function AdminDashboard() {
         </div>
       )
     }
-  ], [handleUpdatePaymentStatus, handleViewPayment, getPaymentStatusColor]);
+  ], [handleUpdatePaymentStatus, handleViewPayment]);
 
   const pricingColumns = useMemo(() => [
     {

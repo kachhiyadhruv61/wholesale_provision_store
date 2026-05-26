@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -6,6 +6,36 @@ import { OrderContext } from "../context/OrderContext";
 import { UserContext } from "../context/UserContext";
 import CommonTable from "../components/CommonTable";
 import { calculateDeliveryEta } from "../utils/deliveryEta";
+
+const isCancellableStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+  return normalized === "pending" || normalized === "confirmed";
+};
+
+const loadImageDataUrl = (src) => new Promise((resolve) => {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+
+  image.onload = () => {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+      ctx.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    } catch {
+      resolve(null);
+    }
+  };
+
+  image.onerror = () => resolve(null);
+  image.src = src;
+});
 
 function OrderHistory() {
   const { orders, cancelOrder } = useContext(OrderContext);
@@ -97,11 +127,6 @@ function OrderHistory() {
     };
   };
 
-  const isCancellableStatus = (status) => {
-    const normalized = String(status || "").trim().toLowerCase();
-    return normalized === "pending" || normalized === "confirmed";
-  };
-
   const orderItemsColumns = useMemo(() => [
     { accessorKey: "name", header: "Product" },
     { accessorKey: "quantity", header: "Quantity" },
@@ -127,12 +152,12 @@ function OrderHistory() {
     [selectedOrder]
   );
 
-  const handleViewOrder = (order) => {
+  const handleViewOrder = useCallback((order) => {
     setSelectedOrder(order);
     setShowOrderModal(true);
-  };
+  }, []);
 
-  const openCancelModal = (order) => {
+  const openCancelModal = useCallback((order) => {
     if (!isCancellableStatus(order?.status)) {
       alert("Only Pending or Confirmed orders can be cancelled.");
       return;
@@ -140,7 +165,7 @@ function OrderHistory() {
     setOrderToCancel(order);
     setCancelReason("");
     setShowCancelModal(true);
-  };
+  }, []);
 
   const handleConfirmCancel = async () => {
     const reason = String(cancelReason || "").trim();
@@ -180,32 +205,7 @@ function OrderHistory() {
     alert("Order cancelled successfully.");
   };
 
-  const loadImageDataUrl = (src) => new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-
-    image.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = image.naturalWidth;
-        canvas.height = image.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(null);
-          return;
-        }
-        ctx.drawImage(image, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      } catch {
-        resolve(null);
-      }
-    };
-
-    image.onerror = () => resolve(null);
-    image.src = src;
-  });
-
-  const handleDownloadInvoice = async (order) => {
+  const handleDownloadInvoice = useCallback(async (order) => {
     const doc = new jsPDF();
     const logoDataUrl = await loadImageDataUrl(`${process.env.PUBLIC_URL || ""}/images/logos/3.png`);
     const orderDate = new Date(order?.date || new Date());
@@ -305,7 +305,7 @@ function OrderHistory() {
     doc.text("Thank you for shopping with DK TRADERS.", 14, finalY + 24);
 
     doc.save(`invoice-${order?.id || Date.now()}.pdf`);
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!selectedOrder?.id) return;
@@ -378,7 +378,7 @@ function OrderHistory() {
         ),
       },
     ],
-    [handleViewOrder, handleDownloadInvoice]
+    [handleViewOrder, handleDownloadInvoice, openCancelModal]
   );
 
   return (

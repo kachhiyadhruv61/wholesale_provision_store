@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { apiRequest, getResponseList, normalizeMongoId } from "../utils/api";
 
 export const DeliveryContext = createContext();
@@ -30,7 +30,7 @@ export function DeliveryProvider({ children }) {
   };
 
   // Load deliveries from API
-  const loadDeliveries = async () => {
+  const loadDeliveries = useCallback(async () => {
     setLoading(true);
     try {
       const payload = await apiRequest("/api/deliveries");
@@ -42,11 +42,11 @@ export function DeliveryProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDeliveries();
-  }, []);
+  }, [loadDeliveries]);
 
   // Get single delivery by ID
   const getDeliveryById = async (deliveryId) => {

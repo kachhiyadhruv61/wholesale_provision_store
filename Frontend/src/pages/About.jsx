@@ -63,8 +63,6 @@ const steps = [
   },
 ];
 
-const trustBadges = ["MOQ Ready", "Bulk Pricing", "Secure Checkout", "Fast Support", "Order History"];
-
 const whyChooseIcons = [
   {
     icon: "🏪",
