@@ -6,6 +6,10 @@
 /.pnp
 .pnp.js
 
+#backend 
+
+/backend
+
 # testing
 /coverage
 
